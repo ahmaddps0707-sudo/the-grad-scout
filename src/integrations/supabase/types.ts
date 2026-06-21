@@ -14,7 +14,448 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      discover_jobs: {
+        Row: {
+          completed_at: string | null
+          error: string | null
+          id: string
+          requested_at: string
+          status: Database["public"]["Enums"]["discover_job_status"]
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error?: string | null
+          id?: string
+          requested_at?: string
+          status?: Database["public"]["Enums"]["discover_job_status"]
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          error?: string | null
+          id?: string
+          requested_at?: string
+          status?: Database["public"]["Enums"]["discover_job_status"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      entry_status_history: {
+        Row: {
+          changed_at: string
+          entry_id: string
+          id: string
+          new_status: Database["public"]["Enums"]["entry_status"]
+          old_status: Database["public"]["Enums"]["entry_status"] | null
+          user_id: string
+        }
+        Insert: {
+          changed_at?: string
+          entry_id: string
+          id?: string
+          new_status: Database["public"]["Enums"]["entry_status"]
+          old_status?: Database["public"]["Enums"]["entry_status"] | null
+          user_id: string
+        }
+        Update: {
+          changed_at?: string
+          entry_id?: string
+          id?: string
+          new_status?: Database["public"]["Enums"]["entry_status"]
+          old_status?: Database["public"]["Enums"]["entry_status"] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entry_status_history_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "user_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preference_vectors: {
+        Row: {
+          updated_at: string
+          user_id: string
+          weights: Json
+        }
+        Insert: {
+          updated_at?: string
+          user_id: string
+          weights?: Json
+        }
+        Update: {
+          updated_at?: string
+          user_id?: string
+          weights?: Json
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          budget_ceiling: number | null
+          budget_currency: string | null
+          country_of_origin: string | null
+          created_at: string
+          full_name: string | null
+          funding_preference: Database["public"]["Enums"]["funding_pref"] | null
+          gpa: number | null
+          id: string
+          onboarding_complete: boolean
+          target_countries: string[] | null
+          target_degree_level: string | null
+          target_intake: string | null
+          target_major: string | null
+          target_tier: Database["public"]["Enums"]["tier_pref"] | null
+          test_scores: Json | null
+          updated_at: string
+          work_exp_years: number | null
+        }
+        Insert: {
+          budget_ceiling?: number | null
+          budget_currency?: string | null
+          country_of_origin?: string | null
+          created_at?: string
+          full_name?: string | null
+          funding_preference?:
+            | Database["public"]["Enums"]["funding_pref"]
+            | null
+          gpa?: number | null
+          id: string
+          onboarding_complete?: boolean
+          target_countries?: string[] | null
+          target_degree_level?: string | null
+          target_intake?: string | null
+          target_major?: string | null
+          target_tier?: Database["public"]["Enums"]["tier_pref"] | null
+          test_scores?: Json | null
+          updated_at?: string
+          work_exp_years?: number | null
+        }
+        Update: {
+          budget_ceiling?: number | null
+          budget_currency?: string | null
+          country_of_origin?: string | null
+          created_at?: string
+          full_name?: string | null
+          funding_preference?:
+            | Database["public"]["Enums"]["funding_pref"]
+            | null
+          gpa?: number | null
+          id?: string
+          onboarding_complete?: boolean
+          target_countries?: string[] | null
+          target_degree_level?: string | null
+          target_intake?: string | null
+          target_major?: string | null
+          target_tier?: Database["public"]["Enums"]["tier_pref"] | null
+          test_scores?: Json | null
+          updated_at?: string
+          work_exp_years?: number | null
+        }
+        Relationships: []
+      }
+      program_admissions: {
+        Row: {
+          application_fee: number | null
+          application_fee_currency: string | null
+          deadline_type: string | null
+          deadlines: Json | null
+          program_id: string
+          required_materials: Json | null
+          test_requirement_status: string | null
+          updated_at: string
+        }
+        Insert: {
+          application_fee?: number | null
+          application_fee_currency?: string | null
+          deadline_type?: string | null
+          deadlines?: Json | null
+          program_id: string
+          required_materials?: Json | null
+          test_requirement_status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          application_fee?: number | null
+          application_fee_currency?: string | null
+          deadline_type?: string | null
+          deadlines?: Json | null
+          program_id?: string
+          required_materials?: Json | null
+          test_requirement_status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_admissions_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_class_profile: {
+        Row: {
+          avg_gmat: number | null
+          avg_gpa: number | null
+          avg_gre: number | null
+          avg_ielts: number | null
+          avg_toefl: number | null
+          class_size: number | null
+          intl_pct: number | null
+          program_id: string
+          updated_at: string
+        }
+        Insert: {
+          avg_gmat?: number | null
+          avg_gpa?: number | null
+          avg_gre?: number | null
+          avg_ielts?: number | null
+          avg_toefl?: number | null
+          class_size?: number | null
+          intl_pct?: number | null
+          program_id: string
+          updated_at?: string
+        }
+        Update: {
+          avg_gmat?: number | null
+          avg_gpa?: number | null
+          avg_gre?: number | null
+          avg_ielts?: number | null
+          avg_toefl?: number | null
+          class_size?: number | null
+          intl_pct?: number | null
+          program_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_class_profile_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_funding: {
+        Row: {
+          est_accommodation_high: number | null
+          est_accommodation_low: number | null
+          ga_ta_availability: string | null
+          program_id: string
+          tuition_amount: number | null
+          tuition_currency: string | null
+          updated_at: string
+        }
+        Insert: {
+          est_accommodation_high?: number | null
+          est_accommodation_low?: number | null
+          ga_ta_availability?: string | null
+          program_id: string
+          tuition_amount?: number | null
+          tuition_currency?: string | null
+          updated_at?: string
+        }
+        Update: {
+          est_accommodation_high?: number | null
+          est_accommodation_low?: number | null
+          ga_ta_availability?: string | null
+          program_id?: string
+          tuition_amount?: number | null
+          tuition_currency?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_funding_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_research_sources: {
+        Row: {
+          created_at: string
+          id: string
+          program_id: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          program_id: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          program_id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_research_sources_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      programs: {
+        Row: {
+          created_at: string
+          degree_level: string | null
+          department: string | null
+          id: string
+          is_stem: boolean | null
+          last_verified_at: string | null
+          name: string
+          name_normalized: string | null
+          university_id: string
+        }
+        Insert: {
+          created_at?: string
+          degree_level?: string | null
+          department?: string | null
+          id?: string
+          is_stem?: boolean | null
+          last_verified_at?: string | null
+          name: string
+          name_normalized?: string | null
+          university_id: string
+        }
+        Update: {
+          created_at?: string
+          degree_level?: string | null
+          department?: string | null
+          id?: string
+          is_stem?: boolean | null
+          last_verified_at?: string | null
+          name?: string
+          name_normalized?: string | null
+          university_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "programs_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      universities: {
+        Row: {
+          city: string | null
+          country: string | null
+          created_at: string
+          id: string
+          name: string
+          name_normalized: string | null
+          qs_ranking: number | null
+          website_url: string | null
+        }
+        Insert: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          name_normalized?: string | null
+          qs_ranking?: number | null
+          website_url?: string | null
+        }
+        Update: {
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          name_normalized?: string | null
+          qs_ranking?: number | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
+      user_entries: {
+        Row: {
+          created_at: string
+          id: string
+          is_archived: boolean
+          is_disliked: boolean
+          is_favorite: boolean
+          is_liked: boolean
+          match_rationale: string | null
+          notes: string | null
+          program_id: string | null
+          score: number | null
+          source: Database["public"]["Enums"]["entry_source"]
+          status: Database["public"]["Enums"]["entry_status"]
+          university_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_disliked?: boolean
+          is_favorite?: boolean
+          is_liked?: boolean
+          match_rationale?: string | null
+          notes?: string | null
+          program_id?: string | null
+          score?: number | null
+          source?: Database["public"]["Enums"]["entry_source"]
+          status?: Database["public"]["Enums"]["entry_status"]
+          university_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_disliked?: boolean
+          is_favorite?: boolean
+          is_liked?: boolean
+          match_rationale?: string | null
+          notes?: string | null
+          program_id?: string | null
+          score?: number | null
+          source?: Database["public"]["Enums"]["entry_source"]
+          status?: Database["public"]["Enums"]["entry_status"]
+          university_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_entries_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_entries_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +464,22 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      discover_job_status: "pending" | "running" | "done" | "failed"
+      entry_source: "scored" | "manual" | "discover_more"
+      entry_status:
+        | "scored"
+        | "planning"
+        | "in_review"
+        | "in_progress"
+        | "applied"
+        | "interview"
+        | "offer"
+        | "rejected"
+        | "waitlisted"
+        | "enrolled"
+        | "archived"
+      funding_pref: "fully_funded" | "partial_ok" | "self_funded_ok"
+      tier_pref: "top_10" | "top_50" | "top_100" | "no_preference"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +606,24 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      discover_job_status: ["pending", "running", "done", "failed"],
+      entry_source: ["scored", "manual", "discover_more"],
+      entry_status: [
+        "scored",
+        "planning",
+        "in_review",
+        "in_progress",
+        "applied",
+        "interview",
+        "offer",
+        "rejected",
+        "waitlisted",
+        "enrolled",
+        "archived",
+      ],
+      funding_pref: ["fully_funded", "partial_ok", "self_funded_ok"],
+      tier_pref: ["top_10", "top_50", "top_100", "no_preference"],
+    },
   },
 } as const
