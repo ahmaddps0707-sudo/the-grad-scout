@@ -12,6 +12,10 @@ export function stripFences(raw: string): string {
   let s = (raw ?? "").trim();
   s = s.replace(/^```(?:json)?\s*/i, "");
   s = s.replace(/\s*```\s*$/i, "");
+  s = s.trim();
+  // Drop any prose before the first JSON token
+  const firstBrace = s.search(/[\[{]/);
+  if (firstBrace > 0) s = s.slice(firstBrace);
   return s.trim();
 }
 
@@ -44,5 +48,9 @@ export async function callLovableAI(opts: {
     throw new Error(`Lovable AI ${res.status}: ${t}`);
   }
   const data = await res.json();
-  return data?.choices?.[0]?.message?.content ?? "";
+  const content = data?.choices?.[0]?.message?.content ?? "";
+  if (!content || !String(content).trim()) {
+    throw new Error("AI returned empty content. Please retry.");
+  }
+  return content;
 }
