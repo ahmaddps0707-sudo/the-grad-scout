@@ -1,21 +1,21 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { callAnthropic, CORS_HEADERS, extractFinalText, stripFences } from "../_shared/anthropic.ts";
+import { callLovableAI, CORS_HEADERS, stripFences } from "../_shared/lovable-ai.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceKey);
 
   try {
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
-    const system = "You are a graduate admissions research assistant. Research the specific program given using web search. Only return values you can verify from current sources — use null for anything you cannot confirm. Do not estimate or guess numeric fields.";
+    const system = "You are a graduate admissions research assistant. Provide what you know about the specific program. Use null for any field you are not highly confident about — do not guess or estimate numeric fields. Respond with ONLY JSON, no commentary, no markdown fences.";
 
     const user = `University: ${university_name}. Program: ${program_name}. Website: ${website_url ?? "unknown"}.
 
@@ -39,8 +39,7 @@ Find current admissions deadlines, requirements, class profile, and funding info
   "sources": [string]
 }`;
 
-    const resp = await callAnthropic({ apiKey, system, user, maxTokens: 3000, maxWebSearches: 5 });
-    const raw = extractFinalText(resp);
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 3000 });
     let data: any;
     try {
       data = JSON.parse(stripFences(raw));
