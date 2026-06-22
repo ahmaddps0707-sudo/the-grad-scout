@@ -161,7 +161,11 @@ Return exactly 5 new programs that best match this profile. Respond with ONLY a 
   } catch (e) {
     console.error("discover-universities error", e);
     if (jobId) {
-      await admin.from("discover_jobs").update({ status: "failed", error: (e as Error).message, completed_at: new Date().toISOString() }).eq("id", jobId);
+      const msg = (e as Error).message ?? "Unknown error";
+      const friendly = /401|invalid x-api-key|anthropic/i.test(msg)
+        ? "AI research failed — please retry."
+        : msg;
+      await admin.from("discover_jobs").update({ status: "failed", error: friendly, completed_at: new Date().toISOString() }).eq("id", jobId);
     }
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
       status: 500,
