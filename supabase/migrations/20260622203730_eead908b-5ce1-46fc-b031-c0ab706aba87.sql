@@ -1,0 +1,1 @@
+DELETE FROM public.discover_jobs WHERE status = 'failed' AND error ILIKE '%anthropic%';
