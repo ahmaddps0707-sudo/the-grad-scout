@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { callAnthropic, CORS_HEADERS, extractFinalText, stripFences } from "../_shared/anthropic.ts";
+import { callLovableAI, CORS_HEADERS, stripFences } from "../_shared/lovable-ai.ts";
 
 interface DiscoveredProgram {
   university_name: string;
@@ -48,7 +48,7 @@ function computeScore(profile: any, p: DiscoveredProgram): number {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
-  const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceKey);
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     jobId = body.job_id ?? null;
     if (!jobId) throw new Error("job_id is required");
-    if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
+    if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     // Mark running
     const { data: job, error: jobErr } = await admin.from("discover_jobs")
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    const system = "You are a graduate admissions research assistant. Given a student's profile, identify real, currently-operating master's degree programs that are strong matches. Use web search to verify each university and program actually exists and that the basic facts are accurate. If you cannot verify a program with reasonable confidence, exclude it rather than guessing. Exclude any university_name + program_name pairs given in the excluded list.";
+    const system = "You are a graduate admissions research assistant. Given a student's profile, identify real, currently-operating master's degree programs that are strong matches. Only include programs you are highly confident actually exist at the named university — when uncertain, choose a more well-known program instead of guessing. Exclude any university_name + program_name pairs given in the excluded list. Respond with ONLY a JSON array, no commentary, no markdown fences.";
 
     const user = `Student profile: target major ${profile.target_major ?? "unspecified"}, target countries ${(profile.target_countries ?? []).join(", ") || "any"}, degree level masters, tier preference ${tierLabel(profile.target_tier)}, funding preference ${fundingLabel(profile.funding_preference)}, budget ${profile.budget_ceiling ?? "unspecified"} ${profile.budget_currency ?? ""}, GPA ${profile.gpa ?? "unspecified"}, test scores ${testStr}, work experience ${profile.work_exp_years ?? 0} years, target intake ${profile.target_intake ?? "unspecified"}.
 
@@ -100,8 +100,7 @@ Return exactly 5 new programs that best match this profile. Respond with ONLY a 
   "match_rationale": string
 }]`;
 
-    const resp = await callAnthropic({ apiKey, system, user, maxTokens: 4096, maxWebSearches: 5 });
-    const raw = extractFinalText(resp);
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 4096 });
     let parsed: DiscoveredProgram[];
     try {
       parsed = JSON.parse(stripFences(raw));
