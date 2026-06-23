@@ -224,6 +224,8 @@ function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p
       </div>
       <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
         {entry.university.qs_ranking && <span>QS #{entry.university.qs_ranking}</span>}
+        {entry.program?.us_news_ranking != null && <span>US News #{entry.program.us_news_ranking}</span>}
+        {entry.program?.school_ranking != null && <span>School #{entry.program.school_ranking}</span>}
         {entry.university.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{entry.university.city}{entry.university.country ? `, ${entry.university.country}` : ""}</span>}
         {entry.university.website_url && (
           <a href={entry.university.website_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:text-foreground">
