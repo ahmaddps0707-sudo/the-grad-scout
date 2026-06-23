@@ -160,30 +160,42 @@ export type Database = {
       }
       program_admissions: {
         Row: {
+          accepted_english_tests: Json | null
           application_fee: number | null
           application_fee_currency: string | null
+          apply_url: string | null
           deadline_type: string | null
           deadlines: Json | null
+          english_test_requirement: string | null
+          gre_gmat_requirement: string | null
           program_id: string
           required_materials: Json | null
           test_requirement_status: string | null
           updated_at: string
         }
         Insert: {
+          accepted_english_tests?: Json | null
           application_fee?: number | null
           application_fee_currency?: string | null
+          apply_url?: string | null
           deadline_type?: string | null
           deadlines?: Json | null
+          english_test_requirement?: string | null
+          gre_gmat_requirement?: string | null
           program_id: string
           required_materials?: Json | null
           test_requirement_status?: string | null
           updated_at?: string
         }
         Update: {
+          accepted_english_tests?: Json | null
           application_fee?: number | null
           application_fee_currency?: string | null
+          apply_url?: string | null
           deadline_type?: string | null
           deadlines?: Json | null
+          english_test_requirement?: string | null
+          gre_gmat_requirement?: string | null
           program_id?: string
           required_materials?: Json | null
           test_requirement_status?: string | null
@@ -199,15 +211,102 @@ export type Database = {
           },
         ]
       }
+      program_career_stats: {
+        Row: {
+          avg_salary: number | null
+          avg_salary_currency: string | null
+          intl_student_salary_note: string | null
+          placement_rate_pct: number | null
+          program_id: string
+          salary_breakdown_notes: string | null
+          top_employers: Json | null
+          top_industries: Json | null
+          updated_at: string
+        }
+        Insert: {
+          avg_salary?: number | null
+          avg_salary_currency?: string | null
+          intl_student_salary_note?: string | null
+          placement_rate_pct?: number | null
+          program_id: string
+          salary_breakdown_notes?: string | null
+          top_employers?: Json | null
+          top_industries?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          avg_salary?: number | null
+          avg_salary_currency?: string | null
+          intl_student_salary_note?: string | null
+          placement_rate_pct?: number | null
+          program_id?: string
+          salary_breakdown_notes?: string | null
+          top_employers?: Json | null
+          top_industries?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_career_stats_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      program_city_info: {
+        Row: {
+          city_name: string | null
+          city_vibe: string | null
+          distance_to_major_city_km: number | null
+          nearest_major_city: string | null
+          program_id: string
+          travel_time_to_major_city: string | null
+          updated_at: string
+        }
+        Insert: {
+          city_name?: string | null
+          city_vibe?: string | null
+          distance_to_major_city_km?: number | null
+          nearest_major_city?: string | null
+          program_id: string
+          travel_time_to_major_city?: string | null
+          updated_at?: string
+        }
+        Update: {
+          city_name?: string | null
+          city_vibe?: string | null
+          distance_to_major_city_km?: number | null
+          nearest_major_city?: string | null
+          program_id?: string
+          travel_time_to_major_city?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_city_info_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: true
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       program_class_profile: {
         Row: {
           avg_gmat: number | null
           avg_gpa: number | null
           avg_gre: number | null
+          avg_gre_quant: number | null
+          avg_gre_verbal: number | null
           avg_ielts: number | null
           avg_toefl: number | null
+          avg_work_exp_years: number | null
           class_size: number | null
           intl_pct: number | null
+          is_stem: boolean | null
+          profile_scope: string | null
           program_id: string
           updated_at: string
         }
@@ -215,10 +314,15 @@ export type Database = {
           avg_gmat?: number | null
           avg_gpa?: number | null
           avg_gre?: number | null
+          avg_gre_quant?: number | null
+          avg_gre_verbal?: number | null
           avg_ielts?: number | null
           avg_toefl?: number | null
+          avg_work_exp_years?: number | null
           class_size?: number | null
           intl_pct?: number | null
+          is_stem?: boolean | null
+          profile_scope?: string | null
           program_id: string
           updated_at?: string
         }
@@ -226,10 +330,15 @@ export type Database = {
           avg_gmat?: number | null
           avg_gpa?: number | null
           avg_gre?: number | null
+          avg_gre_quant?: number | null
+          avg_gre_verbal?: number | null
           avg_ielts?: number | null
           avg_toefl?: number | null
+          avg_work_exp_years?: number | null
           class_size?: number | null
           intl_pct?: number | null
+          is_stem?: boolean | null
+          profile_scope?: string | null
           program_id?: string
           updated_at?: string
         }
@@ -245,30 +354,54 @@ export type Database = {
       }
       program_funding: {
         Row: {
+          accommodation_currency: string | null
           est_accommodation_high: number | null
           est_accommodation_low: number | null
+          est_total_cost_of_attendance: number | null
           ga_ta_availability: string | null
+          ga_ta_gra_available: boolean | null
+          ga_ta_gra_notes: string | null
           program_id: string
+          scholarship_notes: string | null
           tuition_amount: number | null
+          tuition_as_of: string | null
           tuition_currency: string | null
+          tuition_per: string | null
+          tuition_waiver_with_assistantship: boolean | null
           updated_at: string
         }
         Insert: {
+          accommodation_currency?: string | null
           est_accommodation_high?: number | null
           est_accommodation_low?: number | null
+          est_total_cost_of_attendance?: number | null
           ga_ta_availability?: string | null
+          ga_ta_gra_available?: boolean | null
+          ga_ta_gra_notes?: string | null
           program_id: string
+          scholarship_notes?: string | null
           tuition_amount?: number | null
+          tuition_as_of?: string | null
           tuition_currency?: string | null
+          tuition_per?: string | null
+          tuition_waiver_with_assistantship?: boolean | null
           updated_at?: string
         }
         Update: {
+          accommodation_currency?: string | null
           est_accommodation_high?: number | null
           est_accommodation_low?: number | null
+          est_total_cost_of_attendance?: number | null
           ga_ta_availability?: string | null
+          ga_ta_gra_available?: boolean | null
+          ga_ta_gra_notes?: string | null
           program_id?: string
+          scholarship_notes?: string | null
           tuition_amount?: number | null
+          tuition_as_of?: string | null
           tuition_currency?: string | null
+          tuition_per?: string | null
+          tuition_waiver_with_assistantship?: boolean | null
           updated_at?: string
         }
         Relationships: [
@@ -312,37 +445,55 @@ export type Database = {
       }
       programs: {
         Row: {
+          apply_url: string | null
           created_at: string
           degree_level: string | null
+          degree_type: string | null
           department: string | null
+          duration_months: number | null
           id: string
           is_stem: boolean | null
           last_verified_at: string | null
           name: string
           name_normalized: string | null
+          program_description: string | null
+          school_ranking: number | null
           university_id: string
+          us_news_ranking: number | null
         }
         Insert: {
+          apply_url?: string | null
           created_at?: string
           degree_level?: string | null
+          degree_type?: string | null
           department?: string | null
+          duration_months?: number | null
           id?: string
           is_stem?: boolean | null
           last_verified_at?: string | null
           name: string
           name_normalized?: string | null
+          program_description?: string | null
+          school_ranking?: number | null
           university_id: string
+          us_news_ranking?: number | null
         }
         Update: {
+          apply_url?: string | null
           created_at?: string
           degree_level?: string | null
+          degree_type?: string | null
           department?: string | null
+          duration_months?: number | null
           id?: string
           is_stem?: boolean | null
           last_verified_at?: string | null
           name?: string
           name_normalized?: string | null
+          program_description?: string | null
+          school_ranking?: number | null
           university_id?: string
+          us_news_ranking?: number | null
         }
         Relationships: [
           {
