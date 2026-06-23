@@ -18,6 +18,8 @@ type Prog = Database["public"]["Tables"]["programs"]["Row"];
 type Adm = Database["public"]["Tables"]["program_admissions"]["Row"];
 type Cp = Database["public"]["Tables"]["program_class_profile"]["Row"];
 type Fd = Database["public"]["Tables"]["program_funding"]["Row"];
+type City = Database["public"]["Tables"]["program_city_info"]["Row"];
+type Career = Database["public"]["Tables"]["program_career_stats"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/university/$id")({
   head: () => ({ meta: [{ title: "Program — Admitly" }] }),
@@ -30,6 +32,8 @@ function DetailPage() {
   const [adm, setAdm] = useState<Adm | null>(null);
   const [cp, setCp] = useState<Cp | null>(null);
   const [fd, setFd] = useState<Fd | null>(null);
+  const [city, setCity] = useState<City | null>(null);
+  const [career, setCareer] = useState<Career | null>(null);
   const [sources, setSources] = useState<{ url: string }[]>([]);
   const [enriching, setEnriching] = useState(false);
 
@@ -40,16 +44,20 @@ function DetailPage() {
     setEntry(data as unknown as typeof entry);
     const pid = data.program_id;
     if (pid) {
-      const [aRes, cRes, fRes, sRes] = await Promise.all([
+      const [aRes, cRes, fRes, ciRes, coRes, sRes] = await Promise.all([
         supabase.from("program_admissions").select("*").eq("program_id", pid).maybeSingle(),
         supabase.from("program_class_profile").select("*").eq("program_id", pid).maybeSingle(),
         supabase.from("program_funding").select("*").eq("program_id", pid).maybeSingle(),
+        supabase.from("program_city_info").select("*").eq("program_id", pid).maybeSingle(),
+        supabase.from("program_career_stats").select("*").eq("program_id", pid).maybeSingle(),
         supabase.from("program_research_sources").select("url").eq("program_id", pid),
       ]);
-      setAdm(aRes.data); setCp(cRes.data); setFd(fRes.data); setSources(sRes.data ?? []);
+      setAdm(aRes.data); setCp(cRes.data); setFd(fRes.data);
+      setCity(ciRes.data); setCareer(coRes.data);
+      setSources(sRes.data ?? []);
       const program = data.program as Prog | null;
       const stale = program?.last_verified_at && (Date.now() - new Date(program.last_verified_at).getTime() > 90 * 24 * 60 * 60 * 1000);
-      const missing = !aRes.data || !cRes.data || !fRes.data;
+      const missing = !aRes.data || !cRes.data || !fRes.data || !ciRes.data || !coRes.data;
       if ((missing || stale) && !enriching) {
         triggerEnrich(pid, (data.university as Uni).name, (data.program as Prog).name, (data.university as Uni).website_url ?? "");
       }
@@ -122,6 +130,8 @@ function DetailPage() {
             <TabsTrigger value="admissions">Admissions</TabsTrigger>
             <TabsTrigger value="class">Class Profile</TabsTrigger>
             <TabsTrigger value="funding">Tuition & Funding</TabsTrigger>
+            <TabsTrigger value="city">City</TabsTrigger>
+            <TabsTrigger value="career">Career Outcomes</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-6">
@@ -192,12 +202,43 @@ function DetailPage() {
             {enriching && !fd ? <SkeletonCard /> : (
               <Card title="Tuition & funding">
                 <Row k="Tuition" v={fd?.tuition_amount ? `${fd.tuition_amount.toLocaleString()} ${fd.tuition_currency ?? ""}` : null} />
-                <Row k="GA / TA availability" v={fd?.ga_ta_availability} />
+                <Row k="Tuition basis" v={fd?.tuition_per} />
+                <Row k="Tuition as of" v={fd?.tuition_as_of} />
+                <Row k="GA / TA / GRA available" v={fd?.ga_ta_gra_available == null ? null : fd.ga_ta_gra_available ? "Yes" : "No"} />
+                <Row k="Assistantship notes" v={fd?.ga_ta_gra_notes} />
+                <Row k="Tuition waiver with assistantship" v={fd?.tuition_waiver_with_assistantship == null ? null : fd.tuition_waiver_with_assistantship ? "Yes" : "No"} />
+                <Row k="Scholarship notes" v={fd?.scholarship_notes} />
                 <Row k="Estimated accommodation" v={
                   fd?.est_accommodation_low || fd?.est_accommodation_high
-                    ? `${fd.est_accommodation_low ?? "?"} – ${fd.est_accommodation_high ?? "?"} ${fd.tuition_currency ?? ""}`
+                    ? `${fd.est_accommodation_low ?? "?"} – ${fd.est_accommodation_high ?? "?"} ${fd.accommodation_currency ?? fd.tuition_currency ?? ""}`
                     : null
                 } />
+                <Row k="Estimated total cost of attendance" v={fd?.est_total_cost_of_attendance ? `${fd.est_total_cost_of_attendance.toLocaleString()} ${fd.tuition_currency ?? ""}` : null} />
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="city" className="mt-6">
+            {enriching && !city ? <SkeletonCard /> : (
+              <Card title="City">
+                <Row k="City" v={city?.city_name} />
+                <Row k="Vibe" v={city?.city_vibe} />
+                <Row k="Nearest major city" v={city?.nearest_major_city} />
+                <Row k="Distance" v={city?.distance_to_major_city_km != null ? `${city.distance_to_major_city_km} km` : null} />
+                <Row k="Travel time" v={city?.travel_time_to_major_city} />
+              </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="career" className="mt-6">
+            {enriching && !career ? <SkeletonCard /> : (
+              <Card title="Career outcomes">
+                <Row k="Placement rate" v={career?.placement_rate_pct != null ? `${career.placement_rate_pct}%` : null} />
+                <Row k="Average salary" v={career?.avg_salary != null ? `${Number(career.avg_salary).toLocaleString()} ${career.avg_salary_currency ?? ""}` : null} />
+                <Row k="Top employers" v={Array.isArray(career?.top_employers) && (career!.top_employers as string[]).length ? (career!.top_employers as string[]).join(", ") : null} />
+                <Row k="Top industries" v={Array.isArray(career?.top_industries) && (career!.top_industries as string[]).length ? (career!.top_industries as string[]).join(", ") : null} />
+                <Row k="International student salary note" v={career?.intl_student_salary_note} />
+                <Row k="Notes" v={career?.salary_breakdown_notes} />
               </Card>
             )}
           </TabsContent>
@@ -236,7 +277,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode | null | undefined }) {
   );
 }
 
-function DV() { return <span className="text-muted-foreground italic">Data not available</span>; }
+function DV() { return <span className="text-muted-foreground italic">Not publicly available</span>; }
 function SkeletonCard() {
   return (
     <div className="rounded-xl border border-border bg-surface-elevated p-6 space-y-3">
