@@ -9,9 +9,10 @@ interface DiscoveredProgram {
   qs_ranking: number | null;
   website_url: string;
   program_name: string;
-  degree_level: string;
+  degree_type: string;
   department: string;
   is_stem: boolean;
+  duration_months: number | null;
   match_rationale: string;
 }
 
@@ -84,19 +85,36 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    const system = "You are a graduate admissions research assistant. Given a student's profile, identify real, currently-operating master's degree programs that are strong matches. Only include programs you are highly confident actually exist at the named university — when uncertain, choose a more well-known program instead of guessing. Exclude any university_name + program_name pairs given in the excluded list. Respond with ONLY a JSON array, no commentary, no markdown fences.";
+    const system = "You are a graduate admissions research assistant specializing in master's degree programs. You only research and recommend master's level programs — never PhD, doctoral, or bachelor's programs. Verify each program actually exists, is currently accepting applications, and is at the master's level. If you cannot verify a program with reasonable confidence, exclude it entirely rather than guessing.";
 
-    const user = `Student profile: target major ${profile.target_major ?? "unspecified"}, target countries ${(profile.target_countries ?? []).join(", ") || "any"}, degree level masters, tier preference ${tierLabel(profile.target_tier)}, funding preference ${fundingLabel(profile.funding_preference)}, budget ${profile.budget_ceiling ?? "unspecified"} ${profile.budget_currency ?? ""}, GPA ${profile.gpa ?? "unspecified"}, test scores ${testStr}, work experience ${profile.work_exp_years ?? 0} years, target intake ${profile.target_intake ?? "unspecified"}.
+    const user = `Student profile:
+- Target degree: Master's only
+- Target major / field: ${profile.target_major ?? "unspecified"}
+- Target countries: ${(profile.target_countries ?? []).join(", ") || "any"}
+- University tier preference: ${tierLabel(profile.target_tier)}
+- Funding preference: ${fundingLabel(profile.funding_preference)}
+- Budget ceiling: ${profile.budget_ceiling ?? "unspecified"} ${profile.budget_currency ?? ""}
+- Current GPA: ${profile.gpa ?? "unspecified"}
+- Test scores: ${testStr}
+- Work experience: ${profile.work_exp_years ?? 0} years
+- Target intake: ${profile.target_intake ?? "unspecified"}
 
-Already shown: ${excluded}.
+Already shown to this user (exclude these): ${excluded}.
 
-Return exactly 5 new programs that best match this profile. Respond with ONLY a JSON array, no other text, no markdown fences, in exactly this shape:
+Find exactly 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Confirm each program is real and currently active.
 
+Respond with ONLY a JSON array, no other text, no markdown fences:
 [{
-  "university_name": string, "university_country": string,
-  "university_city": string, "qs_ranking": number or null,
-  "website_url": string, "program_name": string,
-  "degree_level": string, "department": string, "is_stem": boolean,
+  "university_name": string,
+  "university_country": string,
+  "university_city": string,
+  "qs_ranking": number or null,
+  "website_url": string,
+  "program_name": string,
+  "degree_type": string,
+  "department": string,
+  "is_stem": boolean,
+  "duration_months": number or null,
   "match_rationale": string
 }]`;
 
@@ -133,7 +151,9 @@ Return exactly 5 new programs that best match this profile. Respond with ONLY a 
         const { data: newProg, error: pErr2 } = await admin.from("programs").insert({
           university_id: uniId,
           name: p.program_name,
-          degree_level: p.degree_level ?? "masters",
+          degree_level: "masters",
+          degree_type: p.degree_type ?? null,
+          duration_months: p.duration_months ?? null,
           department: p.department,
           is_stem: p.is_stem,
         }).select().single();
