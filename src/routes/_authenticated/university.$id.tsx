@@ -11,6 +11,7 @@ import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
+import { OutreachTab } from "@/components/outreach-tab";
 
 type EntryRow = Database["public"]["Tables"]["user_entries"]["Row"];
 type Uni = Database["public"]["Tables"]["universities"]["Row"];
@@ -36,8 +37,14 @@ function DetailPage() {
   const [career, setCareer] = useState<Career | null>(null);
   const [sources, setSources] = useState<{ url: string }[]>([]);
   const [enriching, setEnriching] = useState(false);
+  const [userCountry, setUserCountry] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    const { data: u } = await supabase.auth.getUser();
+    if (u.user) {
+      const { data: prof } = await supabase.from("profiles").select("country_of_origin").eq("id", u.user.id).maybeSingle();
+      setUserCountry(prof?.country_of_origin ?? null);
+    }
     const { data } = await supabase.from("user_entries")
       .select("*, university:universities(*), program:programs(*)").eq("id", id).single();
     if (!data) return;
@@ -132,6 +139,7 @@ function DetailPage() {
             <TabsTrigger value="funding">Tuition & Funding</TabsTrigger>
             <TabsTrigger value="city">City</TabsTrigger>
             <TabsTrigger value="career">Career Outcomes</TabsTrigger>
+            <TabsTrigger value="outreach">Outreach</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-6">
@@ -240,6 +248,22 @@ function DetailPage() {
                 <Row k="International student salary note" v={career?.intl_student_salary_note} />
                 <Row k="Notes" v={career?.salary_breakdown_notes} />
               </Card>
+            )}
+          </TabsContent>
+
+          <TabsContent value="outreach" className="mt-6">
+            {entry.program ? (
+              <OutreachTab
+                programId={entry.program.id}
+                universityId={entry.university.id}
+                universityName={entry.university.name}
+                programName={entry.program.name}
+                userCountry={userCountry}
+              />
+            ) : (
+              <div className="rounded-xl border border-border bg-surface-elevated p-6 text-sm text-muted-foreground">
+                No program linked to this entry yet.
+              </div>
             )}
           </TabsContent>
         </Tabs>
