@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { callLovableAI, CORS_HEADERS, stripFences } from "../_shared/lovable-ai.ts";
+import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -86,10 +86,10 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   "sources": [string]
 }`;
 
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 6000 });
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 16000 });
     let data: any;
     try {
-      data = JSON.parse(stripFences(raw));
+      data = parseJsonLoose(raw);
     } catch (e) {
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
