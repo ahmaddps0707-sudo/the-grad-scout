@@ -19,6 +19,60 @@ export function stripFences(raw: string): string {
   return s.trim();
 }
 
+/**
+ * Parse JSON from an LLM response, tolerating truncation and minor formatting issues.
+ * If the response is truncated mid-array, recover by trimming back to the last complete
+ * top-level element and closing the array.
+ */
+export function parseJsonLoose(raw: string): any {
+  let s = stripFences(raw);
+  // Strip control chars (except \n \r \t which JSON.parse handles in strings only via escapes)
+  s = s.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "");
+
+  // First attempt: as-is, with trailing-comma cleanup.
+  const tryParse = (txt: string) => {
+    const cleaned = txt.replace(/,(\s*[}\]])/g, "$1");
+    return JSON.parse(cleaned);
+  };
+
+  try { return tryParse(s); } catch { /* fall through */ }
+
+  // Recovery for truncated arrays: find last "},\n" or "}\n" at depth 1 inside the array
+  if (s.startsWith("[")) {
+    // Walk the string tracking depth and string state; remember the index right after each
+    // top-level element closes (depth returns to 1 after being deeper).
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    let lastGoodEnd = -1; // index AFTER a complete top-level element
+    for (let i = 0; i < s.length; i++) {
+      const c = s[i];
+      if (inStr) {
+        if (esc) { esc = false; continue; }
+        if (c === "\\") { esc = true; continue; }
+        if (c === '"') inStr = false;
+        continue;
+      }
+      if (c === '"') { inStr = true; continue; }
+      if (c === "{" || c === "[") depth++;
+      else if (c === "}" || c === "]") {
+        depth--;
+        if (depth === 1) lastGoodEnd = i + 1; // closed a top-level element inside the outer array
+        if (depth === 0) lastGoodEnd = i + 1; // closed the outer array
+      }
+    }
+    if (lastGoodEnd > 0) {
+      let recovered = s.slice(0, lastGoodEnd).trim();
+      // Strip trailing comma if any
+      recovered = recovered.replace(/,\s*$/, "");
+      if (!recovered.endsWith("]")) recovered += "]";
+      try { return tryParse(recovered); } catch { /* fall through */ }
+    }
+  }
+
+  throw new Error("AI response was truncated or malformed JSON.");
+}
+
 export async function callLovableAI(opts: {
   apiKey: string;
   system: string;
