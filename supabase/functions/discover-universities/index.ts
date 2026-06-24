@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { callLovableAI, CORS_HEADERS, stripFences } from "../_shared/lovable-ai.ts";
+import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
 
 interface DiscoveredProgram {
   university_name: string;
@@ -118,10 +118,10 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
   "match_rationale": string
 }]`;
 
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 4096 });
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 16000 });
     let parsed: DiscoveredProgram[];
     try {
-      parsed = JSON.parse(stripFences(raw));
+      parsed = parseJsonLoose(raw);
       if (!Array.isArray(parsed)) throw new Error("not an array");
     } catch (e) {
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
@@ -182,9 +182,11 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     console.error("discover-universities error", e);
     if (jobId) {
       const msg = (e as Error).message ?? "Unknown error";
-      const friendly = /401|invalid x-api-key|anthropic/i.test(msg)
-        ? "AI research failed — please retry."
-        : msg;
+      const friendly = /truncated|malformed/i.test(msg)
+        ? "AI response was too long — please retry."
+        : /401|invalid x-api-key|anthropic/i.test(msg)
+          ? "AI research failed — please retry."
+          : msg;
       await admin.from("discover_jobs").update({ status: "failed", error: friendly, completed_at: new Date().toISOString() }).eq("id", jobId);
     }
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
