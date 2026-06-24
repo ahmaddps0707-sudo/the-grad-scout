@@ -352,6 +352,50 @@ export type Database = {
           },
         ]
       }
+      program_contacts: {
+        Row: {
+          country: string | null
+          discovered_at: string
+          graduation_year: string | null
+          headline: string | null
+          id: string
+          last_verified_at: string
+          linkedin_url: string
+          name: string
+          program_id: string
+        }
+        Insert: {
+          country?: string | null
+          discovered_at?: string
+          graduation_year?: string | null
+          headline?: string | null
+          id?: string
+          last_verified_at?: string
+          linkedin_url: string
+          name: string
+          program_id: string
+        }
+        Update: {
+          country?: string | null
+          discovered_at?: string
+          graduation_year?: string | null
+          headline?: string | null
+          id?: string
+          last_verified_at?: string
+          linkedin_url?: string
+          name?: string
+          program_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "program_contacts_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       program_funding: {
         Row: {
           accommodation_currency: string | null
@@ -600,6 +644,64 @@ export type Database = {
           },
           {
             foreignKeyName: "user_entries_university_id_fkey"
+            columns: ["university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_saved_contacts: {
+        Row: {
+          id: string
+          last_updated_at: string
+          notes: string | null
+          program_contact_id: string
+          program_id: string
+          saved_at: string
+          status: string
+          university_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_updated_at?: string
+          notes?: string | null
+          program_contact_id: string
+          program_id: string
+          saved_at?: string
+          status?: string
+          university_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_updated_at?: string
+          notes?: string | null
+          program_contact_id?: string
+          program_id?: string
+          saved_at?: string
+          status?: string
+          university_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_saved_contacts_program_contact_id_fkey"
+            columns: ["program_contact_id"]
+            isOneToOne: false
+            referencedRelation: "program_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_saved_contacts_program_id_fkey"
+            columns: ["program_id"]
+            isOneToOne: false
+            referencedRelation: "programs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_saved_contacts_university_id_fkey"
             columns: ["university_id"]
             isOneToOne: false
             referencedRelation: "universities"
