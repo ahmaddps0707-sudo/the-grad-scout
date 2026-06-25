@@ -119,9 +119,17 @@ Return up to 10 results. Respond with ONLY a JSON array, no other text, no markd
     });
   } catch (e) {
     console.error("find-program-contacts error", e);
-    return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
-      status: 500,
-      headers: { ...CORS_HEADERS, "content-type": "application/json" },
-    });
+    const msg = (e as Error).message ?? "Unknown error";
+    const lower = msg.toLowerCase();
+    let code: "ai_truncated" | "ai_rate_limit" | "ai_credits" | "ai_unavailable" | "config" | "unknown" = "unknown";
+    if (lower.includes("truncated") || lower.includes("malformed") || lower.includes("parse")) code = "ai_truncated";
+    else if (lower.includes("rate limit")) code = "ai_rate_limit";
+    else if (lower.includes("credits")) code = "ai_credits";
+    else if (lower.includes("lovable_api_key")) code = "config";
+    else if (lower.includes("lovable ai")) code = "ai_unavailable";
+    return new Response(
+      JSON.stringify({ ok: false, error: msg, code, fallback: true }),
+      { status: 200, headers: { ...CORS_HEADERS, "content-type": "application/json" } },
+    );
   }
 });
