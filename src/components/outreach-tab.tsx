@@ -32,9 +32,11 @@ export function OutreachTab({
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [fallbackMsg, setFallbackMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setFallbackMsg(null);
     try {
       const { data, error } = await supabase.functions.invoke("find-program-contacts", {
         body: {
@@ -44,8 +46,22 @@ export function OutreachTab({
           user_country: userCountry ?? "",
         },
       });
-      if (error) throw error;
-      setContacts((data?.contacts ?? []) as Contact[]);
+      if (error) {
+        setContacts([]);
+        setFallbackMsg("We couldn't load contacts right now. You can still search LinkedIn directly below.");
+      } else if (data && data.ok === false) {
+        setContacts([]);
+        const code = data.code as string | undefined;
+        const msg =
+          code === "ai_rate_limit"
+            ? "Contact discovery is busy right now. Try again in a moment."
+            : code === "ai_credits"
+            ? "AI credits exhausted — ask the workspace owner to add credits."
+            : "We couldn't load contacts right now. You can still search LinkedIn directly below.";
+        setFallbackMsg(msg);
+      } else {
+        setContacts((data?.contacts ?? []) as Contact[]);
+      }
 
       const { data: u } = await supabase.auth.getUser();
       if (u.user) {
@@ -57,7 +73,9 @@ export function OutreachTab({
         setSaved(new Set((savedRows ?? []).map((r) => r.program_contact_id)));
       }
     } catch (e) {
-      toast.error((e as Error).message ?? "Failed to load contacts");
+      setContacts([]);
+      setFallbackMsg("We couldn't load contacts right now. You can still search LinkedIn directly below.");
+      console.error("outreach load error", e);
     } finally {
       setLoading(false);
     }
@@ -102,21 +120,29 @@ export function OutreachTab({
     const query = `${programName} ${universityName}`;
     return (
       <div className="rounded-xl border border-border bg-surface-elevated p-6 space-y-3">
+        {fallbackMsg && (
+          <p className="text-sm text-amber-600 dark:text-amber-400">{fallbackMsg}</p>
+        )}
         <p className="text-sm text-foreground">
           We couldn't find publicly available profiles for this program. Try searching LinkedIn directly for:
         </p>
         <code className="block rounded-md bg-muted px-3 py-2 text-sm font-mono select-all">
           {query}
         </code>
-        <Button variant="outline" size="sm" asChild>
-          <a
-            href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(query)}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Search on LinkedIn <ExternalLink className="h-3.5 w-3.5 ml-1" />
-          </a>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href={`https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(query)}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Search on LinkedIn <ExternalLink className="h-3.5 w-3.5 ml-1" />
+            </a>
+          </Button>
+          {fallbackMsg && (
+            <Button variant="ghost" size="sm" onClick={() => load()}>Retry</Button>
+          )}
+        </div>
       </div>
     );
   }
