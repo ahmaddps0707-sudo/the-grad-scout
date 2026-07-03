@@ -1,45 +1,42 @@
-## Problem
+## Add Contact (manual entry) on Outreach + global Contacts
 
-The Outreach tab calls the `find-program-contacts` Edge Function via `supabase.functions.invoke(...)`. When the function returns any non-2xx status (a thrown error, AI truncation, parse failure, 429/402 from the gateway, etc.), the Supabase JS client surfaces it as the opaque message **"Edge Function returned a non-2xx status code"** with no detail, and the Outreach tab shows that as a toast with no recovery path.
+Lets users manually add a LinkedIn contact for a program. Contacts are private to the user, auto-saved as "Saved", and appear on both the Outreach tab and the global /contacts page alongside AI-discovered ones.
 
-No function logs are currently retained, so we cannot pinpoint which branch failed — but the fix is the same regardless: contain errors inside the function and degrade gracefully on the client.
+### 1. Database migration
 
-## Fix
+Add two columns to `program_contacts`:
+- `source text not null default 'ai'` — `'ai'` or `'user'`
+- `added_by uuid null references auth.users(id) on delete cascade`
 
-### 1. Edge Function: `supabase/functions/find-program-contacts/index.ts`
+RLS additions on `program_contacts` (keep existing AI-catalog read policy intact):
+- SELECT where `source = 'user' AND added_by = auth.uid()`
+- INSERT where `source = 'user' AND added_by = auth.uid()`
+- DELETE where `source = 'user' AND added_by = auth.uid()`
 
-Wrap the whole handler so it **always returns HTTP 200** with a structured JSON body. The client decides what to render from the payload.
+Existing edge function `find-program-contacts` keeps inserting AI rows — no change needed (default `source = 'ai'`).
 
-Response shape:
-```
-{ ok: true,  contacts: [...], cached: boolean }
-{ ok: false, error: string, code: "ai_truncated" | "ai_rate_limit" | "ai_credits" | "ai_unavailable" | "config" | "unknown", fallback: true }
-```
+### 2. Outreach tab (`src/components/outreach-tab.tsx`)
 
-Behavior:
-- Classify the caught error message (`truncated`/`malformed`, `rate limit`, `credits`, `LOVABLE_API_KEY not configured`, else `unknown`) into `code`.
-- Still return 200 so `supabase.functions.invoke` resolves with `data` (not `error`).
-- Keep the cache-hit path unchanged.
-- If the AI returned zero valid contacts after parsing, return `ok: true, contacts: []` (not an error) so the UI shows the existing empty-state with the LinkedIn search fallback.
-- Continue to log to `console.error` for future log inspection.
+- Add an "Add contact" button visible in both the populated list view and the empty state.
+- Dialog with two fields validated by zod:
+  - **Name** — required, trimmed, 1–100 chars
+  - **LinkedIn URL** — required, must match `^https?://(www\.)?linkedin\.com/.+`, max 500 chars, trimmed
+- On submit:
+  1. Normalize LinkedIn URL (lowercase host, strip trailing slash).
+  2. Check for an existing `program_contacts` row for this `program_id` + normalized URL (either AI catalog or this user's private row). If found, reuse it.
+  3. Otherwise insert a new `program_contacts` row with `source='user'`, `added_by=auth.uid()`, `program_id`, `name`, `linkedin_url`, other fields null.
+  4. Insert `user_saved_contacts` row with `status='saved'` (skip if already saved).
+  5. Prepend the contact to local state, mark as saved, close dialog, toast "Contact added".
 
-Only the error-handling shell changes; the prompt, cache logic, validation, upsert, and CORS stay the same.
+### 3. Global Contacts page (`/contacts`)
 
-### 2. Client: `src/components/outreach-tab.tsx`
+No structural change required — it queries `user_saved_contacts` joined to `program_contacts`, and the new RLS lets the owner read their private rows. Verify the Kanban card handles null `headline`, `graduation_year`, `country` (already possible for AI rows).
 
-In `load()`:
-- Treat both `error` from `invoke` and `data.ok === false` as soft failures: do **not** toast a generic error.
-- When `data.ok === false` with `fallback: true`, render the existing empty-state UI plus a small inline notice:
-  - `ai_rate_limit` → "Contact discovery is busy right now. Try again in a moment."
-  - `ai_credits` → "AI credits exhausted — ask the workspace owner to add credits."
-  - `ai_truncated` / `ai_unavailable` / `unknown` → "We couldn't load contacts right now. You can still search LinkedIn directly below."
-- Add a "Retry" button that re-runs `load()`.
-- Keep the saved-contacts fetch independent — if contacts load fails, still try to fetch saved set so the UI stays consistent.
+### 4. Removal cleanup
 
-No DB, RLS, types, or other routes change.
+Update the existing "Remove contact" handler on /contacts: after deleting the `user_saved_contacts` row, if the underlying `program_contacts.source === 'user'` and `added_by === current user`, also delete the `program_contacts` row so no orphan remains.
 
-## Out of scope
-
-- No schema or RLS changes.
-- No prompt or model changes (we already raised `maxTokens` to 8000 here).
-- No retry loop inside the edge function — one attempt, contained failure, client-driven retry.
+### Out of scope
+- Editing a manually added contact (remove + re-add instead).
+- Sharing a user-added contact to the AI catalog.
+- Changes to the AI discovery function or its caching.
