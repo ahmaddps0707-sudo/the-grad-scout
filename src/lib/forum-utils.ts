@@ -59,13 +59,19 @@ export async function incrementRateLimit(userId: string, kind: "post" | "comment
     });
     return;
   }
-  const updates: Record<string, any> = {};
+  const updates: {
+    posts_last_hour?: number;
+    comments_last_hour?: number;
+    last_reset_at?: string;
+  } = {};
   if (expired) {
     updates.posts_last_hour = kind === "post" ? 1 : 0;
     updates.comments_last_hour = kind === "comment" ? 1 : 0;
     updates.last_reset_at = now.toISOString();
+  } else if (kind === "post") {
+    updates.posts_last_hour = (data.posts_last_hour ?? 0) + 1;
   } else {
-    updates[field] = ((data as any)[field] ?? 0) + 1;
+    updates.comments_last_hour = (data.comments_last_hour ?? 0) + 1;
   }
   await supabase.from("forum_rate_limits").update(updates).eq("user_id", userId);
 }
