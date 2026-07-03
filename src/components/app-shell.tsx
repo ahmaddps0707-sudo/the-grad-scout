@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LogOut, Settings, LayoutDashboard, Users } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, Users, MessagesSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [contactsCount, setContactsCount] = useState<number>(0);
+  const [forumUnread, setForumUnread] = useState<boolean>(false);
 
   useEffect(() => {
     let active = true;
@@ -21,6 +22,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         .eq("user_id", u.user.id)
         .neq("status", "archived");
       if (active) setContactsCount(count ?? 0);
+      // forum unread dot
+      const { data: prof } = await supabase.from("profiles").select("last_visited_forum_at").eq("id", u.user.id).maybeSingle();
+      const since = prof?.last_visited_forum_at ?? "1970-01-01T00:00:00Z";
+      const { count: newPosts } = await supabase
+        .from("forum_posts")
+        .select("*", { count: "exact", head: true })
+        .eq("is_removed", false)
+        .gt("created_at", since);
+      if (active) setForumUnread((newPosts ?? 0) > 0);
     };
     load();
     return () => { active = false; };
@@ -32,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     navigate({ to: "/" });
   };
 
-  const navItem = (to: string, label: string, Icon: typeof LayoutDashboard, badge?: number) => {
+  const navItem = (to: string, label: string, Icon: typeof LayoutDashboard, badge?: number, dot?: boolean) => {
     const active = pathname.startsWith(to);
     return (
       <Link
@@ -41,7 +51,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"
         }`}
       >
-        <Icon className="h-4 w-4" />
+        <span className="relative inline-flex">
+          <Icon className="h-4 w-4" />
+          {dot && !active && <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-primary" />}
+        </span>
         {label}
         {badge && badge > 0 ? (
           <span className={`ml-1 inline-flex items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${active ? "bg-primary-foreground/20 text-primary-foreground" : "bg-primary/15 text-primary"}`}>
@@ -62,6 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="flex items-center gap-1">
             {navItem("/dashboard", "Dashboard", LayoutDashboard)}
             {navItem("/contacts", "Contacts", Users, contactsCount)}
+            {navItem("/forum", "Forum", MessagesSquare, undefined, forumUnread)}
             {navItem("/settings", "Settings", Settings)}
             <Button variant="ghost" size="sm" onClick={signOut} className="ml-2 gap-2">
               <LogOut className="h-4 w-4" /> Sign out

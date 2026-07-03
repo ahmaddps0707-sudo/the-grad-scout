@@ -18,6 +18,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
 import { Route as AuthenticatedForumIndexRouteImport } from './routes/_authenticated/forum.index'
 import { Route as AuthenticatedUniversityIdRouteImport } from './routes/_authenticated/university.$id'
+import { Route as AuthenticatedForumPostIdRouteImport } from './routes/_authenticated/forum.$postId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -64,6 +65,12 @@ const AuthenticatedUniversityIdRoute =
     path: '/university/$id',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedForumPostIdRoute =
+  AuthenticatedForumPostIdRouteImport.update({
+    id: '/forum/$postId',
+    path: '/forum/$postId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
   '/forum/': typeof AuthenticatedForumIndexRoute
 }
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
   '/forum': typeof AuthenticatedForumIndexRoute
 }
@@ -94,6 +103,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/_authenticated/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/_authenticated/university/$id': typeof AuthenticatedUniversityIdRoute
   '/_authenticated/forum/': typeof AuthenticatedForumIndexRoute
 }
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/onboarding'
     | '/settings'
+    | '/forum/$postId'
     | '/university/$id'
     | '/forum/'
   fileRoutesByTo: FileRoutesByTo
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/onboarding'
     | '/settings'
+    | '/forum/$postId'
     | '/university/$id'
     | '/forum'
   id:
@@ -127,6 +139,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/onboarding'
     | '/_authenticated/settings'
+    | '/_authenticated/forum/$postId'
     | '/_authenticated/university/$id'
     | '/_authenticated/forum/'
   fileRoutesById: FileRoutesById
@@ -202,6 +215,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUniversityIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/forum/$postId': {
+      id: '/_authenticated/forum/$postId'
+      path: '/forum/$postId'
+      fullPath: '/forum/$postId'
+      preLoaderRoute: typeof AuthenticatedForumPostIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -210,6 +230,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+  AuthenticatedForumPostIdRoute: typeof AuthenticatedForumPostIdRoute
   AuthenticatedUniversityIdRoute: typeof AuthenticatedUniversityIdRoute
   AuthenticatedForumIndexRoute: typeof AuthenticatedForumIndexRoute
 }
@@ -219,6 +240,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+  AuthenticatedForumPostIdRoute: AuthenticatedForumPostIdRoute,
   AuthenticatedUniversityIdRoute: AuthenticatedUniversityIdRoute,
   AuthenticatedForumIndexRoute: AuthenticatedForumIndexRoute,
 }
