@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.tg_forum_flag_auto_remove() FROM PUBLIC, anon, authenticated;

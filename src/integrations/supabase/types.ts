@@ -76,6 +76,211 @@ export type Database = {
           },
         ]
       }
+      forum_comments: {
+        Row: {
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          is_anonymous: boolean
+          is_flagged: boolean
+          is_removed: boolean
+          post_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          is_anonymous?: boolean
+          is_flagged?: boolean
+          is_removed?: boolean
+          post_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          is_anonymous?: boolean
+          is_flagged?: boolean
+          is_removed?: boolean
+          post_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_flags: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          details: string | null
+          id: string
+          post_id: string | null
+          reason: string
+          reporter_user_id: string
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          post_id?: string | null
+          reason: string
+          reporter_user_id: string
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          details?: string | null
+          id?: string
+          post_id?: string | null
+          reason?: string
+          reporter_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_flags_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "forum_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_flags_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_likes: {
+        Row: {
+          comment_id: string | null
+          created_at: string
+          id: string
+          post_id: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_id?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_likes_comment_id_fkey"
+            columns: ["comment_id"]
+            isOneToOne: false
+            referencedRelation: "forum_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forum_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "forum_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_posts: {
+        Row: {
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          is_anonymous: boolean
+          is_flagged: boolean
+          is_removed: boolean
+          tag_type: string
+          tag_university_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          is_anonymous?: boolean
+          is_flagged?: boolean
+          is_removed?: boolean
+          tag_type: string
+          tag_university_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          is_anonymous?: boolean
+          is_flagged?: boolean
+          is_removed?: boolean
+          tag_type?: string
+          tag_university_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forum_posts_tag_university_id_fkey"
+            columns: ["tag_university_id"]
+            isOneToOne: false
+            referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      forum_rate_limits: {
+        Row: {
+          comments_last_hour: number
+          last_reset_at: string
+          posts_last_hour: number
+          user_id: string
+        }
+        Insert: {
+          comments_last_hour?: number
+          last_reset_at?: string
+          posts_last_hour?: number
+          user_id: string
+        }
+        Update: {
+          comments_last_hour?: number
+          last_reset_at?: string
+          posts_last_hour?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       preference_vectors: {
         Row: {
           updated_at: string
@@ -104,6 +309,7 @@ export type Database = {
           funding_preference: Database["public"]["Enums"]["funding_pref"] | null
           gpa: number | null
           id: string
+          last_visited_forum_at: string | null
           onboarding_complete: boolean
           target_countries: string[] | null
           target_degree_level: string | null
@@ -125,6 +331,7 @@ export type Database = {
             | null
           gpa?: number | null
           id: string
+          last_visited_forum_at?: string | null
           onboarding_complete?: boolean
           target_countries?: string[] | null
           target_degree_level?: string | null
@@ -146,6 +353,7 @@ export type Database = {
             | null
           gpa?: number | null
           id?: string
+          last_visited_forum_at?: string | null
           onboarding_complete?: boolean
           target_countries?: string[] | null
           target_degree_level?: string | null

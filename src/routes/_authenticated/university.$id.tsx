@@ -12,6 +12,9 @@ import { scoreColorClass } from "@/lib/scoring";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { OutreachTab } from "@/components/outreach-tab";
+import { NewPostDialog } from "@/components/forum/new-post-dialog";
+import { timeAgo } from "@/lib/forum-utils";
+import { Heart, MessageSquare } from "lucide-react";
 
 type EntryRow = Database["public"]["Tables"]["user_entries"]["Row"];
 type Uni = Database["public"]["Tables"]["universities"]["Row"];
@@ -38,6 +41,8 @@ function DetailPage() {
   const [sources, setSources] = useState<{ url: string }[]>([]);
   const [enriching, setEnriching] = useState(false);
   const [userCountry, setUserCountry] = useState<string | null>(null);
+  const [discussions, setDiscussions] = useState<Array<{ id: string; title: string; is_anonymous: boolean; author_name: string | null; created_at: string; like_count: number; comment_count: number }>>([]);
+  const [openNewPost, setOpenNewPost] = useState(false);
 
   const load = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
@@ -68,6 +73,34 @@ function DetailPage() {
       if ((missing || stale) && !enriching) {
         triggerEnrich(pid, (data.university as Uni).name, (data.program as Prog).name, (data.university as Uni).website_url ?? "");
       }
+    }
+    // Discussions
+    const uniId = (data.university as Uni).id;
+    const { data: posts } = await supabase.from("forum_posts")
+      .select("id, title, is_anonymous, user_id, created_at")
+      .eq("is_removed", false).eq("tag_university_id", uniId)
+      .order("created_at", { ascending: false }).limit(5);
+    const pRows = posts ?? [];
+    if (pRows.length === 0) { setDiscussions([]); }
+    else {
+      const ids = pRows.map((r) => r.id);
+      const uids = Array.from(new Set(pRows.filter((r) => !r.is_anonymous).map((r) => r.user_id)));
+      const [likesRes, commentsRes, profsRes] = await Promise.all([
+        supabase.from("forum_likes").select("post_id").in("post_id", ids),
+        supabase.from("forum_comments").select("post_id").in("post_id", ids).eq("is_removed", false),
+        uids.length ? supabase.from("profiles").select("id, full_name").in("id", uids) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
+      ]);
+      const lm = new Map<string, number>();
+      (likesRes.data ?? []).forEach((l) => lm.set(l.post_id!, (lm.get(l.post_id!) ?? 0) + 1));
+      const cm = new Map<string, number>();
+      (commentsRes.data ?? []).forEach((c) => cm.set(c.post_id, (cm.get(c.post_id) ?? 0) + 1));
+      const pm = new Map<string, string | null>();
+      (profsRes.data ?? []).forEach((p) => pm.set(p.id, p.full_name));
+      setDiscussions(pRows.map((r) => ({
+        id: r.id, title: r.title, is_anonymous: r.is_anonymous, created_at: r.created_at,
+        author_name: r.is_anonymous ? null : pm.get(r.user_id) ?? null,
+        like_count: lm.get(r.id) ?? 0, comment_count: cm.get(r.id) ?? 0,
+      })));
     }
   }, [id, enriching]);
 
@@ -140,6 +173,7 @@ function DetailPage() {
             <TabsTrigger value="city">City</TabsTrigger>
             <TabsTrigger value="career">Career Outcomes</TabsTrigger>
             <TabsTrigger value="outreach">Outreach</TabsTrigger>
+            <TabsTrigger value="discussion">Discussion</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-6">
@@ -265,6 +299,41 @@ function DetailPage() {
                 No program linked to this entry yet.
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="discussion" className="mt-6">
+            <div className="rounded-xl border border-border bg-surface-elevated p-6">
+              <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                <h3 className="font-display text-lg">Discussions about {entry.university.name}</h3>
+                <Button size="sm" onClick={() => setOpenNewPost(true)}>Start a discussion about {entry.university.name}</Button>
+              </div>
+              {discussions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No discussions yet for this program. Start one and help future applicants.</p>
+              ) : (
+                <div className="space-y-2">
+                  {discussions.map((d) => (
+                    <Link key={d.id} to="/forum/$postId" params={{ postId: d.id }} className="block rounded-md border border-border p-3 hover:border-primary/40">
+                      <div className="font-medium">{d.title}</div>
+                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>{d.is_anonymous ? "Anonymous" : (d.author_name || "Member")}</span>
+                        <span>· {timeAgo(d.created_at)}</span>
+                        <span className="flex items-center gap-1"><Heart className="h-3 w-3" /> {d.like_count}</span>
+                        <span className="flex items-center gap-1"><MessageSquare className="h-3 w-3" /> {d.comment_count}</span>
+                      </div>
+                    </Link>
+                  ))}
+                  <Link to="/forum" className="block text-sm text-primary hover:underline mt-3">
+                    See all discussions about {entry.university.name} →
+                  </Link>
+                </div>
+              )}
+            </div>
+            <NewPostDialog
+              open={openNewPost}
+              onOpenChange={setOpenNewPost}
+              presetUniversity={{ id: entry.university.id, name: entry.university.name }}
+              onCreated={() => load()}
+            />
           </TabsContent>
         </Tabs>
 
