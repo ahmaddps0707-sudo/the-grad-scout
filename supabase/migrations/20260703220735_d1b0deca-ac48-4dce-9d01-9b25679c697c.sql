@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS tg_user_saved_contacts_touch ON public.user_saved_contacts;
