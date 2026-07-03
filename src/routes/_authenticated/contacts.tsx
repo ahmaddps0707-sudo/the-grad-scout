@@ -162,9 +162,22 @@ function ContactsPage() {
 
   const removeContact = async (id: string) => {
     const prev = rows;
+    const row = rows.find((r) => r.id === id);
     setRows((rs) => rs.filter((r) => r.id !== id));
     const { error } = await supabase.from("user_saved_contacts").delete().eq("id", id);
     if (error) { setRows(prev); toast.error(error.message); return; }
+    // If this was a user-added contact owned by the current user, clean up the catalog row too.
+    if (row?.program_contact_id) {
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user) {
+        await supabase
+          .from("program_contacts")
+          .delete()
+          .eq("id", row.program_contact_id)
+          .eq("source", "user")
+          .eq("added_by", u.user.id);
+      }
+    }
     toast.success("Contact removed");
   };
 
