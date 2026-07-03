@@ -42,7 +42,6 @@ export async function checkRateLimit(
 }
 
 export async function incrementRateLimit(userId: string, kind: "post" | "comment") {
-  const field = kind === "post" ? "posts_last_hour" : "comments_last_hour";
   const { data } = await supabase
     .from("forum_rate_limits")
     .select("*")
