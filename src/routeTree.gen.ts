@@ -16,6 +16,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticated/contacts'
+import { Route as AuthenticatedForumIndexRouteImport } from './routes/_authenticated/forum.index'
 import { Route as AuthenticatedUniversityIdRouteImport } from './routes/_authenticated/university.$id'
 
 const AuthRoute = AuthRouteImport.update({
@@ -52,6 +53,11 @@ const AuthenticatedContactsRoute = AuthenticatedContactsRouteImport.update({
   path: '/contacts',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedForumIndexRoute = AuthenticatedForumIndexRouteImport.update({
+  id: '/forum/',
+  path: '/forum/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedUniversityIdRoute =
   AuthenticatedUniversityIdRouteImport.update({
     id: '/university/$id',
@@ -67,6 +73,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
+  '/forum/': typeof AuthenticatedForumIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -76,6 +83,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
+  '/forum': typeof AuthenticatedForumIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -87,6 +95,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/university/$id': typeof AuthenticatedUniversityIdRoute
+  '/_authenticated/forum/': typeof AuthenticatedForumIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/settings'
     | '/university/$id'
+    | '/forum/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/settings'
     | '/university/$id'
+    | '/forum'
   id:
     | '__root__'
     | '/'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/settings'
     | '/_authenticated/university/$id'
+    | '/_authenticated/forum/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -176,6 +188,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedContactsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/forum/': {
+      id: '/_authenticated/forum/'
+      path: '/forum'
+      fullPath: '/forum/'
+      preLoaderRoute: typeof AuthenticatedForumIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/university/$id': {
       id: '/_authenticated/university/$id'
       path: '/university/$id'
@@ -192,6 +211,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedUniversityIdRoute: typeof AuthenticatedUniversityIdRoute
+  AuthenticatedForumIndexRoute: typeof AuthenticatedForumIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -200,6 +220,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedUniversityIdRoute: AuthenticatedUniversityIdRoute,
+  AuthenticatedForumIndexRoute: AuthenticatedForumIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
