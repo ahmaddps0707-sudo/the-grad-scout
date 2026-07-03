@@ -3,8 +3,38 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ExternalLink, Linkedin, Check } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ExternalLink, Linkedin, Check, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { z } from "zod";
+
+const addContactSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(100, "Name is too long"),
+  linkedin_url: z
+    .string()
+    .trim()
+    .max(500, "URL is too long")
+    .regex(/^https?:\/\/(www\.)?linkedin\.com\/.+/i, "Must be a linkedin.com URL"),
+});
+
+function normalizeLinkedInUrl(url: string): string {
+  try {
+    const u = new URL(url.trim());
+    return `${u.protocol}//${u.host.toLowerCase()}${u.pathname.replace(/\/+$/, "")}`;
+  } catch {
+    return url.trim().replace(/\/+$/, "").toLowerCase();
+  }
+}
 
 interface Contact {
   id: string;
@@ -33,6 +63,11 @@ export function OutreachTab({
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState<Set<string>>(new Set());
   const [fallbackMsg, setFallbackMsg] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState("");
+  const [addUrl, setAddUrl] = useState("");
+  const [addErrors, setAddErrors] = useState<{ name?: string; linkedin_url?: string }>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -101,10 +136,141 @@ export function OutreachTab({
     toast.success("Contact saved — view in Contacts page");
   };
 
+  const submitAddContact = async () => {
+    const parsed = addContactSchema.safeParse({ name: addName, linkedin_url: addUrl });
+    if (!parsed.success) {
+      const errs: { name?: string; linkedin_url?: string } = {};
+      for (const issue of parsed.error.issues) {
+        const key = issue.path[0] as "name" | "linkedin_url";
+        if (!errs[key]) errs[key] = issue.message;
+      }
+      setAddErrors(errs);
+      return;
+    }
+    setAddErrors({});
+    setSubmitting(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) { toast.error("Not signed in"); return; }
+      const normUrl = normalizeLinkedInUrl(parsed.data.linkedin_url);
+
+      // Look for an existing row (AI catalog or this user's private row) for the same URL
+      const { data: existing } = await supabase
+        .from("program_contacts")
+        .select("id, source, added_by")
+        .eq("program_id", programId)
+        .ilike("linkedin_url", normUrl)
+        .limit(1)
+        .maybeSingle();
+
+      let contactRow: Contact;
+      if (existing) {
+        contactRow = {
+          id: existing.id,
+          name: parsed.data.name,
+          linkedin_url: normUrl,
+          graduation_year: null,
+          country: null,
+          headline: null,
+        };
+      } else {
+        const { data: inserted, error: insErr } = await supabase
+          .from("program_contacts")
+          .insert({
+            program_id: programId,
+            name: parsed.data.name,
+            linkedin_url: normUrl,
+            source: "user",
+            added_by: u.user.id,
+          })
+          .select("id, name, linkedin_url, graduation_year, country, headline")
+          .single();
+        if (insErr || !inserted) { toast.error(insErr?.message ?? "Could not add contact"); return; }
+        contactRow = inserted as Contact;
+      }
+
+      // Auto-save (skip conflict quietly if already saved)
+      const { error: saveErr } = await supabase.from("user_saved_contacts").insert({
+        user_id: u.user.id,
+        program_contact_id: contactRow.id,
+        university_id: universityId,
+        program_id: programId,
+        status: "saved",
+      });
+      if (saveErr && !/duplicate|unique/i.test(saveErr.message)) {
+        toast.error(saveErr.message);
+        return;
+      }
+
+      setContacts((prev) => {
+        if (prev.some((p) => p.id === contactRow.id)) return prev;
+        return [contactRow, ...prev];
+      });
+      setSaved((s) => new Set(s).add(contactRow.id));
+      setAddOpen(false);
+      setAddName("");
+      setAddUrl("");
+      toast.success("Contact added");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const AddContactDialog = (
+    <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setAddErrors({}); }}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Plus className="h-3.5 w-3.5 mr-1" /> Add contact
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add a contact</DialogTitle>
+          <DialogDescription>
+            Manually add a student or alum you found. Only you will see this contact.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="add-contact-name">Name</Label>
+            <Input
+              id="add-contact-name"
+              value={addName}
+              maxLength={100}
+              onChange={(e) => setAddName(e.target.value)}
+              placeholder="Jane Doe"
+            />
+            {addErrors.name && <p className="text-xs text-destructive">{addErrors.name}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="add-contact-url">LinkedIn URL</Label>
+            <Input
+              id="add-contact-url"
+              value={addUrl}
+              maxLength={500}
+              onChange={(e) => setAddUrl(e.target.value)}
+              placeholder="https://www.linkedin.com/in/…"
+            />
+            {addErrors.linkedin_url && <p className="text-xs text-destructive">{addErrors.linkedin_url}</p>}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setAddOpen(false)} disabled={submitting}>Cancel</Button>
+          <Button onClick={submitAddContact} disabled={submitting}>
+            {submitting ? "Adding…" : "Add contact"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (loading) {
     return (
       <div className="rounded-xl border border-border bg-surface-elevated p-6 space-y-4">
-        <div className="text-sm text-muted-foreground">Finding students and alumni for this program…</div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="text-sm text-muted-foreground">Finding students and alumni for this program…</div>
+          {AddContactDialog}
+        </div>
         {[0, 1, 2].map((i) => (
           <div key={i} className="space-y-2">
             <Skeleton className="h-5 w-1/3" />
@@ -120,6 +286,7 @@ export function OutreachTab({
     const query = `${programName} ${universityName}`;
     return (
       <div className="rounded-xl border border-border bg-surface-elevated p-6 space-y-3">
+        <div className="flex items-center justify-end">{AddContactDialog}</div>
         {fallbackMsg && (
           <p className="text-sm text-amber-600 dark:text-amber-400">{fallbackMsg}</p>
         )}
@@ -156,6 +323,7 @@ export function OutreachTab({
 
   return (
     <div className="space-y-3">
+      <div className="flex items-center justify-end">{AddContactDialog}</div>
       {sorted.map((c) => {
         const fromHome = home && (c.country ?? "").trim().toLowerCase() === home;
         const isSaved = saved.has(c.id);

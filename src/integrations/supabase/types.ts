@@ -354,6 +354,7 @@ export type Database = {
       }
       program_contacts: {
         Row: {
+          added_by: string | null
           country: string | null
           discovered_at: string
           graduation_year: string | null
@@ -363,8 +364,10 @@ export type Database = {
           linkedin_url: string
           name: string
           program_id: string
+          source: string
         }
         Insert: {
+          added_by?: string | null
           country?: string | null
           discovered_at?: string
           graduation_year?: string | null
@@ -374,8 +377,10 @@ export type Database = {
           linkedin_url: string
           name: string
           program_id: string
+          source?: string
         }
         Update: {
+          added_by?: string | null
           country?: string | null
           discovered_at?: string
           graduation_year?: string | null
@@ -385,6 +390,7 @@ export type Database = {
           linkedin_url?: string
           name?: string
           program_id?: string
+          source?: string
         }
         Relationships: [
           {
