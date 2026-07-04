@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { LogOut, Settings, LayoutDashboard, Users, MessagesSquare } from "lucide-react";
+import { LogOut, Settings, LayoutDashboard, Users, MessagesSquare, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -75,6 +75,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="flex items-center gap-1">
             {navItem("/dashboard", "Dashboard", LayoutDashboard)}
             {navItem("/contacts", "Contacts", Users, contactsCount)}
+            {navItem("/resume", "Resume", FileText)}
             {navItem("/forum", "Forum", MessagesSquare, undefined, forumUnread)}
             {navItem("/settings", "Settings", Settings)}
             <Button variant="ghost" size="sm" onClick={signOut} className="ml-2 gap-2">

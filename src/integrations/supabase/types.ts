@@ -763,6 +763,136 @@ export type Database = {
           },
         ]
       }
+      resume_ai_suggestions: {
+        Row: {
+          accepted_suggestion: string | null
+          created_at: string
+          id: string
+          raw_input: string | null
+          resume_id: string
+          section: string
+          suggestions: Json
+          user_id: string
+        }
+        Insert: {
+          accepted_suggestion?: string | null
+          created_at?: string
+          id?: string
+          raw_input?: string | null
+          resume_id: string
+          section: string
+          suggestions?: Json
+          user_id: string
+        }
+        Update: {
+          accepted_suggestion?: string | null
+          created_at?: string
+          id?: string
+          raw_input?: string | null
+          resume_id?: string
+          section?: string
+          suggestions?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resume_ai_suggestions_resume_id_fkey"
+            columns: ["resume_id"]
+            isOneToOne: false
+            referencedRelation: "resumes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      resume_templates: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          layout_schema: Json
+          name: string
+          preview_image_url: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          layout_schema?: Json
+          name: string
+          preview_image_url?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          layout_schema?: Json
+          name?: string
+          preview_image_url?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      resumes: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          original_file_url: string | null
+          parse_status: string | null
+          source: string
+          template_id: string | null
+          updated_at: string
+          user_id: string
+          version_name: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          original_file_url?: string | null
+          parse_status?: string | null
+          source: string
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+          version_name?: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          original_file_url?: string | null
+          parse_status?: string | null
+          source?: string
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+          version_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resumes_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "resume_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       universities: {
         Row: {
           city: string | null
