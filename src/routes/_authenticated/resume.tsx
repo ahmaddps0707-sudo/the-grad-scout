@@ -227,32 +227,28 @@ function ResumePage() {
     setRenaming(false);
   };
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (!current) return;
-    const prevTitle = document.title;
+    const el = document.getElementById("resume-print-area");
+    if (!el) return;
     const fullName = (content.personal.full_name || "Resume").trim();
-    const fileTitle = `${fullName} — ${current.version_name}`;
-    const style = document.createElement("style");
-    style.id = "resume-print-style";
-    style.innerHTML = `
-      @page { size: A4; margin: 15mm 18mm; }
-      @media print {
-        body * { visibility: hidden !important; }
-        #resume-print-area, #resume-print-area * { visibility: visible !important; }
-        #resume-print-area { position: absolute; left: 0; top: 0; box-shadow: none !important; width: auto !important; min-height: auto !important; padding: 0 !important; }
-        #resume-print-area .entry-block { page-break-inside: avoid; break-inside: avoid; }
-      }
-    `;
-    document.head.appendChild(style);
-    document.title = fileTitle;
-    const restore = () => {
-      document.title = "Admitly";
-      style.remove();
-      window.removeEventListener("afterprint", restore);
-    };
-    window.addEventListener("afterprint", restore);
-    window.print();
-    setTimeout(restore, 2000);
+    const filename = `${fullName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Resume"}.pdf`;
+    try {
+      const html2pdf: any = (await import("html2pdf.js")).default;
+      await html2pdf()
+        .set({
+          filename,
+          margin: 0,
+          image: { type: "jpeg", quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+          pagebreak: { mode: ["css", "legacy"], avoid: ".entry-block" },
+        })
+        .from(el)
+        .save();
+    } catch (e: any) {
+      toast.error(`Download failed: ${e?.message || "unknown error"}`);
+    }
   };
 
   const originalFileUrl = current?.original_file_url ?? null;
@@ -303,7 +299,6 @@ function ResumePage() {
           ) : (
             <button className="text-lg font-semibold hover:underline" title="Click to rename" onClick={() => setRenaming(true)}>{current.version_name}</button>
           )}
-          {current.is_active && <Badge className="bg-green-600 hover:bg-green-600">Active</Badge>}
           <Badge variant="outline" className="text-[10px]">Editing</Badge>
           <div className="text-xs text-muted-foreground ml-2">
             {saving === "saving" && <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>}
@@ -326,7 +321,6 @@ function ResumePage() {
                       <div className="flex-1 min-w-0">
                         <div className="truncate font-medium flex items-center gap-1">
                           {r.version_name}
-                          {r.is_active && <Badge className="bg-green-600 hover:bg-green-600 text-[10px]">Active</Badge>}
                           {current?.id === r.id && <Badge variant="outline" className="text-[10px]">Editing</Badge>}
                         </div>
                         <div className="text-xs text-muted-foreground">{new Date(r.updated_at).toLocaleString()}</div>
