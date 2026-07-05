@@ -21,7 +21,6 @@ export const Route = createFileRoute("/_authenticated/resume")({
 });
 
 type ResumeRow = { id: string; user_id: string; version_name: string; template_id: string | null; content: ResumeContent; is_active: boolean; source: string; original_file_url: string | null; parse_status: string | null; created_at: string; updated_at: string };
-type Template = { id: string; name: string; category: string; description: string | null; preview_image_url: string | null; sort_order: number };
 
 const MAX_SIZE = 5 * 1024 * 1024;
 const ALLOWED = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
@@ -31,8 +30,6 @@ function ResumePage() {
   const [loading, setLoading] = useState(true);
   const [resumes, setResumes] = useState<ResumeRow[]>([]);
   const [current, setCurrent] = useState<ResumeRow | null>(null);
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [saving, setSaving] = useState<"idle" | "saving" | "saved">("idle");
   const [content, setContent] = useState<ResumeContent>(emptyContent());
   const [dirty, setDirty] = useState(false);
@@ -41,7 +38,6 @@ function ResumePage() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [uploadMode, setUploadMode] = useState<"new" | "replace">("new");
   const [newVersionOpen, setNewVersionOpen] = useState(false);
-  const [renameValue, setRenameValue] = useState("");
   const [renaming, setRenaming] = useState(false);
   const debounceRef = useRef<any>(null);
   const initialLoad = useRef(true);
@@ -51,18 +47,13 @@ function ResumePage() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
     setUserId(u.user.id);
-    const [{ data: rs }, { data: ts }] = await Promise.all([
-      supabase.from("resumes" as any).select("*").eq("user_id", u.user.id).order("created_at", { ascending: false }),
-      supabase.from("resume_templates" as any).select("*").eq("is_active", true).order("sort_order"),
-    ]);
+    const { data: rs } = await supabase.from("resumes" as any).select("*").eq("user_id", u.user.id).order("created_at", { ascending: false });
     const list = (rs ?? []) as unknown as ResumeRow[];
     setResumes(list);
-    setTemplates((ts ?? []) as unknown as Template[]);
     const active = list.find((r) => r.is_active) ?? list[0] ?? null;
     if (active) {
       setCurrent(active);
       setContent(mergeWithEmpty(active.content));
-      setSelectedTemplate(active.template_id);
     }
     setLoading(false);
     initialLoad.current = false;
@@ -77,13 +68,13 @@ function ResumePage() {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSaving("saving");
     debounceRef.current = setTimeout(async () => {
-      const { error } = await supabase.from("resumes" as any).update({ content: content as any, template_id: selectedTemplate, updated_at: new Date().toISOString() }).eq("id", current.id);
+      const { error } = await supabase.from("resumes" as any).update({ content: content as any, updated_at: new Date().toISOString() }).eq("id", current.id);
       if (error) { toast.error("Save failed"); setSaving("idle"); return; }
       setSaving("saved");
       setDirty(false);
       setTimeout(() => setSaving("idle"), 1500);
     }, 2000);
-  }, [content, selectedTemplate, current, dirty]);
+  }, [content, current, dirty]);
 
   // Warn on unload
   useEffect(() => {
@@ -125,7 +116,7 @@ function ResumePage() {
     const name = nextVersionName(resumes.map((r) => r.version_name));
     const isFirst = resumes.length === 0;
     const { data, error } = await supabase.from("resumes" as any).insert({
-      user_id: userId, version_name: name, template_id: selectedTemplate, content: emptyContent() as any,
+      user_id: userId, version_name: name, content: emptyContent() as any,
       source: "scratch", parse_status: null, is_active: isFirst,
     }).select().single();
     if (error) { toast.error(error.message); return; }
@@ -163,7 +154,7 @@ function ResumePage() {
       const name = nextVersionName(resumes.map((r) => r.version_name));
       const isFirst = resumes.length === 0;
       const { data, error } = await supabase.from("resumes" as any).insert({
-        user_id: userId, version_name: name, template_id: selectedTemplate, content: emptyContent() as any,
+        user_id: userId, version_name: name, content: emptyContent() as any,
         source: "upload", parse_status: "pending", original_file_url: path, is_active: isFirst,
       }).select().single();
       if (error) { toast.error(error.message); return; }
@@ -190,16 +181,16 @@ function ResumePage() {
     if (!r) return;
     setCurrent(r);
     setContent(mergeWithEmpty(r.content));
-    setSelectedTemplate(r.template_id);
     setDirty(false);
     setParseBanner("none");
   };
 
   const setActive = async (id: string) => {
     if (!userId) return;
-    await supabase.from("resumes" as any).update({ is_active: false }).eq("user_id", userId);
+    await supabase.from("resumes" as any).update({ is_active: false }).eq("user_id", userId).neq("id", id);
     await supabase.from("resumes" as any).update({ is_active: true }).eq("id", id);
-    await load();
+    setResumes((prev) => prev.map((r) => ({ ...r, is_active: r.id === id })));
+    setCurrent((cur) => (cur ? { ...cur, is_active: cur.id === id } : cur));
     toast.success("Active version updated");
   };
 
@@ -214,7 +205,7 @@ function ResumePage() {
     const finalName = name.trim() || nextVersionName(resumes.map((r) => r.version_name));
     const newContent = copy && current ? content : emptyContent();
     const { data, error } = await supabase.from("resumes" as any).insert({
-      user_id: userId, version_name: finalName, template_id: selectedTemplate,
+      user_id: userId, version_name: finalName,
       content: newContent as any, source: copy ? current!.source : "scratch",
       parse_status: null, is_active: false,
     }).select().single();
@@ -237,6 +228,10 @@ function ResumePage() {
   };
 
   const downloadPDF = () => {
+    if (!current) return;
+    const prevTitle = document.title;
+    const fullName = (content.personal.full_name || "Resume").trim();
+    const fileTitle = `${fullName} — ${current.version_name}`;
     const style = document.createElement("style");
     style.id = "resume-print-style";
     style.innerHTML = `
@@ -245,11 +240,19 @@ function ResumePage() {
         body * { visibility: hidden !important; }
         #resume-print-area, #resume-print-area * { visibility: visible !important; }
         #resume-print-area { position: absolute; left: 0; top: 0; box-shadow: none !important; width: auto !important; min-height: auto !important; padding: 0 !important; }
+        #resume-print-area .entry-block { page-break-inside: avoid; break-inside: avoid; }
       }
     `;
     document.head.appendChild(style);
+    document.title = fileTitle;
+    const restore = () => {
+      document.title = "Admitly";
+      style.remove();
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
     window.print();
-    setTimeout(() => style.remove(), 1000);
+    setTimeout(restore, 2000);
   };
 
   const originalFileUrl = current?.original_file_url ?? null;
@@ -283,7 +286,6 @@ function ResumePage() {
               <div className="text-sm text-muted-foreground mt-1">Open an empty editor and fill in your details.</div>
             </button>
           </div>
-          <TemplateGallery templates={templates} selected={selectedTemplate} onSelect={setSelectedTemplate} />
         </div>
       </AppShell>
     );
@@ -297,16 +299,23 @@ function ResumePage() {
         {/* Version bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           {renaming ? (
-            <Input autoFocus defaultValue={current.version_name} maxLength={50} className="max-w-xs" onBlur={(e) => renameCurrent(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenaming(false); }} />
+            <Input autoFocus defaultValue={current.version_name} maxLength={50} className="max-w-xs h-8" onBlur={(e) => renameCurrent(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") setRenaming(false); }} />
           ) : (
-            <button className="text-lg font-semibold hover:underline" onClick={() => setRenaming(true)}>{current.version_name}</button>
+            <button className="text-lg font-semibold hover:underline" title="Click to rename" onClick={() => setRenaming(true)}>{current.version_name}</button>
           )}
           {current.is_active && <Badge className="bg-green-600 hover:bg-green-600">Active</Badge>}
+          <Badge variant="outline" className="text-[10px]">Editing</Badge>
           <div className="text-xs text-muted-foreground ml-2">
             {saving === "saving" && <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>}
             {saving === "saved" && <span className="inline-flex items-center gap-1 text-green-600"><Check className="h-3 w-3" /> Saved</span>}
           </div>
           <div className="ml-auto flex gap-2">
+            <label className="inline-flex">
+              <Button variant="outline" size="sm" asChild>
+                <span className="cursor-pointer gap-1"><Upload className="h-3 w-3" /> Upload Resume</span>
+              </Button>
+              <input type="file" className="hidden" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.currentTarget.value = ""; }} />
+            </label>
             <Button variant="outline" size="sm" onClick={() => setNewVersionOpen(true)}>New Version</Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="outline" size="sm">Versions <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
@@ -315,7 +324,11 @@ function ResumePage() {
                   <div key={r.id} className="px-2 py-1.5 text-sm">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex-1 min-w-0">
-                        <div className="truncate font-medium flex items-center gap-1">{r.version_name} {r.is_active && <Badge className="bg-green-600 hover:bg-green-600 text-[10px]">Active</Badge>}</div>
+                        <div className="truncate font-medium flex items-center gap-1">
+                          {r.version_name}
+                          {r.is_active && <Badge className="bg-green-600 hover:bg-green-600 text-[10px]">Active</Badge>}
+                          {current?.id === r.id && <Badge variant="outline" className="text-[10px]">Editing</Badge>}
+                        </div>
                         <div className="text-xs text-muted-foreground">{new Date(r.updated_at).toLocaleString()}</div>
                       </div>
                     </div>
@@ -327,7 +340,6 @@ function ResumePage() {
                     <DropdownMenuSeparator />
                   </div>
                 ))}
-                <DropdownMenuItem asChild><label className="cursor-pointer w-full"><UploadInput onFile={handleFileSelected} inline /></label></DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -369,18 +381,10 @@ function ResumePage() {
               />
             </div>
             <div className="min-w-0 max-h-[calc(100vh-180px)] overflow-y-auto">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <div className="flex gap-1 flex-wrap">
-                  {templates.map((t) => (
-                    <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setDirty(true); }}
-                      className={`text-xs px-2 py-1 rounded-full border ${selectedTemplate === t.id ? "bg-primary text-primary-foreground border-primary" : "hover:bg-secondary"}`}>
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-                <Button size="sm" onClick={downloadPDF} className="ml-auto gap-1"><Download className="h-3 w-3" /> Download PDF</Button>
+              <div className="flex items-center gap-2 mb-2 flex-wrap justify-end">
+                <Button size="sm" onClick={downloadPDF} className="gap-1"><Download className="h-3 w-3" /> Download PDF</Button>
               </div>
-              <ResumePreview content={content} template={templates.find((t) => t.id === selectedTemplate)?.name} />
+              <ResumePreview content={content} template="Clean Professional" />
             </div>
           </div>
         )}
