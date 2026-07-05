@@ -467,31 +467,6 @@ function UploadInput({ onFile, inline }: { onFile: (f: File) => void; inline?: b
   );
 }
 
-function TemplateGallery({ templates, selected, onSelect }: { templates: Template[]; selected: string | null; onSelect: (id: string) => void }) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between mb-2">
-        <h2 className="text-lg font-semibold">Choose a template first</h2>
-        <span className="text-xs text-muted-foreground">Optional — you can change this later.</span>
-      </div>
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {templates.map((t) => (
-          <button key={t.id} onClick={() => onSelect(t.id)}
-            className={`min-w-[220px] max-w-[240px] text-left rounded-lg border-2 p-3 transition-colors ${selected === t.id ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/40"}`}>
-            <div className="aspect-[3/4] rounded bg-muted mb-2 flex items-center justify-center text-xs text-muted-foreground">Preview</div>
-            <div className="font-medium text-sm">{t.name}</div>
-            <Badge variant="secondary" className="text-[10px] mt-1">{t.category.replace("_", " ")}</Badge>
-            <div className="text-xs text-muted-foreground mt-1">{t.description}</div>
-          </button>
-        ))}
-      </div>
-      <div className="mt-3 rounded-md bg-secondary/40 p-3 text-xs text-muted-foreground">
-        <strong>Which template?</strong> Business or MBA programs → Business & MBA. Engineering, CS, data science → Technical & STEM. Research or thesis-based programs → Research & Academia. Not sure → Clean Professional works for everything.
-      </div>
-    </div>
-  );
-}
-
 function NewVersionModal({ open, onOpenChange, defaultName, onCreate }: { open: boolean; onOpenChange: (v: boolean) => void; defaultName: string; onCreate: (copy: boolean, name: string) => void }) {
   const [copy, setCopy] = useState(true);
   const [name, setName] = useState(defaultName);
