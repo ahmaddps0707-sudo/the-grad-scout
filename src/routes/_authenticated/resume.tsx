@@ -234,7 +234,7 @@ function ResumePage() {
     const fullName = (content.personal.full_name || "Resume").trim();
     const filename = `${fullName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Resume"}.pdf`;
     try {
-      const html2pdf = (await import("html2pdf.js")).default;
+      const html2pdf: any = (await import("html2pdf.js")).default;
       await html2pdf()
         .set({
           filename,
