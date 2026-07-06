@@ -234,6 +234,32 @@ function ResumePage() {
     const fullName = (content.personal.full_name || "Resume").trim();
     const filename = `${fullName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Resume"}.pdf`;
     try {
+      // html2canvas doesn't support oklch() colors (used by Tailwind v4).
+      // Clone the node and inline computed colors as rgb so the capture works.
+      const clone = el.cloneNode(true) as HTMLElement;
+      const srcNodes = el.querySelectorAll<HTMLElement>("*");
+      const cloneNodes = clone.querySelectorAll<HTMLElement>("*");
+      const inlineColors = (src: HTMLElement, dst: HTMLElement) => {
+        const cs = window.getComputedStyle(src);
+        dst.style.color = cs.color;
+        dst.style.backgroundColor = cs.backgroundColor;
+        dst.style.borderTopColor = cs.borderTopColor;
+        dst.style.borderRightColor = cs.borderRightColor;
+        dst.style.borderBottomColor = cs.borderBottomColor;
+        dst.style.borderLeftColor = cs.borderLeftColor;
+        dst.style.outlineColor = cs.outlineColor;
+        dst.style.textDecorationColor = cs.textDecorationColor;
+        dst.style.fill = cs.fill;
+        dst.style.stroke = cs.stroke;
+      };
+      inlineColors(el, clone);
+      srcNodes.forEach((n, i) => { const d = cloneNodes[i]; if (d) inlineColors(n, d); });
+      const holder = document.createElement("div");
+      holder.style.position = "fixed";
+      holder.style.left = "-10000px";
+      holder.style.top = "0";
+      holder.appendChild(clone);
+      document.body.appendChild(holder);
       const html2pdf: any = (await import("html2pdf.js")).default;
       await html2pdf()
         .set({
@@ -244,8 +270,9 @@ function ResumePage() {
           jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
           pagebreak: { mode: ["css", "legacy"], avoid: ".entry-block" },
         })
-        .from(el)
+        .from(clone)
         .save();
+      document.body.removeChild(holder);
     } catch (e: any) {
       toast.error(`Download failed: ${e?.message || "unknown error"}`);
     }
