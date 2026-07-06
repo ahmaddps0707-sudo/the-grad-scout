@@ -47,13 +47,14 @@ function ResumePage() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
     setUserId(u.user.id);
-    const { data: rs } = await supabase.from("resumes" as any).select("*").eq("user_id", u.user.id).order("created_at", { ascending: false });
+    const { data: rs } = await supabase.from("resumes" as any).select("*").eq("user_id", u.user.id).order("updated_at", { ascending: false });
     const list = (rs ?? []) as unknown as ResumeRow[];
     setResumes(list);
-    const active = list.find((r) => r.is_active) ?? list[0] ?? null;
-    if (active) {
-      setCurrent(active);
-      setContent(mergeWithEmpty(active.content));
+    // Load the most recently edited version (latest updated_at)
+    const latest = list[0] ?? null;
+    if (latest) {
+      setCurrent(latest);
+      setContent(mergeWithEmpty(latest.content));
     }
     setLoading(false);
     initialLoad.current = false;
@@ -183,15 +184,6 @@ function ResumePage() {
     setContent(mergeWithEmpty(r.content));
     setDirty(false);
     setParseBanner("none");
-  };
-
-  const setActive = async (id: string) => {
-    if (!userId) return;
-    await supabase.from("resumes" as any).update({ is_active: false }).eq("user_id", userId).neq("id", id);
-    await supabase.from("resumes" as any).update({ is_active: true }).eq("id", id);
-    setResumes((prev) => prev.map((r) => ({ ...r, is_active: r.id === id })));
-    setCurrent((cur) => (cur ? { ...cur, is_active: cur.id === id } : cur));
-    toast.success("Active version updated");
   };
 
   const deleteVersion = async (id: string) => {
@@ -355,8 +347,7 @@ function ResumePage() {
                     </div>
                     <div className="flex gap-1 mt-1">
                       <Button variant="ghost" size="sm" onClick={() => switchVersion(r.id)}>Switch</Button>
-                      {!r.is_active && <Button variant="ghost" size="sm" onClick={() => setActive(r.id)}>Set active</Button>}
-                      {!r.is_active && resumes.length > 1 && <Button variant="ghost" size="sm" onClick={() => deleteVersion(r.id)}>Delete</Button>}
+                      {current?.id !== r.id && resumes.length > 1 && <Button variant="ghost" size="sm" onClick={() => deleteVersion(r.id)}>Delete</Button>}
                     </div>
                     <DropdownMenuSeparator />
                   </div>
