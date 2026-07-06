@@ -15,7 +15,11 @@ export type ResumeContent = {
   publications: PublicationEntry[];
   awards: AwardEntry[];
   volunteer: VolunteerEntry[];
+  section_order?: SectionKey[];
 };
+
+export type SectionKey = "work" | "education";
+export const DEFAULT_SECTION_ORDER: SectionKey[] = ["work", "education"];
 
 export type WorkEntry = {
   id: string;
@@ -79,6 +83,7 @@ export const emptyContent = (): ResumeContent => ({
   publications: [],
   awards: [],
   volunteer: [],
+  section_order: ["work", "education"],
 });
 
 export const uid = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Math.random().toString(36).slice(2));

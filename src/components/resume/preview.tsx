@@ -1,4 +1,5 @@
 import type { ResumeContent } from "@/lib/resume-types";
+import { DEFAULT_SECTION_ORDER } from "@/lib/resume-types";
 
 function fmtRange(a?: string | null, b?: string | null, cur?: boolean) {
   const end = cur ? "Present" : (b || "");
@@ -10,6 +11,44 @@ export function ResumePreview({ content, template }: { content: ResumeContent; t
   const fontClass = "font-sans";
   const accent = "text-slate-900 border-slate-900";
   void template;
+  const order = (content.section_order && content.section_order.length ? content.section_order : DEFAULT_SECTION_ORDER);
+
+  const workBlock = content.work_experience.length > 0 && (
+    <Section key="work" title="Experience" accent={accent}>
+      {content.work_experience.map((e) => (
+        <div key={e.id} className="entry-block mb-2" style={{ pageBreakInside: "avoid" }}>
+          <div className="flex justify-between items-baseline">
+            <div className="font-semibold">{e.title || "Title"} · <span className="font-normal">{e.company}</span></div>
+            <div className="text-xs text-slate-600">{fmtRange(e.start_date, e.end_date, e.is_current)}</div>
+          </div>
+          {e.location && <div className="text-xs text-slate-600">{e.location}</div>}
+          <ul className="list-disc ml-4 mt-1 text-xs">
+            {e.bullets.filter(Boolean).map((b, i) => <li key={i}>{b}</li>)}
+          </ul>
+        </div>
+      ))}
+    </Section>
+  );
+
+  const eduBlock = content.education.length > 0 && (
+    <Section key="education" title="Education" accent={accent}>
+      {content.education.map((e) => (
+        <div key={e.id} className="entry-block mb-2" style={{ pageBreakInside: "avoid" }}>
+          <div className="flex justify-between items-baseline">
+            <div className="font-semibold">{e.institution}</div>
+            <div className="text-xs text-slate-600">{fmtRange(e.start_date, e.end_date)}</div>
+          </div>
+          <div className="text-xs">{[e.degree, e.field].filter(Boolean).join(", ")}{e.gpa ? ` · GPA ${e.gpa}` : ""}</div>
+          {e.honors && <div className="text-xs italic">{e.honors}</div>}
+          {e.relevant_courses && e.relevant_courses.length > 0 && (
+            <div className="text-xs text-slate-700">Relevant: {e.relevant_courses.join(", ")}</div>
+          )}
+        </div>
+      ))}
+    </Section>
+  );
+
+  const orderedBlocks = order.map((k) => (k === "work" ? workBlock : eduBlock));
 
   return (
     <div id="resume-print-area" className={`bg-white text-slate-900 shadow-sm mx-auto ${fontClass}`} style={{ width: "210mm", minHeight: "297mm", padding: "15mm 18mm", fontSize: "10.5pt", lineHeight: 1.35 }}>
@@ -21,40 +60,7 @@ export function ResumePreview({ content, template }: { content: ResumeContent; t
         {p.summary && <div className="mt-2 text-xs text-left">{p.summary}</div>}
       </header>
 
-      {content.work_experience.length > 0 && (
-        <Section title="Experience" accent={accent}>
-          {content.work_experience.map((e) => (
-            <div key={e.id} className="entry-block mb-2" style={{ pageBreakInside: "avoid" }}>
-              <div className="flex justify-between items-baseline">
-                <div className="font-semibold">{e.title || "Title"} · <span className="font-normal">{e.company}</span></div>
-                <div className="text-xs text-slate-600">{fmtRange(e.start_date, e.end_date, e.is_current)}</div>
-              </div>
-              {e.location && <div className="text-xs text-slate-600">{e.location}</div>}
-              <ul className="list-disc ml-4 mt-1 text-xs">
-                {e.bullets.filter(Boolean).map((b, i) => <li key={i}>{b}</li>)}
-              </ul>
-            </div>
-          ))}
-        </Section>
-      )}
-
-      {content.education.length > 0 && (
-        <Section title="Education" accent={accent}>
-          {content.education.map((e) => (
-            <div key={e.id} className="entry-block mb-2" style={{ pageBreakInside: "avoid" }}>
-              <div className="flex justify-between items-baseline">
-                <div className="font-semibold">{e.institution}</div>
-                <div className="text-xs text-slate-600">{fmtRange(e.start_date, e.end_date)}</div>
-              </div>
-              <div className="text-xs">{[e.degree, e.field].filter(Boolean).join(", ")}{e.gpa ? ` · GPA ${e.gpa}` : ""}</div>
-              {e.honors && <div className="text-xs italic">{e.honors}</div>}
-              {e.relevant_courses && e.relevant_courses.length > 0 && (
-                <div className="text-xs text-slate-700">Relevant: {e.relevant_courses.join(", ")}</div>
-              )}
-            </div>
-          ))}
-        </Section>
-      )}
+      {orderedBlocks}
 
       {(content.skills.technical.length + content.skills.languages.length + content.skills.certifications.length + content.skills.other.length) > 0 && (
         <Section title="Skills" accent={accent}>

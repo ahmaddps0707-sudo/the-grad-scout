@@ -47,13 +47,14 @@ function ResumePage() {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
     setUserId(u.user.id);
-    const { data: rs } = await supabase.from("resumes" as any).select("*").eq("user_id", u.user.id).order("created_at", { ascending: false });
+    const { data: rs } = await supabase.from("resumes" as any).select("*").eq("user_id", u.user.id).order("updated_at", { ascending: false });
     const list = (rs ?? []) as unknown as ResumeRow[];
     setResumes(list);
-    const active = list.find((r) => r.is_active) ?? list[0] ?? null;
-    if (active) {
-      setCurrent(active);
-      setContent(mergeWithEmpty(active.content));
+    // Load the most recently edited version (latest updated_at)
+    const latest = list[0] ?? null;
+    if (latest) {
+      setCurrent(latest);
+      setContent(mergeWithEmpty(latest.content));
     }
     setLoading(false);
     initialLoad.current = false;
@@ -185,15 +186,6 @@ function ResumePage() {
     setParseBanner("none");
   };
 
-  const setActive = async (id: string) => {
-    if (!userId) return;
-    await supabase.from("resumes" as any).update({ is_active: false }).eq("user_id", userId).neq("id", id);
-    await supabase.from("resumes" as any).update({ is_active: true }).eq("id", id);
-    setResumes((prev) => prev.map((r) => ({ ...r, is_active: r.id === id })));
-    setCurrent((cur) => (cur ? { ...cur, is_active: cur.id === id } : cur));
-    toast.success("Active version updated");
-  };
-
   const deleteVersion = async (id: string) => {
     if (!confirm("Delete this version? This cannot be undone.")) return;
     await supabase.from("resumes" as any).delete().eq("id", id);
@@ -234,26 +226,38 @@ function ResumePage() {
     const fullName = (content.personal.full_name || "Resume").trim();
     const filename = `${fullName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Resume"}.pdf`;
     try {
-      // html2canvas doesn't support oklch() colors (used by Tailwind v4).
-      // Clone the node and inline computed colors as rgb so the capture works.
-      const clone = el.cloneNode(true) as HTMLElement;
-      const srcNodes = el.querySelectorAll<HTMLElement>("*");
-      const cloneNodes = clone.querySelectorAll<HTMLElement>("*");
-      const inlineColors = (src: HTMLElement, dst: HTMLElement) => {
-        const cs = window.getComputedStyle(src);
-        dst.style.color = cs.color;
-        dst.style.backgroundColor = cs.backgroundColor;
-        dst.style.borderTopColor = cs.borderTopColor;
-        dst.style.borderRightColor = cs.borderRightColor;
-        dst.style.borderBottomColor = cs.borderBottomColor;
-        dst.style.borderLeftColor = cs.borderLeftColor;
-        dst.style.outlineColor = cs.outlineColor;
-        dst.style.textDecorationColor = cs.textDecorationColor;
-        dst.style.fill = cs.fill;
-        dst.style.stroke = cs.stroke;
+      // html2canvas can't parse oklch()/lab()/lch() (Tailwind v4).
+      // Convert every computed color to an sRGB rgb(...) string via a
+      // canvas 2D context (which normalizes any browser-supported color).
+      const cvs = document.createElement("canvas");
+      const ctx = cvs.getContext("2d")!;
+      const toRgb = (v: string): string => {
+        if (!v || v === "none" || v === "transparent") return v;
+        try {
+          ctx.fillStyle = "#000";
+          ctx.fillStyle = v;
+          return ctx.fillStyle as string;
+        } catch { return "rgb(0,0,0)"; }
       };
-      inlineColors(el, clone);
-      srcNodes.forEach((n, i) => { const d = cloneNodes[i]; if (d) inlineColors(n, d); });
+      const clone = el.cloneNode(true) as HTMLElement;
+      const srcNodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+      const cloneNodes = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>("*"))];
+      const COLOR_PROPS = [
+        "color","backgroundColor",
+        "borderTopColor","borderRightColor","borderBottomColor","borderLeftColor",
+        "outlineColor","textDecorationColor","fill","stroke","caretColor","columnRuleColor",
+      ] as const;
+      srcNodes.forEach((n, i) => {
+        const d = cloneNodes[i];
+        if (!d) return;
+        const cs = window.getComputedStyle(n);
+        for (const p of COLOR_PROPS) {
+          const v = (cs as any)[p] as string;
+          if (v) (d.style as any)[p] = toRgb(v);
+        }
+        // Kill any background-image that may contain gradients with oklch
+        if (cs.backgroundImage && cs.backgroundImage !== "none") d.style.backgroundImage = "none";
+      });
       const holder = document.createElement("div");
       holder.style.position = "fixed";
       holder.style.left = "-10000px";
@@ -355,8 +359,7 @@ function ResumePage() {
                     </div>
                     <div className="flex gap-1 mt-1">
                       <Button variant="ghost" size="sm" onClick={() => switchVersion(r.id)}>Switch</Button>
-                      {!r.is_active && <Button variant="ghost" size="sm" onClick={() => setActive(r.id)}>Set active</Button>}
-                      {!r.is_active && resumes.length > 1 && <Button variant="ghost" size="sm" onClick={() => deleteVersion(r.id)}>Delete</Button>}
+                      {current?.id !== r.id && resumes.length > 1 && <Button variant="ghost" size="sm" onClick={() => deleteVersion(r.id)}>Delete</Button>}
                     </div>
                     <DropdownMenuSeparator />
                   </div>
@@ -448,6 +451,12 @@ function mergeWithEmpty(c: any): ResumeContent {
     publications: Array.isArray(c.publications) ? c.publications : [],
     awards: Array.isArray(c.awards) ? c.awards : [],
     volunteer: Array.isArray(c.volunteer) ? c.volunteer : [],
+    section_order: (() => {
+      const src = Array.isArray(c.section_order) ? c.section_order.filter((k: any) => k === "work" || k === "education") : [];
+      const out = [...src];
+      for (const k of base.section_order!) if (!out.includes(k)) out.push(k);
+      return out as any;
+    })(),
   };
 }
 

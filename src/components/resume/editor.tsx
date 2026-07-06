@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { ResumeContent, WorkEntry, EducationEntry, ProjectEntry, PublicationEntry, AwardEntry, VolunteerEntry } from "@/lib/resume-types";
-import { newWork, newEducation, newProject, newPublication, newAward, newVolunteer } from "@/lib/resume-types";
+import { newWork, newEducation, newProject, newPublication, newAward, newVolunteer, DEFAULT_SECTION_ORDER, type SectionKey } from "@/lib/resume-types";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,33 @@ export function ResumeEditor({
   const updatePersonal = (patch: Partial<ResumeContent["personal"]>) => onChange({ ...content, personal: { ...content.personal, ...patch } });
   const updateSkills = (key: keyof ResumeContent["skills"], value: string[]) => onChange({ ...content, skills: { ...content.skills, [key]: value } });
 
+  const order: SectionKey[] = (content.section_order && content.section_order.length ? content.section_order : DEFAULT_SECTION_ORDER);
+  const moveSection = (key: SectionKey, dir: -1 | 1) => {
+    const idx = order.indexOf(key);
+    const j = idx + dir;
+    if (idx < 0 || j < 0 || j >= order.length) return;
+    const next = [...order];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    onChange({ ...content, section_order: next });
+  };
+  const workIdx = order.indexOf("work");
+  const eduIdx = order.indexOf("education");
+
+  const workHeader = (
+    <div className="flex items-center gap-1 flex-1">
+      <span className="flex-1 text-left">Work Experience</span>
+      <button type="button" title="Move up" disabled={workIdx <= 0} className="p-1 disabled:opacity-30 hover:bg-secondary rounded" onClick={(e) => { e.stopPropagation(); moveSection("work", -1); }}><ArrowUp className="h-3 w-3" /></button>
+      <button type="button" title="Move down" disabled={workIdx >= order.length - 1} className="p-1 disabled:opacity-30 hover:bg-secondary rounded" onClick={(e) => { e.stopPropagation(); moveSection("work", 1); }}><ArrowDown className="h-3 w-3" /></button>
+    </div>
+  );
+  const eduHeader = (
+    <div className="flex items-center gap-1 flex-1">
+      <span className="flex-1 text-left">Education</span>
+      <button type="button" title="Move up" disabled={eduIdx <= 0} className="p-1 disabled:opacity-30 hover:bg-secondary rounded" onClick={(e) => { e.stopPropagation(); moveSection("education", -1); }}><ArrowUp className="h-3 w-3" /></button>
+      <button type="button" title="Move down" disabled={eduIdx >= order.length - 1} className="p-1 disabled:opacity-30 hover:bg-secondary rounded" onClick={(e) => { e.stopPropagation(); moveSection("education", 1); }}><ArrowDown className="h-3 w-3" /></button>
+    </div>
+  );
+
   const defaultOpen = ["personal", "work", "education", "skills", "projects"];
   if (hasPublications || (content.publications?.length ?? 0) > 0) defaultOpen.push("publications");
   if (hasAwards || (content.awards?.length ?? 0) > 0) defaultOpen.push("awards");
@@ -47,7 +74,7 @@ export function ResumeEditor({
         </AccordionItem>
 
         <AccordionItem value="work" className="border rounded-md px-3">
-          <AccordionTrigger>Work Experience</AccordionTrigger>
+          <AccordionTrigger>{workHeader}</AccordionTrigger>
           <AccordionContent className="space-y-3">
             {content.work_experience.map((e, i) => (
               <EntryCard key={e.id} onRemove={() => onChange({ ...content, work_experience: content.work_experience.filter((x) => x.id !== e.id) })}
@@ -68,7 +95,7 @@ export function ResumeEditor({
         </AccordionItem>
 
         <AccordionItem value="education" className="border rounded-md px-3">
-          <AccordionTrigger>Education</AccordionTrigger>
+          <AccordionTrigger>{eduHeader}</AccordionTrigger>
           <AccordionContent className="space-y-3">
             {content.education.map((e, i) => (
               <EntryCard key={e.id} onRemove={() => onChange({ ...content, education: content.education.filter((x) => x.id !== e.id) })}
