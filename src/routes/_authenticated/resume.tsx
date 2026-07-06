@@ -451,9 +451,12 @@ function mergeWithEmpty(c: any): ResumeContent {
     publications: Array.isArray(c.publications) ? c.publications : [],
     awards: Array.isArray(c.awards) ? c.awards : [],
     volunteer: Array.isArray(c.volunteer) ? c.volunteer : [],
-    section_order: Array.isArray(c.section_order) && c.section_order.length
-      ? c.section_order.filter((k: any) => k === "work" || k === "education")
-      : base.section_order,
+    section_order: (() => {
+      const src = Array.isArray(c.section_order) ? c.section_order.filter((k: any) => k === "work" || k === "education") : [];
+      const out = [...src];
+      for (const k of base.section_order!) if (!out.includes(k)) out.push(k);
+      return out as any;
+    })(),
   };
 }
 
