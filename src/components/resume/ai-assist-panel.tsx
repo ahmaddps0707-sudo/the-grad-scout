@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { UpgradeModal } from "@/components/upgrade-modal";
 
 export function AIAssistPanel({
   open, onOpenChange, section, currentText, resumeId, onUse,
@@ -19,6 +20,7 @@ export function AIAssistPanel({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [retries, setRetries] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const fetchSuggestions = async () => {
     setLoading(true);
@@ -27,6 +29,9 @@ export function AIAssistPanel({
       const { data, error } = await supabase.functions.invoke("resume-ai-assist", {
         body: { resume_id: resumeId, section, raw_input: currentText },
       });
+      // 402 responses arrive as either an error with context or a data payload with `code`
+      const code = (data as any)?.code ?? (error as any)?.context?.body?.code;
+      if (code === "LIMIT_AI") { setUpgradeOpen(true); onOpenChange(false); return; }
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       setSuggestions((data as any)?.suggestions ?? []);
@@ -61,6 +66,8 @@ export function AIAssistPanel({
   };
 
   return (
+    <>
+    <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} reason="ai" />
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
@@ -101,5 +108,6 @@ export function AIAssistPanel({
         </div>
       </SheetContent>
     </Sheet>
+    </>
   );
 }
