@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
+import { FREE_LIMITS, isPaidTier } from "@/lib/limits";
+import { UpgradeModal, type UpgradeReason } from "@/components/upgrade-modal";
 import type { Database } from "@/integrations/supabase/types";
 
 type EntryRow = Database["public"]["Tables"]["user_entries"]["Row"];
@@ -40,10 +42,14 @@ function DashboardPage() {
   const [sort, setSort] = useState<SortKey>("score");
   const [discovering, setDiscovering] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
+  const [tier, setTier] = useState<{ tier: "free" | "paid"; status: "active" | "canceled" | "past_due" | null; discover_runs_used: number }>({ tier: "free", status: null, discover_runs_used: 0 });
 
   const load = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
+    const { data: prof } = await supabase.from("profiles").select("subscription_tier,subscription_status,discover_runs_used").eq("id", u.user.id).single();
+    if (prof) setTier({ tier: (prof as any).subscription_tier, status: (prof as any).subscription_status, discover_runs_used: (prof as any).discover_runs_used ?? 0 });
     const { data, error } = await supabase
       .from("user_entries")
       .select("*, university:universities(*), program:programs(*)")
@@ -97,6 +103,16 @@ function DashboardPage() {
   const discoverMore = async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
+    // Client-side pre-check
+    const paid = isPaidTier(tier);
+    if (!paid && tier.discover_runs_used >= FREE_LIMITS.discover_runs) {
+      setUpgradeReason("discover");
+      return;
+    }
+    if (!paid && entries.length >= FREE_LIMITS.tracked_programs) {
+      setUpgradeReason("tracked");
+      return;
+    }
     const { data: job, error } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();
     if (error) return toast.error(error.message);
     setActiveJobId(job.id);
@@ -133,6 +149,7 @@ function DashboardPage() {
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl px-6 py-8">
+        <UpgradeModal open={!!upgradeReason} onOpenChange={(v) => !v && setUpgradeReason(null)} reason={upgradeReason ?? "generic"} />
         <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
           <div>
             <h1 className="font-display text-3xl">Your pipeline</h1>
