@@ -301,16 +301,23 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_bullets_used: number
           budget_ceiling: number | null
           budget_currency: string | null
           country_of_origin: string | null
           created_at: string
+          discover_runs_used: number
           full_name: string | null
           funding_preference: Database["public"]["Enums"]["funding_pref"] | null
           gpa: number | null
           id: string
           last_visited_forum_at: string | null
           onboarding_complete: boolean
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_current_period_end: string | null
+          subscription_status: string | null
+          subscription_tier: string
           target_countries: string[] | null
           target_degree_level: string | null
           target_intake: string | null
@@ -318,13 +325,16 @@ export type Database = {
           target_tier: Database["public"]["Enums"]["tier_pref"] | null
           test_scores: Json | null
           updated_at: string
+          usage_reset_at: string
           work_exp_years: number | null
         }
         Insert: {
+          ai_bullets_used?: number
           budget_ceiling?: number | null
           budget_currency?: string | null
           country_of_origin?: string | null
           created_at?: string
+          discover_runs_used?: number
           full_name?: string | null
           funding_preference?:
             | Database["public"]["Enums"]["funding_pref"]
@@ -333,6 +343,11 @@ export type Database = {
           id: string
           last_visited_forum_at?: string | null
           onboarding_complete?: boolean
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string
           target_countries?: string[] | null
           target_degree_level?: string | null
           target_intake?: string | null
@@ -340,13 +355,16 @@ export type Database = {
           target_tier?: Database["public"]["Enums"]["tier_pref"] | null
           test_scores?: Json | null
           updated_at?: string
+          usage_reset_at?: string
           work_exp_years?: number | null
         }
         Update: {
+          ai_bullets_used?: number
           budget_ceiling?: number | null
           budget_currency?: string | null
           country_of_origin?: string | null
           created_at?: string
+          discover_runs_used?: number
           full_name?: string | null
           funding_preference?:
             | Database["public"]["Enums"]["funding_pref"]
@@ -355,6 +373,11 @@ export type Database = {
           id?: string
           last_visited_forum_at?: string | null
           onboarding_complete?: boolean
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_status?: string | null
+          subscription_tier?: string
           target_countries?: string[] | null
           target_degree_level?: string | null
           target_intake?: string | null
@@ -362,6 +385,7 @@ export type Database = {
           target_tier?: Database["public"]["Enums"]["tier_pref"] | null
           test_scores?: Json | null
           updated_at?: string
+          usage_reset_at?: string
           work_exp_years?: number | null
         }
         Relationships: []

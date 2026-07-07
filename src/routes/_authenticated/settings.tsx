@@ -10,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
+import { FREE_LIMITS, isPaidTier } from "@/lib/limits";
+import { UpgradeModal } from "@/components/upgrade-modal";
+import { Progress } from "@/components/ui/progress";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -23,6 +26,7 @@ const COUNTRIES = ["United States","United Kingdom","Canada","Germany","Netherla
 function SettingsPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [saving, setSaving] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +38,12 @@ function SettingsPage() {
   }, []);
 
   if (!profile) return <AppShell><div className="mx-auto max-w-3xl p-8">Loading…</div></AppShell>;
+
+  const p = profile as any;
+  const paid = isPaidTier({ tier: p.subscription_tier ?? "free", status: p.subscription_status ?? null });
+  const discoverUsed = p.discover_runs_used ?? 0;
+  const aiUsed = p.ai_bullets_used ?? 0;
+  const resetAt = p.usage_reset_at ? new Date(p.usage_reset_at) : null;
 
   const update = (patch: Partial<ProfileRow>) => setProfile((p) => p ? { ...p, ...patch } : p);
   const toggleCountry = (c: string) => {
@@ -152,14 +162,40 @@ function SettingsPage() {
             <div>
               <h2 className="font-display text-xl">Subscription</h2>
               <div className="mt-2 flex items-center gap-2">
-                <Badge variant="secondary">Free plan</Badge>
-                <span className="text-sm text-muted-foreground">Up to 25 tracked programs</span>
+                {paid ? <Badge>Pro plan</Badge> : <Badge variant="secondary">Free plan</Badge>}
+                {!paid && <span className="text-sm text-muted-foreground">Up to {FREE_LIMITS.tracked_programs} tracked programs</span>}
               </div>
-              <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Admitly Pro for unlimited matches, deeper enrichment, and priority research runs.</p>
+              {!paid && (
+                <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Admitly Pro for unlimited matches, unlimited AI resume assistance, and priority research runs.</p>
+              )}
             </div>
-            <Button variant="outline" disabled>Upgrade (coming soon)</Button>
+            {!paid && (
+              <Button onClick={() => setUpgradeOpen(true)} className="gap-2">Upgrade to Pro</Button>
+            )}
           </div>
+          {!paid && (
+            <div className="mt-6 space-y-4">
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-muted-foreground">Discover runs this month</span>
+                  <span className="tabular-nums">{Math.min(discoverUsed, FREE_LIMITS.discover_runs)} / {FREE_LIMITS.discover_runs}</span>
+                </div>
+                <Progress value={Math.min(100, (discoverUsed / FREE_LIMITS.discover_runs) * 100)} />
+              </div>
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-muted-foreground">AI resume suggestions this month</span>
+                  <span className="tabular-nums">{Math.min(aiUsed, FREE_LIMITS.ai_bullets)} / {FREE_LIMITS.ai_bullets}</span>
+                </div>
+                <Progress value={Math.min(100, (aiUsed / FREE_LIMITS.ai_bullets) * 100)} />
+              </div>
+              {resetAt && (
+                <p className="text-xs text-muted-foreground">Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.</p>
+              )}
+            </div>
+          )}
         </section>
+        <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} />
       </div>
     </AppShell>
   );
