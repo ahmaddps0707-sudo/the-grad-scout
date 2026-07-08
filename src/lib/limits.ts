@@ -1,7 +1,12 @@
+// Free-tier discover runs are LIFETIME (no reset).
+// Paid discover + AI bullets reset each billing period.
 export const FREE_LIMITS = {
-  discover_runs: 3,
-  ai_bullets: 10,
-  tracked_programs: 25,
+  discover_runs: 3, // lifetime
+};
+
+export const PAID_LIMITS = {
+  discover_runs: 20, // per billing period
+  ai_bullets: 50, // per billing period (counted on accept)
 };
 
 export type SubscriptionSummary = {
