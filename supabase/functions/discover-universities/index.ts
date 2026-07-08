@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { FREE_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
+import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
 
 interface DiscoveredProgram {
   university_name: string;
@@ -72,23 +72,19 @@ Deno.serve(async (req) => {
     let { data: profile, error: pErr } = await admin.from("profiles").select("*").eq("id", userId).single();
     if (pErr || !profile) throw pErr ?? new Error("profile missing");
 
-    // Enforce free-tier limits BEFORE spending an AI call
+    // Enforce tier limits BEFORE spending an AI call
     profile = await ensureUsageWindow(admin, profile);
-    if (!isPaid(profile)) {
-      if ((profile.discover_runs_used ?? 0) >= FREE_LIMITS.discover_runs) {
-        await admin.from("discover_jobs").update({ status: "failed", error: "LIMIT_DISCOVER", completed_at: new Date().toISOString() }).eq("id", jobId);
-        return new Response(JSON.stringify({ ok: false, code: "LIMIT_DISCOVER", error: "You've used all 3 free discover runs this month. Upgrade to Pro for unlimited." }), {
-          status: 402, headers: { ...CORS_HEADERS, "content-type": "application/json" },
-        });
-      }
-      // Tracked programs cap
-      const { count } = await admin.from("user_entries").select("*", { count: "exact", head: true }).eq("user_id", userId);
-      if ((count ?? 0) >= FREE_LIMITS.tracked_programs) {
-        await admin.from("discover_jobs").update({ status: "failed", error: "LIMIT_TRACKED", completed_at: new Date().toISOString() }).eq("id", jobId);
-        return new Response(JSON.stringify({ ok: false, code: "LIMIT_TRACKED", error: "You've reached the 25 tracked programs cap. Upgrade to Pro for unlimited." }), {
-          status: 402, headers: { ...CORS_HEADERS, "content-type": "application/json" },
-        });
-      }
+    const paid = isPaid(profile);
+    const runsLimit = paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs;
+    if ((profile.discover_runs_used ?? 0) >= runsLimit) {
+      const code = paid ? "discover_limit_reached_paid" : "discover_limit_reached";
+      const msg = paid
+        ? `You've reached ${PAID_LIMITS.discover_runs} discover runs for this billing period.`
+        : `You've used all ${FREE_LIMITS.discover_runs} free discover runs. Upgrade to Pro for ${PAID_LIMITS.discover_runs}/month.`;
+      await admin.from("discover_jobs").update({ status: "failed", error: code, completed_at: new Date().toISOString() }).eq("id", jobId);
+      return new Response(JSON.stringify({ ok: false, code, reason: "discover_limit_reached", error: msg }), {
+        status: 403, headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
     }
 
     // Load existing entries to exclude
@@ -195,10 +191,8 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     }
 
     await admin.from("discover_jobs").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", jobId);
-    // Increment usage counter (best-effort)
-    if (!isPaid(profile)) {
-      await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
-    }
+    // Always increment discover_runs_used (both tiers are metered)
+    await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
     return new Response(JSON.stringify({ ok: true, count: parsed.length }), {
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
