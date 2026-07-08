@@ -17,8 +17,20 @@ import { ResumePreview } from "@/components/resume/preview";
 
 export const Route = createFileRoute("/_authenticated/resume")({
   head: () => ({ meta: [{ title: "Resume Builder — Admitly" }, { name: "description", content: "Upload, edit, and tailor your resume for master's applications with AI assistance." }] }),
-  component: ResumePage,
+  component: GatedResumePage,
 });
+
+import { PaidRouteGate } from "@/components/paid-route-gate";
+function GatedResumePage() {
+  return (
+    <PaidRouteGate
+      title="Resume Builder"
+      previewNote="Upload, edit, and tailor your resume with AI writing assistance built for master's applications."
+    >
+      <ResumePage />
+    </PaidRouteGate>
+  );
+}
 
 type ResumeRow = { id: string; user_id: string; version_name: string; template_id: string | null; content: ResumeContent; is_active: boolean; source: string; original_file_url: string | null; parse_status: string | null; created_at: string; updated_at: string };
 
