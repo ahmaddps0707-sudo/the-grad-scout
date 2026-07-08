@@ -31,7 +31,9 @@ export function AIAssistPanel({
       });
       // 402 responses arrive as either an error with context or a data payload with `code`
       const code = (data as any)?.code ?? (error as any)?.context?.body?.code;
-      if (code === "LIMIT_AI") { setUpgradeOpen(true); onOpenChange(false); return; }
+      if (code === "ai_bullets_limit_reached" || code === "PAID_ONLY") {
+        setUpgradeOpen(true); onOpenChange(false); return;
+      }
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       setSuggestions((data as any)?.suggestions ?? []);
