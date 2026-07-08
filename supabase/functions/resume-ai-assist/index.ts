@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { CORS_HEADERS, callLovableAI, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { FREE_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
+import { PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -22,15 +22,19 @@ Deno.serve(async (req) => {
     if (!resume_id || !section) throw new Error("resume_id and section required");
     const input = String(raw_input ?? "").trim();
 
-    // Enforce free-tier AI bullet limit
+    // Resume builder is a paid-only feature. Free users must upgrade.
     let { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).single();
-    if (profile) {
-      profile = await ensureUsageWindow(admin, profile);
-      if (!isPaid(profile) && (profile.ai_bullets_used ?? 0) >= FREE_LIMITS.ai_bullets) {
-        return new Response(JSON.stringify({ code: "LIMIT_AI", error: "You've used all 10 free AI bullet suggestions this month. Upgrade to Pro for unlimited." }), {
-          status: 402, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-        });
-      }
+    if (!profile) throw new Error("profile missing");
+    profile = await ensureUsageWindow(admin, profile);
+    if (!isPaid(profile)) {
+      return new Response(JSON.stringify({ code: "PAID_ONLY", reason: "paid_only", error: "Resume builder is a Pro feature. Upgrade for AI writing assistance." }), {
+        status: 403, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+    if ((profile.ai_bullets_used ?? 0) >= PAID_LIMITS.ai_bullets) {
+      return new Response(JSON.stringify({ code: "ai_bullets_limit_reached", reason: "ai_bullets_limit_reached", error: `You've reached ${PAID_LIMITS.ai_bullets} AI bullet acceptances for this billing period.` }), {
+        status: 403, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
     }
 
     const system = "You are a resume writing assistant helping a master's degree applicant strengthen their resume bullet points. Your job is to rephrase and improve what the user has written — you must only work with the facts and details the user has provided. Never add metrics, percentages, numbers, or achievements that the user did not mention. Never fabricate context. If the user's input is vague, return suggestions that are cleaner and stronger in structure, not more specific in claimed impact. Every bullet must follow the pattern: strong action verb + what you did + result or context if provided by the user. Keep each bullet under 2 lines.";
@@ -58,9 +62,7 @@ Deno.serve(async (req) => {
     await admin.from("resume_ai_suggestions").insert({
       user_id: user.id, resume_id, section, raw_input: input, suggestions,
     });
-    if (profile && !isPaid(profile)) {
-      await admin.from("profiles").update({ ai_bullets_used: (profile.ai_bullets_used ?? 0) + 1 }).eq("id", user.id);
-    }
+    // Do NOT increment ai_bullets_used here — increment on accept (see resume-ai-accept).
 
     return new Response(JSON.stringify({ suggestions }), { headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
   } catch (e) {

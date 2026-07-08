@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
-import { FREE_LIMITS, isPaidTier } from "@/lib/limits";
+import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal, type UpgradeReason } from "@/components/upgrade-modal";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -105,12 +105,10 @@ function DashboardPage() {
     if (!u.user) return;
     // Client-side pre-check
     const paid = isPaidTier(tier);
-    if (!paid && tier.discover_runs_used >= FREE_LIMITS.discover_runs) {
-      setUpgradeReason("discover");
-      return;
-    }
-    if (!paid && entries.length >= FREE_LIMITS.tracked_programs) {
-      setUpgradeReason("tracked");
+    const limit = paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs;
+    if (tier.discover_runs_used >= limit) {
+      if (!paid) { setUpgradeReason("discover"); return; }
+      toast.error(`You've reached ${PAID_LIMITS.discover_runs} discover runs for this billing period.`);
       return;
     }
     const { data: job, error } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();

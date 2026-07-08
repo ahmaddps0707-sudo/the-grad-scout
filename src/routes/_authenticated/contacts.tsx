@@ -41,8 +41,20 @@ import {
 
 export const Route = createFileRoute("/_authenticated/contacts")({
   head: () => ({ meta: [{ title: "Contacts — Admitly" }] }),
-  component: ContactsPage,
+  component: GatedContactsPage,
 });
+
+import { PaidRouteGate } from "@/components/paid-route-gate";
+function GatedContactsPage() {
+  return (
+    <PaidRouteGate
+      title="Contacts"
+      previewNote="Track outreach across a full CRM board — saved, reached out, replied, and chats scheduled."
+    >
+      <ContactsPage />
+    </PaidRouteGate>
+  );
+}
 
 type Status = "saved" | "reached_out" | "response_received" | "chat_scheduled" | "archived";
 

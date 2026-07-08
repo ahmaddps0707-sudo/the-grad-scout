@@ -1,10 +1,15 @@
 // Free-tier limits and monthly reset helper.
 // deno-lint-ignore-file no-explicit-any
 
+// Free discover runs are LIFETIME (never reset).
 export const FREE_LIMITS = {
   discover_runs: 3,
-  ai_bullets: 10,
-  tracked_programs: 25,
+};
+
+// Paid users get per-billing-period allotments.
+export const PAID_LIMITS = {
+  discover_runs: 20,
+  ai_bullets: 50,
 };
 
 /**
@@ -12,12 +17,13 @@ export const FREE_LIMITS = {
  * zero the counters and roll the window to the next month. Returns the
  * (possibly refreshed) profile row.
  */
+// Only paid users get periodic resets. Free tier discover runs are lifetime.
 export async function ensureUsageWindow(admin: any, profile: any) {
+  if (!isPaid(profile)) return profile;
   const resetAt = profile.usage_reset_at ? new Date(profile.usage_reset_at) : null;
   if (!resetAt || resetAt.getTime() <= Date.now()) {
     const next = new Date();
-    next.setUTCMonth(next.getUTCMonth() + 1, 1);
-    next.setUTCHours(0, 0, 0, 0);
+    next.setUTCMonth(next.getUTCMonth() + 1, next.getUTCDate());
     const { data, error } = await admin
       .from("profiles")
       .update({ discover_runs_used: 0, ai_bullets_used: 0, usage_reset_at: next.toISOString() })
