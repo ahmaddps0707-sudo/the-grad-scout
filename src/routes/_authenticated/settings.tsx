@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
-import { FREE_LIMITS, isPaidTier } from "@/lib/limits";
+import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { Progress } from "@/components/ui/progress";
 
@@ -163,7 +163,7 @@ function SettingsPage() {
               <h2 className="font-display text-xl">Subscription</h2>
               <div className="mt-2 flex items-center gap-2">
                 {paid ? <Badge>Pro plan</Badge> : <Badge variant="secondary">Free plan</Badge>}
-                {!paid && <span className="text-sm text-muted-foreground">Up to {FREE_LIMITS.tracked_programs} tracked programs</span>}
+                {!paid && <span className="text-sm text-muted-foreground">{FREE_LIMITS.discover_runs} lifetime discover runs</span>}
               </div>
               {!paid && (
                 <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Admitly Pro for unlimited matches, unlimited AI resume assistance, and priority research runs.</p>
@@ -173,27 +173,27 @@ function SettingsPage() {
               <Button onClick={() => setUpgradeOpen(true)} className="gap-2">Upgrade to Pro</Button>
             )}
           </div>
-          {!paid && (
-            <div className="mt-6 space-y-4">
-              <div>
-                <div className="flex items-center justify-between text-sm mb-1.5">
-                  <span className="text-muted-foreground">Discover runs this month</span>
-                  <span className="tabular-nums">{Math.min(discoverUsed, FREE_LIMITS.discover_runs)} / {FREE_LIMITS.discover_runs}</span>
-                </div>
-                <Progress value={Math.min(100, (discoverUsed / FREE_LIMITS.discover_runs) * 100)} />
+          <div className="mt-6 space-y-4">
+            <div>
+              <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="text-muted-foreground">{paid ? "Discover runs this billing period" : "Discover runs (lifetime on Free)"}</span>
+                <span className="tabular-nums">{Math.min(discoverUsed, paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)} / {paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs}</span>
               </div>
-              <div>
-                <div className="flex items-center justify-between text-sm mb-1.5">
-                  <span className="text-muted-foreground">AI resume suggestions this month</span>
-                  <span className="tabular-nums">{Math.min(aiUsed, FREE_LIMITS.ai_bullets)} / {FREE_LIMITS.ai_bullets}</span>
-                </div>
-                <Progress value={Math.min(100, (aiUsed / FREE_LIMITS.ai_bullets) * 100)} />
-              </div>
-              {resetAt && (
-                <p className="text-xs text-muted-foreground">Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.</p>
-              )}
+              <Progress value={Math.min(100, (discoverUsed / (paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)) * 100)} />
             </div>
-          )}
+            {paid && (
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-muted-foreground">AI resume bullets accepted this billing period</span>
+                  <span className="tabular-nums">{Math.min(aiUsed, PAID_LIMITS.ai_bullets)} / {PAID_LIMITS.ai_bullets}</span>
+                </div>
+                <Progress value={Math.min(100, (aiUsed / PAID_LIMITS.ai_bullets) * 100)} />
+              </div>
+            )}
+            {paid && resetAt && (
+              <p className="text-xs text-muted-foreground">Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.</p>
+            )}
+          </div>
         </section>
         <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} />
       </div>
