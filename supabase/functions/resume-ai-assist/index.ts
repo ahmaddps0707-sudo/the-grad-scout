@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
     let raw: string;
     try {
-      raw = await callLovableAI({ apiKey, system, user: user_prompt, model: "google/gemini-2.5-flash", maxTokens: 1024 });
+      raw = await callLovableAI({ apiKey, system, user: user_prompt, model: "google/gemini-3.5-flash", maxTokens: 1024 });
     } catch (e) {
       const msg = (e as Error).message;
       if (/rate limit/i.test(msg)) return new Response(JSON.stringify({ error: "Too many requests — please wait a moment and try again." }), { status: 429, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
