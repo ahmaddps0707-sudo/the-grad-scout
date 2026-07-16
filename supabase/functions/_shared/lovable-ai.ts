@@ -1,6 +1,6 @@
 // Shared helpers for Lovable AI Gateway (Gemini).
 
-export const DEFAULT_MODEL = "google/gemini-2.5-pro";
+export const DEFAULT_MODEL = "google/gemini-3.5-flash";
 
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
