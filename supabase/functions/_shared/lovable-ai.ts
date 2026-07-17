@@ -37,14 +37,16 @@ export function parseJsonLoose(raw: string): any {
 
   try { return tryParse(s); } catch { /* fall through */ }
 
-  // Recovery for truncated arrays: find last "},\n" or "}\n" at depth 1 inside the array
-  if (s.startsWith("[")) {
+  // Recovery for truncated arrays/objects: walk with depth tracking and close outstanding brackets
+  if (s.startsWith("[") || s.startsWith("{")) {
     // Walk the string tracking depth and string state; remember the index right after each
     // top-level element closes (depth returns to 1 after being deeper).
     let depth = 0;
     let inStr = false;
     let esc = false;
     let lastGoodEnd = -1; // index AFTER a complete top-level element
+    const stack: string[] = [];
+    let lastSafe = -1; // safe truncation point outside a string
     for (let i = 0; i < s.length; i++) {
       const c = s[i];
       if (inStr) {
@@ -54,19 +56,47 @@ export function parseJsonLoose(raw: string): any {
         continue;
       }
       if (c === '"') { inStr = true; continue; }
-      if (c === "{" || c === "[") depth++;
+      if (c === "{" || c === "[") { depth++; stack.push(c); }
       else if (c === "}" || c === "]") {
         depth--;
+        stack.pop();
         if (depth === 1) lastGoodEnd = i + 1; // closed a top-level element inside the outer array
         if (depth === 0) lastGoodEnd = i + 1; // closed the outer array
       }
+      lastSafe = i;
     }
-    if (lastGoodEnd > 0) {
+    if (lastGoodEnd > 0 && s.startsWith("[")) {
       let recovered = s.slice(0, lastGoodEnd).trim();
       // Strip trailing comma if any
       recovered = recovered.replace(/,\s*$/, "");
       if (!recovered.endsWith("]")) recovered += "]";
       try { return tryParse(recovered); } catch { /* fall through */ }
+    }
+    // Object recovery: close string, remove trailing partial key/value, close open brackets
+    if (stack.length > 0) {
+      let recovered = s;
+      if (inStr) recovered += '"';
+      // Trim trailing partial: back off to last "," or "{" or "[" at any depth
+      const m = recovered.match(/^[\s\S]*[\{\[,]/);
+      if (m) recovered = m[0].replace(/[,]\s*$/, "");
+      // Close remaining open brackets in reverse
+      const currentStack = [...stack];
+      // Recount stack from recovered
+      let d2Stack: string[] = [];
+      let inStr2 = false, esc2 = false;
+      for (let i = 0; i < recovered.length; i++) {
+        const c = recovered[i];
+        if (inStr2) { if (esc2) { esc2 = false; continue; } if (c === "\\") { esc2 = true; continue; } if (c === '"') inStr2 = false; continue; }
+        if (c === '"') { inStr2 = true; continue; }
+        if (c === "{" || c === "[") d2Stack.push(c);
+        else if (c === "}" || c === "]") d2Stack.pop();
+      }
+      while (d2Stack.length) {
+        const open = d2Stack.pop();
+        recovered += open === "{" ? "}" : "]";
+      }
+      try { return tryParse(recovered); } catch { /* fall through */ }
+      void currentStack; void lastSafe;
     }
   }
 
