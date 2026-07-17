@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
 import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
+import { firecrawlSearch, concatSearchMarkdown, truncate } from "../_shared/firecrawl.ts";
 
 interface DiscoveredProgram {
   university_name: string;
@@ -101,13 +102,26 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    const system = "You are a graduate admissions research assistant specializing in master's degree programs. You only research and recommend master's level programs — never PhD, doctoral, or bachelor's programs. Verify each program actually exists, is currently accepting applications, and is at the master's level. If you cannot verify a program with reasonable confidence, exclude it entirely rather than guessing.";
+    // Phase 1: Firecrawl live search to ground the model
+    const major = profile.target_major ?? "";
+    const countries = (profile.target_countries ?? []).join(", ");
+    const tier = tierLabel(profile.target_tier);
+    const year = new Date().getFullYear();
+    const [s1, s2] = await Promise.all([
+      firecrawlSearch(`${major} masters programs ${countries} ${tier} ${year}`, { limit: 5, scrape: true }),
+      firecrawlSearch(`best ${major} MSc MA MBA masters ${countries} QS ranking ${year}`, { limit: 5, scrape: true }),
+    ]);
+    const searchContext = truncate(concatSearchMarkdown([...s1, ...s2]), 12000);
 
-    const user = `Student profile:
+    const system = "You are a graduate admissions research assistant specializing in master's degree programs. You only recommend master's level programs — MSc, MA, MEng, MBA, MPA, MPH, MS, MEd, LLM, or equivalent. Never recommend PhD, doctoral, or bachelor's programs. Only include programs confirmed in the live search context provided — do not invent programs not mentioned in the context.";
+
+    const user = `Based on the following live search results, identify exactly 5 master's programs that best match this student profile. Only use programs found in the search results. Exclude programs already shown to this user.
+
+Student profile:
 - Target degree: Master's only
-- Target major / field: ${profile.target_major ?? "unspecified"}
-- Target countries: ${(profile.target_countries ?? []).join(", ") || "any"}
-- University tier preference: ${tierLabel(profile.target_tier)}
+- Target major / field: ${major || "unspecified"}
+- Target countries: ${countries || "any"}
+- University tier preference: ${tier}
 - Funding preference: ${fundingLabel(profile.funding_preference)}
 - Budget ceiling: ${profile.budget_ceiling ?? "unspecified"} ${profile.budget_currency ?? ""}
 - Current GPA: ${profile.gpa ?? "unspecified"}
@@ -115,11 +129,12 @@ Deno.serve(async (req) => {
 - Work experience: ${profile.work_exp_years ?? 0} years
 - Target intake: ${profile.target_intake ?? "unspecified"}
 
-Already shown to this user (exclude these): ${excluded}.
+Already shown (exclude): ${excluded}
 
-Find exactly 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Confirm each program is real and currently active.
+Live search context:
+${searchContext || "(no live search results available — do your best based on general knowledge, but prefer nulls over guesses)"}
 
-Respond with ONLY a JSON array, no other text, no markdown fences:
+Return ONLY a JSON array, no other text, no markdown fences:
 [{
   "university_name": string,
   "university_country": string,
@@ -131,7 +146,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
   "department": string,
   "is_stem": boolean,
   "duration_months": number or null,
-  "match_rationale": string
+  "match_rationale": string (2-3 sentences referencing the student's actual preferences)
 }]`;
 
     const raw = await callLovableAI({ apiKey, system, user, maxTokens: 16000 });
@@ -143,6 +158,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
 
+    const enrichTargets: Array<{ program_id: string; university_name: string; program_name: string; website_url: string }> = [];
     for (const p of parsed.slice(0, 5)) {
       // Upsert university (by case-insensitive name + country)
       const { data: existingUni } = await admin.from("universities")
@@ -188,11 +204,31 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
         match_rationale: p.match_rationale,
       });
       if (eErr && !eErr.message.includes("duplicate")) console.error("entry insert", eErr);
+      if (progId) {
+        enrichTargets.push({
+          program_id: progId,
+          university_name: p.university_name,
+          program_name: p.program_name,
+          website_url: p.website_url,
+        });
+      }
     }
 
     await admin.from("discover_jobs").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", jobId);
     // Always increment discover_runs_used (both tiers are metered)
     await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
+
+    // Fire-and-forget background enrichment for all discovered programs.
+    const enrichUrl = `${supabaseUrl}/functions/v1/enrich-university`;
+    const authHeader = req.headers.get("Authorization") ?? `Bearer ${serviceKey}`;
+    for (const t of enrichTargets) {
+      fetch(enrichUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify(t),
+      }).catch((err) => console.error("bg enrich failed", t.program_id, err));
+    }
+
     return new Response(JSON.stringify({ ok: true, count: parsed.length }), {
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
