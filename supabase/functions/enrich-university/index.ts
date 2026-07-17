@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
+import { firecrawlSearch, firecrawlScrape, concatSearchMarkdown, truncate } from "../_shared/firecrawl.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -15,14 +16,33 @@ Deno.serve(async (req) => {
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
-    const system = "You are a graduate admissions research assistant. Your job is to research a specific master's program in depth and return structured, accurate data. Only return values you can verify from current, publicly available sources such as the university's official website, official program pages, QS rankings, or well-known ranking publications. Use null for any field you cannot verify — never estimate, never guess, never fabricate numeric values. Prioritize the official university website as the primary source for deadlines, fees, and requirements.";
+    const year = new Date().getFullYear();
+    const [officialMd, admissionsRes, fundingRes, classRes, careerRes] = await Promise.all([
+      website_url ? firecrawlScrape(website_url) : Promise.resolve(""),
+      firecrawlSearch(`${university_name} ${program_name} admissions deadlines requirements ${year}`, { limit: 3, scrape: true }),
+      firecrawlSearch(`${university_name} ${program_name} tuition fees funding GA TA scholarships ${year}`, { limit: 3, scrape: true }),
+      firecrawlSearch(`${university_name} ${program_name} class profile GPA GRE GMAT IELTS ${year}`, { limit: 3, scrape: true }),
+      firecrawlSearch(`${university_name} ${program_name} career outcomes salary placement employers ${year}`, { limit: 3, scrape: true }),
+    ]);
+    const combined = [
+      officialMd ? `# Official program page (${website_url})\n${officialMd}` : "",
+      concatSearchMarkdown(admissionsRes),
+      concatSearchMarkdown(fundingRes),
+      concatSearchMarkdown(classRes),
+      concatSearchMarkdown(careerRes),
+    ].filter(Boolean).join("\n\n---\n\n");
+    const webContext = truncate(combined, 20000);
 
-    const user = `Research this master's program thoroughly:
+    const system = "You are a graduate admissions research assistant. Extract structured information from the live web content provided. Only return values explicitly present in the source content — use null for anything not found. Never estimate or fabricate numeric values. Prioritize content from official university pages over third-party sources.";
+
+    const user = `Extract all available information for this master's program from the live web content below.
 University: ${university_name}
 Program: ${program_name}
-Official website: ${website_url ?? "unknown"}
 
-Return ONLY the following JSON, no other text, no markdown fences. Use null for any field you cannot verify from a current source.
+Live web content:
+${webContext || "(no live web content retrieved — return nulls for all fields)"}
+
+Return ONLY this JSON, no other text, no markdown fences. Use null for any field not found in the content:
 {
   "overview": {
     "program_description": string or null,
