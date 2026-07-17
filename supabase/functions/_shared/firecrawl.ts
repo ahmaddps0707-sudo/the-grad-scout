@@ -9,14 +9,19 @@ export async function firecrawlSearch(
   query: string,
   opts: { limit?: number } = {},
 ): Promise<FirecrawlResult[]> {
-  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
-  if (!apiKey) return [];
+  const connKey = Deno.env.get("FIRECRAWL_API_KEY");
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!connKey || !lovableKey) {
+    console.error("firecrawl missing keys", { hasConn: !!connKey, hasLovable: !!lovableKey });
+    return [];
+  }
   try {
-    const res = await fetch("https://api.firecrawl.dev/v1/search", {
+    const res = await fetch("https://connector-gateway.lovable.dev/firecrawl/v2/search", {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
+        authorization: `Bearer ${lovableKey}`,
+        "x-connection-api-key": connKey,
       },
       body: JSON.stringify({ query, limit: opts.limit ?? 10 }),
     });
@@ -25,7 +30,13 @@ export async function firecrawlSearch(
       return [];
     }
     const json: any = await res.json().catch(() => ({}));
-    const data = Array.isArray(json?.data) ? json.data : [];
+    const data = Array.isArray(json?.data)
+      ? json.data
+      : Array.isArray(json?.data?.web)
+      ? json.data.web
+      : Array.isArray(json?.web)
+      ? json.web
+      : [];
     return data
       .map((r: any) => ({
         url: String(r?.url ?? ""),
