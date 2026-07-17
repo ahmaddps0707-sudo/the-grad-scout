@@ -21,6 +21,28 @@ function normalizeLinkedIn(url: string): string {
   return url.split("?")[0].replace(/\/+$/, "").toLowerCase();
 }
 
+// LinkedIn frequently returns 999 to bots, and full 200 for real users. We
+// treat anything that isn't a hard 404/410 as "exists" — the goal is only to
+// filter out clearly-dead URLs the model may have hallucinated. We fall back
+// to trusting URLs that came directly from Firecrawl search results.
+async function urlLikelyExists(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: {
+        "user-agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
+      },
+    });
+    // 404 / 410 = definitely dead. LinkedIn's 999 or 200/3xx = allow.
+    if (res.status === 404 || res.status === 410) return false;
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
 
@@ -63,6 +85,12 @@ Deno.serve(async (req) => {
         : Promise.resolve([]),
     ]);
     const snippets = concatSnippets([...r1, ...r2, ...r3].filter((r) => /linkedin\.com\/in\//i.test(r.url)));
+    const searchUrls = new Set(
+      [...r1, ...r2, ...r3]
+        .map((r) => r.url)
+        .filter((u) => /linkedin\.com\/in\//i.test(u))
+        .map(normalizeLinkedIn),
+    );
 
     const system =
       "You are a research assistant helping international master's applicants find students and alumni to contact. Only extract profiles explicitly present in the search snippets provided. Never invent names or URLs not found in the context.";
@@ -94,14 +122,23 @@ Return up to 10 results as ONLY a JSON array, no markdown fences:
     }
 
     const seen = new Set<string>();
-    const valid = parsed
+    const candidates = parsed
       .filter((c) => c && c.name && isValidLinkedIn(c.linkedin_url))
       .map((c) => ({ ...c, linkedin_url: normalizeLinkedIn(c.linkedin_url) }))
       .filter((c) => {
         if (seen.has(c.linkedin_url)) return false;
         seen.add(c.linkedin_url);
         return true;
-      });
+      })
+      // Only trust URLs that actually appeared in the search results —
+      // this prevents the model from inventing profile slugs.
+      .filter((c) => searchUrls.has(c.linkedin_url));
+
+    // Extra safety: verify each surviving URL is reachable (not 404/410).
+    const verified = await Promise.all(
+      candidates.map(async (c) => ((await urlLikelyExists(c.linkedin_url)) ? c : null)),
+    );
+    const valid = verified.filter((c): c is DiscoveredContact => c !== null);
 
     const now = new Date().toISOString();
     if (valid.length > 0) {
