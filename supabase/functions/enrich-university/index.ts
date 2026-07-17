@@ -86,7 +86,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   "sources": [string]
 }`;
 
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 16000 });
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 32000 });
     let data: any;
     try {
       data = parseJsonLoose(raw);
