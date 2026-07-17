@@ -1,7 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { tavilySearch, tavilyExtract, formatExtractContext, formatSearchContext, getTavilyKeyOrThrow } from "../_shared/tavily.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -16,58 +15,12 @@ Deno.serve(async (req) => {
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
-    // Ground via Tavily: search for the program's official pages, then extract content.
-    const tavilyKey = getTavilyKeyOrThrow();
-    const queries = [
-      `${program_name} ${university_name} master's admissions deadline tuition official site`,
-      `${program_name} ${university_name} class profile career outcomes salary employers`,
-    ];
-    const searchHits: any[] = [];
-    for (const q of queries) {
-      try {
-        const r = await tavilySearch({ apiKey: tavilyKey, query: q, maxResults: 5, searchDepth: "advanced" });
-        for (const h of r.results) searchHits.push(h);
-      } catch (err) { console.error("tavily search failed", q, err); }
-    }
-    // Pick top URLs to extract (prefer official domain if given)
-    const seenUrls = new Set<string>();
-    const officialHost = website_url ? (() => { try { return new URL(website_url).host.replace(/^www\./, ""); } catch { return null; } })() : null;
-    const orderedHits = [...searchHits].sort((a, b) => {
-      const aOff = officialHost && a.url?.includes(officialHost) ? 1 : 0;
-      const bOff = officialHost && b.url?.includes(officialHost) ? 1 : 0;
-      return bOff - aOff;
-    });
-    const extractUrls: string[] = [];
-    for (const h of orderedHits) {
-      if (!h.url || seenUrls.has(h.url)) continue;
-      seenUrls.add(h.url);
-      extractUrls.push(h.url);
-      if (extractUrls.length >= 4) break;
-    }
-    let extractContext = "";
-    if (extractUrls.length) {
-      try {
-        const ext = await tavilyExtract({ apiKey: tavilyKey, urls: extractUrls, extractDepth: "advanced" });
-        extractContext = formatExtractContext(ext.results ?? [], 4000);
-      } catch (err) { console.error("tavily extract failed", err); }
-    }
-    const searchContext = formatSearchContext(searchHits.slice(0, 10), 500);
-    const groundingContext = [
-      searchContext ? `SEARCH SNIPPETS:\n${searchContext}` : "",
-      extractContext ? `EXTRACTED PAGE CONTENT:\n${extractContext}` : "",
-    ].filter(Boolean).join("\n\n===\n\n") || "(no web context available)";
-
     const system = "You are a graduate admissions research assistant. Your job is to research a specific master's program in depth and return structured, accurate data. Only return values you can verify from current, publicly available sources such as the university's official website, official program pages, QS rankings, or well-known ranking publications. Use null for any field you cannot verify — never estimate, never guess, never fabricate numeric values. Prioritize the official university website as the primary source for deadlines, fees, and requirements.";
 
     const user = `Research this master's program thoroughly:
 University: ${university_name}
 Program: ${program_name}
 Official website: ${website_url ?? "unknown"}
-
-You have been given LIVE WEB CONTEXT from Tavily below (search snippets and extracted page content). Use these as the primary source of truth. Any value you return MUST be supported by this context or another verifiable source. If a field is not supported, return null. Populate the "sources" array with the URLs you actually used from this context.
-
-WEB CONTEXT:
-${groundingContext}
 
 Return ONLY the following JSON, no other text, no markdown fences. Use null for any field you cannot verify from a current source.
 {

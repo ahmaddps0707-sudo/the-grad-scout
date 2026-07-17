@@ -2,7 +2,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
 import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
-import { tavilySearch, formatSearchContext, getTavilyKeyOrThrow } from "../_shared/tavily.ts";
 
 interface DiscoveredProgram {
   university_name: string;
@@ -102,35 +101,6 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    // Web-search grounding via Tavily: one query per target country (or a generic one)
-    const tavilyKey = getTavilyKeyOrThrow();
-    const countries: string[] = (profile.target_countries ?? []).length
-      ? profile.target_countries
-      : ["any country"];
-    const major = profile.target_major ?? "graduate program";
-    const tierHint = tierLabel(profile.target_tier);
-    const searchQueries = countries.slice(0, 3).map(
-      (c) => `Best master's programs in ${major} in ${c} 2026 intake ${tierHint} university`
-    );
-    const searchResults: any[] = [];
-    for (const q of searchQueries) {
-      try {
-        const r = await tavilySearch({
-          apiKey: tavilyKey,
-          query: q,
-          maxResults: 6,
-          searchDepth: "advanced",
-          excludeDomains: ["reddit.com", "quora.com"],
-        });
-        for (const item of r.results) searchResults.push(item);
-      } catch (err) {
-        console.error("tavily search failed", q, err);
-      }
-    }
-    const groundingContext = searchResults.length
-      ? formatSearchContext(searchResults.slice(0, 15))
-      : "(no web search results available)";
-
     const system = "You are a graduate admissions research assistant specializing in master's degree programs. You only research and recommend master's level programs — never PhD, doctoral, or bachelor's programs. Verify each program actually exists, is currently accepting applications, and is at the master's level. If you cannot verify a program with reasonable confidence, exclude it entirely rather than guessing.";
 
     const user = `Student profile:
@@ -146,11 +116,6 @@ Deno.serve(async (req) => {
 - Target intake: ${profile.target_intake ?? "unspecified"}
 
 Already shown to this user (exclude these): ${excluded}.
-
-You have been given LIVE WEB SEARCH RESULTS below to ground your recommendations. Prefer programs that appear (directly or by reference) in these search snippets, and use the URLs shown as the source of website_url values. Do NOT invent URLs — only use URLs that appear in the search context, or omit the website_url by returning the closest verifiable official domain from the snippets. If a program is not supported by the search context and you cannot verify it, exclude it.
-
-WEB SEARCH CONTEXT (from Tavily):
-${groundingContext}
 
 Find exactly 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Confirm each program is real and currently active.
 

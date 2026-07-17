@@ -1,7 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { tavilySearch, formatSearchContext, getTavilyKeyOrThrow } from "../_shared/tavily.ts";
 
 interface DiscoveredContact {
   name: string;
@@ -54,32 +53,6 @@ Deno.serve(async (req) => {
 
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Ground via Tavily site:linkedin.com/in searches
-    const tavilyKey = getTavilyKeyOrThrow();
-    const queries = [
-      `"${programName}" "${universityName}" master student site:linkedin.com/in`,
-      `"${programName}" "${universityName}" alumni site:linkedin.com/in`,
-    ];
-    if (userCountry) {
-      queries.push(`"${programName}" "${universityName}" ${userCountry} site:linkedin.com/in`);
-    }
-    const hits: any[] = [];
-    for (const q of queries) {
-      try {
-        const r = await tavilySearch({
-          apiKey: tavilyKey,
-          query: q,
-          maxResults: 8,
-          searchDepth: "advanced",
-          includeDomains: ["linkedin.com"],
-        });
-        for (const h of r.results) hits.push(h);
-      } catch (err) { console.error("tavily search failed", q, err); }
-    }
-    const groundingContext = hits.length
-      ? formatSearchContext(hits.slice(0, 20), 500)
-      : "(no LinkedIn search results found)";
-
     const system =
       "You are a research assistant helping international master's degree applicants find and connect with current students and recent alumni of specific programs. Use web search to find real, publicly findable LinkedIn profiles of people who are currently enrolled in or have recently graduated from the specified master's program. Only return profiles that are publicly indexed and findable via a normal web search. If you cannot find a verifiable, publicly indexed LinkedIn URL for a person, exclude them entirely. Do not fabricate names or URLs.";
 
@@ -88,10 +61,7 @@ University: ${universityName}
 Program: ${programName}
 User's home country: ${userCountry || "unspecified"}
 
-You have been given LIVE LinkedIn search results below (from Tavily, restricted to linkedin.com). Extract real people from these results ONLY. Every linkedin_url MUST be a URL that appears in the search context — do NOT invent URLs or names. Prioritize people from ${userCountry || "the user's home country"}, but include others for a fuller picture. Use the search snippet as the source for name, headline, and any visible graduation year.
-
-LINKEDIN SEARCH CONTEXT:
-${groundingContext}
+Search using queries like '${programName} ${universityName} masters student LinkedIn site:linkedin.com/in' and similar. Prioritize finding people from ${userCountry || "the user's home country"} first since the user wants to connect with people from their own country — but also include people from other countries to give a fuller picture.
 
 Return up to 10 results. Respond with ONLY a JSON array, no other text, no markdown fences:
 [{
