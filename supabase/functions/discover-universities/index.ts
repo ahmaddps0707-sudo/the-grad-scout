@@ -2,6 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
 import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
+import { concatSnippets, firecrawlSearch, normalizeUrl } from "../_shared/firecrawl.ts";
 
 interface DiscoveredProgram {
   university_name: string;
@@ -45,6 +46,10 @@ function computeScore(profile: any, p: DiscoveredProgram): number {
   const gpa = Number(profile.gpa ?? 0);
   if (gpa >= 3.7) score += 6; else if (gpa >= 3.3) score += 3;
   return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function isUsefulProgramResult(url: string): boolean {
+  return !/linkedin\.com|facebook\.com|instagram\.com|youtube\.com|reddit\.com|quora\.com|wikipedia\.org/i.test(url);
 }
 
 Deno.serve(async (req) => {
@@ -101,7 +106,27 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    const system = "You are a graduate admissions research assistant specializing in master's degree programs. You only research and recommend master's level programs — never PhD, doctoral, or bachelor's programs. Verify each program actually exists, is currently accepting applications, and is at the master's level. If you cannot verify a program with reasonable confidence, exclude it entirely rather than guessing.";
+    const targetCountries = (profile.target_countries ?? []).join(" ");
+    const searchQueries = [
+      `current master's programs ${profile.target_major ?? "graduate"} ${targetCountries} admissions official`,
+      `site:.edu master's ${profile.target_major ?? "graduate"} program admissions tuition`,
+      `site:.ac.uk master's ${profile.target_major ?? "graduate"} program admissions tuition`,
+      `site:.edu.au master's ${profile.target_major ?? "graduate"} program admissions tuition`,
+    ];
+    const searchBatches = await Promise.all(searchQueries.map((query) => firecrawlSearch(query, { limit: 8 })));
+    const seenUrls = new Set<string>();
+    const liveResults = searchBatches.flat()
+      .filter((result) => result.url && isUsefulProgramResult(result.url))
+      .map((result) => ({ ...result, url: normalizeUrl(result.url) }))
+      .filter((result) => {
+        if (seenUrls.has(result.url)) return false;
+        seenUrls.add(result.url);
+        return true;
+      })
+      .slice(0, 24);
+    const liveContext = concatSnippets(liveResults);
+
+    const system = "You are a graduate admissions research assistant specializing in master's degree programs. Use only the live web search results provided by the user as evidence. You only recommend master's level programs — never PhD, doctoral, or bachelor's programs. If a program is not present in the live search results with an official-looking program URL, exclude it entirely rather than guessing.";
 
     const user = `Student profile:
 - Target degree: Master's only
@@ -117,7 +142,10 @@ Deno.serve(async (req) => {
 
 Already shown to this user (exclude these): ${excluded}.
 
-Find exactly 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Confirm each program is real and currently active.
+Live web search results to use as evidence:
+${liveContext || "(No live search results were available. Return an empty array.)"}
+
+Find up to 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Only include programs that appear in the live web search results above. Use the official program or university URL from those results as website_url.
 
 Respond with ONLY a JSON array, no other text, no markdown fences:
 [{
@@ -134,7 +162,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
   "match_rationale": string
 }]`;
 
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 16000 });
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 12000 });
     let parsed: DiscoveredProgram[];
     try {
       parsed = parseJsonLoose(raw);
@@ -143,7 +171,14 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
 
-    for (const p of parsed.slice(0, 5)) {
+    const liveUrls = new Set(liveResults.map((result) => result.url));
+    const validatedPrograms = parsed
+      .filter((p) => p?.university_name && p?.program_name && p?.website_url)
+      .map((p) => ({ ...p, website_url: normalizeUrl(p.website_url) }))
+      .filter((p) => liveUrls.has(p.website_url))
+      .slice(0, 5);
+
+    for (const p of validatedPrograms) {
       // Upsert university (by case-insensitive name + country)
       const { data: existingUni } = await admin.from("universities")
         .select("*").ilike("name", p.university_name).ilike("country", p.university_country ?? "").maybeSingle();
@@ -193,7 +228,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     await admin.from("discover_jobs").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", jobId);
     // Always increment discover_runs_used (both tiers are metered)
     await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
-    return new Response(JSON.stringify({ ok: true, count: parsed.length }), {
+    return new Response(JSON.stringify({ ok: true, count: validatedPrograms.length }), {
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
   } catch (e) {
