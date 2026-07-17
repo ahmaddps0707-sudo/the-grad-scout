@@ -1,7 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { firecrawlSearch, concatSnippets } from "../_shared/firecrawl.ts";
 
 interface DiscoveredContact {
   name: string;
@@ -54,34 +53,23 @@ Deno.serve(async (req) => {
 
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Firecrawl search for public LinkedIn snippets (never scrape linkedin URLs)
-    const [r1, r2, r3] = await Promise.all([
-      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} masters student`, { limit: 10 }),
-      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} alumni`, { limit: 10 }),
-      userCountry
-        ? firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} ${userCountry}`, { limit: 10 })
-        : Promise.resolve([]),
-    ]);
-    const snippets = concatSnippets([...r1, ...r2, ...r3].filter((r) => /linkedin\.com\/in\//i.test(r.url)));
-
     const system =
-      "You are a research assistant helping international master's applicants find students and alumni to contact. Only extract profiles explicitly present in the search snippets provided. Never invent names or URLs not found in the context.";
+      "You are a research assistant helping international master's degree applicants find and connect with current students and recent alumni of specific programs. Use web search to find real, publicly findable LinkedIn profiles of people who are currently enrolled in or have recently graduated from the specified master's program. Only return profiles that are publicly indexed and findable via a normal web search. If you cannot find a verifiable, publicly indexed LinkedIn URL for a person, exclude them entirely. Do not fabricate names or URLs.";
 
-    const user = `From the following public search result snippets, extract LinkedIn profiles of current students or recent graduates (last 3 years) of this master's program. Prioritize people from ${userCountry || "the user's home country"}. Only include entries with a valid linkedin.com/in/ URL present in the snippets.
-
+    const user = `Find current students and recent graduates (last 3 years) of this master's program who have publicly findable LinkedIn profiles:
 University: ${universityName}
 Program: ${programName}
+User's home country: ${userCountry || "unspecified"}
 
-Search snippets:
-${snippets || "(no snippets found — return an empty array)"}
+Search using queries like '${programName} ${universityName} masters student LinkedIn site:linkedin.com/in' and similar. Prioritize finding people from ${userCountry || "the user's home country"} first since the user wants to connect with people from their own country — but also include people from other countries to give a fuller picture.
 
-Return up to 10 results as ONLY a JSON array, no markdown fences:
+Return up to 10 results. Respond with ONLY a JSON array, no other text, no markdown fences:
 [{
   "name": string,
-  "linkedin_url": string,
-  "graduation_year": string or "Current student",
+  "linkedin_url": string (must be a real linkedin.com/in/ URL),
+  "graduation_year": string (e.g. '2024', '2023', or 'Current student'),
   "country": string or null,
-  "headline": string or null
+  "headline": string or null (their current role/title if visible in public search results — do not access their profile page to get this, only use what appears in the search result snippet)
 }]`;
 
     const raw = await callLovableAI({ apiKey, system, user, maxTokens: 8000 });
