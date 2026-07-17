@@ -13,6 +13,9 @@ import type { Database } from "@/integrations/supabase/types";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { Progress } from "@/components/ui/progress";
+import { createPortalSession } from "@/utils/payments.functions";
+import { getStripeEnvironment } from "@/lib/stripe";
+import { PaymentTestModeBanner } from "@/components/payment-test-mode-banner";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -27,6 +30,8 @@ function SettingsPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [saving, setSaving] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [payments, setPayments] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +39,13 @@ function SettingsPage() {
       if (!u.user) return;
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
       setProfile(data);
+      const { data: pay } = await supabase
+        .from("payment_history")
+        .select("*")
+        .eq("user_id", u.user.id)
+        .order("paid_at", { ascending: false })
+        .limit(20);
+      setPayments(pay ?? []);
     })();
   }, []);
 
@@ -44,6 +56,26 @@ function SettingsPage() {
   const discoverUsed = p.discover_runs_used ?? 0;
   const aiUsed = p.ai_bullets_used ?? 0;
   const resetAt = p.usage_reset_at ? new Date(p.usage_reset_at) : null;
+  const status = p.subscription_status as string | null;
+  const trialEnd = p.trial_end_date ? new Date(p.trial_end_date) : null;
+  const periodEnd = p.subscription_current_period_end ? new Date(p.subscription_current_period_end) : null;
+  const cancelAtEnd = !!p.cancel_at_period_end;
+  const isTrialing = status === "trialing";
+
+  const openPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const result = await createPortalSession({
+        data: { environment: getStripeEnvironment(), returnUrl: `${window.location.origin}/settings` },
+      });
+      if ("error" in result) throw new Error(result.error);
+      window.open(result.url, "_blank");
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not open billing portal");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const update = (patch: Partial<ProfileRow>) => setProfile((p) => p ? { ...p, ...patch } : p);
   const toggleCountry = (c: string) => {
@@ -74,6 +106,7 @@ function SettingsPage() {
 
   return (
     <AppShell>
+      <PaymentTestModeBanner />
       <div className="mx-auto max-w-3xl px-6 py-8 space-y-8">
         <h1 className="font-display text-3xl">Settings</h1>
 
@@ -163,14 +196,29 @@ function SettingsPage() {
               <h2 className="font-display text-xl">Subscription</h2>
               <div className="mt-2 flex items-center gap-2">
                 {paid ? <Badge>Pro plan</Badge> : <Badge variant="secondary">Free plan</Badge>}
+                {isTrialing && <Badge variant="secondary">Trial</Badge>}
+                {status === "past_due" && <Badge variant="destructive">Past due</Badge>}
+                {cancelAtEnd && <Badge variant="secondary">Cancels at period end</Badge>}
                 {!paid && <span className="text-sm text-muted-foreground">{FREE_LIMITS.discover_runs} lifetime discover runs</span>}
               </div>
+              {isTrialing && trialEnd && (
+                <p className="mt-2 text-sm text-muted-foreground">Trial ends {trialEnd.toLocaleDateString()}.</p>
+              )}
+              {paid && periodEnd && !isTrialing && (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {cancelAtEnd ? "Access until " : "Renews on "} {periodEnd.toLocaleDateString()}.
+                </p>
+              )}
               {!paid && (
                 <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Admitly Pro for unlimited matches, unlimited AI resume assistance, and priority research runs.</p>
               )}
             </div>
-            {!paid && (
+            {!paid ? (
               <Button onClick={() => setUpgradeOpen(true)} className="gap-2">Upgrade to Pro</Button>
+            ) : (
+              <Button variant="outline" onClick={openPortal} disabled={portalLoading}>
+                {portalLoading ? "Opening…" : "Manage billing"}
+              </Button>
             )}
           </div>
           <div className="mt-6 space-y-4">
@@ -194,6 +242,30 @@ function SettingsPage() {
               <p className="text-xs text-muted-foreground">Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.</p>
             )}
           </div>
+          {payments.length > 0 && (
+            <div className="mt-6 border-t border-border pt-5">
+              <h3 className="font-display text-lg mb-3">Payment history</h3>
+              <div className="space-y-2">
+                {payments.map((pay) => (
+                  <div key={pay.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-b-0">
+                    <div>
+                      <div className="tabular-nums">
+                        {(pay.amount_cents / 100).toLocaleString(undefined, { style: "currency", currency: (pay.currency ?? "usd").toUpperCase() })}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {pay.paid_at ? new Date(pay.paid_at).toLocaleDateString() : "—"} · {pay.status}
+                      </div>
+                    </div>
+                    {pay.hosted_invoice_url && (
+                      <a href={pay.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                        View invoice
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
         <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} />
       </div>

@@ -281,6 +281,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_history: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          hosted_invoice_url: string | null
+          id: string
+          invoice_pdf: string | null
+          paid_at: string | null
+          status: string
+          stripe_invoice_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          hosted_invoice_url?: string | null
+          id?: string
+          invoice_pdf?: string | null
+          paid_at?: string | null
+          status: string
+          stripe_invoice_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          hosted_invoice_url?: string | null
+          id?: string
+          invoice_pdf?: string | null
+          paid_at?: string | null
+          status?: string
+          stripe_invoice_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       preference_vectors: {
         Row: {
           updated_at: string
@@ -304,6 +343,7 @@ export type Database = {
           ai_bullets_used: number
           budget_ceiling: number | null
           budget_currency: string | null
+          cancel_at_period_end: boolean
           country_of_origin: string | null
           created_at: string
           discover_runs_used: number
@@ -313,9 +353,11 @@ export type Database = {
           id: string
           last_visited_forum_at: string | null
           onboarding_complete: boolean
+          payment_method_attached: boolean
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_current_period_end: string | null
+          subscription_start_date: string | null
           subscription_status: string | null
           subscription_tier: string
           target_countries: string[] | null
@@ -324,6 +366,7 @@ export type Database = {
           target_major: string | null
           target_tier: Database["public"]["Enums"]["tier_pref"] | null
           test_scores: Json | null
+          trial_end_date: string | null
           updated_at: string
           usage_reset_at: string
           work_exp_years: number | null
@@ -332,6 +375,7 @@ export type Database = {
           ai_bullets_used?: number
           budget_ceiling?: number | null
           budget_currency?: string | null
+          cancel_at_period_end?: boolean
           country_of_origin?: string | null
           created_at?: string
           discover_runs_used?: number
@@ -343,9 +387,11 @@ export type Database = {
           id: string
           last_visited_forum_at?: string | null
           onboarding_complete?: boolean
+          payment_method_attached?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
+          subscription_start_date?: string | null
           subscription_status?: string | null
           subscription_tier?: string
           target_countries?: string[] | null
@@ -354,6 +400,7 @@ export type Database = {
           target_major?: string | null
           target_tier?: Database["public"]["Enums"]["tier_pref"] | null
           test_scores?: Json | null
+          trial_end_date?: string | null
           updated_at?: string
           usage_reset_at?: string
           work_exp_years?: number | null
@@ -362,6 +409,7 @@ export type Database = {
           ai_bullets_used?: number
           budget_ceiling?: number | null
           budget_currency?: string | null
+          cancel_at_period_end?: boolean
           country_of_origin?: string | null
           created_at?: string
           discover_runs_used?: number
@@ -373,9 +421,11 @@ export type Database = {
           id?: string
           last_visited_forum_at?: string | null
           onboarding_complete?: boolean
+          payment_method_attached?: boolean
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
+          subscription_start_date?: string | null
           subscription_status?: string | null
           subscription_tier?: string
           target_countries?: string[] | null
@@ -384,6 +434,7 @@ export type Database = {
           target_major?: string | null
           target_tier?: Database["public"]["Enums"]["tier_pref"] | null
           test_scores?: Json | null
+          trial_end_date?: string | null
           updated_at?: string
           usage_reset_at?: string
           work_exp_years?: number | null
@@ -786,6 +837,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      promo_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          description: string | null
+          id: string
+          stripe_coupon_id: string
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          stripe_coupon_id: string
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          stripe_coupon_id?: string
+        }
+        Relationships: []
       }
       resume_ai_suggestions: {
         Row: {
