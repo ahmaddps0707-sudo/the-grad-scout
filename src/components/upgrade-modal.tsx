@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Check, X } from "lucide-react";
+import { StripeEmbeddedCheckout } from "@/components/stripe-embedded-checkout";
 
 // Kept for backwards compatibility with existing call sites.
 export type UpgradeReason = "discover" | "ai" | "contacts" | "resume" | "generic";
@@ -30,16 +33,40 @@ export function UpgradeModal({
   /** Legacy prop — no longer varies copy; kept so existing callers still typecheck. */
   reason?: UpgradeReason;
 }) {
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<string | undefined>(undefined);
+
+  const handleClose = (v: boolean) => {
+    if (!v) {
+      setCheckoutOpen(false);
+      setAppliedPromo(undefined);
+      setPromoCode("");
+    }
+    onOpenChange(v);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl text-center">Unlock full access</DialogTitle>
           <p className="text-center text-muted-foreground pt-2">
-            Get unlimited research, resume builder, contact management, and AI assistance for $10/month.
+            Start with a 7-day free trial. $10/month after. Cancel anytime.
           </p>
         </DialogHeader>
 
+        {checkoutOpen ? (
+          <div className="mt-4">
+            <StripeEmbeddedCheckout
+              priceId="pro_monthly"
+              trialDays={7}
+              promoCode={appliedPromo}
+              returnUrl={`${window.location.origin}/settings?checkout=success`}
+            />
+          </div>
+        ) : (
+          <>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
           <div className="rounded-lg border border-border bg-surface p-4">
             <div className="font-display text-lg mb-3">Free</div>
@@ -70,18 +97,34 @@ export function UpgradeModal({
           </div>
         </div>
 
-        <div className="mt-4 flex flex-col items-center gap-2">
-          <Button size="lg" className="w-full sm:w-auto sm:min-w-[280px]" disabled>
-            Upgrade for $10/month
+        <div className="mt-4 flex flex-col items-center gap-3">
+          <div className="flex w-full max-w-sm gap-2">
+            <Input
+              placeholder="Promo code (optional)"
+              value={promoCode}
+              onChange={(e) => setPromoCode(e.target.value)}
+            />
+          </div>
+          <Button
+            size="lg"
+            className="w-full sm:w-auto sm:min-w-[280px]"
+            onClick={() => {
+              setAppliedPromo(promoCode.trim() || undefined);
+              setCheckoutOpen(true);
+            }}
+          >
+            Start 7-day free trial
           </Button>
           <button
             type="button"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleClose(false)}
             className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
           >
             Maybe later
           </button>
         </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

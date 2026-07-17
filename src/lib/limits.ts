@@ -18,5 +18,5 @@ export type SubscriptionSummary = {
 };
 
 export function isPaidTier(s: Pick<SubscriptionSummary, "tier" | "status">): boolean {
-  return s.tier === "paid" && s.status === "active";
+  return s.tier === "paid" && (s.status === "active" || s.status === "trialing" || s.status === "past_due" || s.status === "canceled");
 }
