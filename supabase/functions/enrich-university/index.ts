@@ -1,7 +1,17 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { firecrawlSearch, normalizeUrl, scrapeUniqueUrls, type FirecrawlDocument, type FirecrawlResult } from "../_shared/firecrawl.ts";
+import {
+  categorizeUrl,
+  firecrawlScrape,
+  firecrawlSearch,
+  isSameOrSubDomain,
+  normalizeUrl,
+  scrapeUniqueUrls,
+  type FirecrawlDocument,
+  type FirecrawlResult,
+  type SubPageCategory,
+} from "../_shared/firecrawl.ts";
 
 function hostname(url?: string | null): string | null {
   if (!url) return null;
@@ -27,33 +37,161 @@ function resultScore(result: FirecrawlResult, officialHost: string | null, progr
   return score;
 }
 
-function sourceContext(docs: FirecrawlDocument[]): string {
-  return docs.map((doc, index) => {
-    const body = doc.markdown.replace(/\s+/g, " ").slice(0, 9000);
-    return `SOURCE ${index + 1}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nDescription: ${doc.description ?? ""}\nContent:\n${body}`;
-  }).join("\n\n---\n\n").slice(0, 65000);
+function sourceContext(docs: FirecrawlDocument[], perDocCap = 8000, totalCap = 90000): string {
+  const out = docs.map((doc, index) => {
+    const body = doc.markdown.replace(/\s+/g, " ").slice(0, perDocCap);
+    const cat = (doc as any)._category ? ` [${(doc as any)._category}]` : "";
+    return `SOURCE ${index + 1}${cat}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
+  }).join("\n\n---\n\n");
+  return out.slice(0, totalCap);
 }
 
-async function gatherLiveSources(universityName: string, programName: string, websiteUrl?: string | null): Promise<FirecrawlDocument[]> {
-  const officialHost = hostname(websiteUrl);
-  const sitePrefix = officialHost ? `site:${officialHost} ` : "";
-  const queries = [
-    `${sitePrefix}${universityName} ${programName} official master's program`,
-    `${sitePrefix}${universityName} ${programName} admissions requirements deadlines apply`,
-    `${sitePrefix}${universityName} ${programName} tuition fees funding scholarships assistantship`,
-    `${sitePrefix}${universityName} ${programName} class profile statistics international students STEM`,
-    `${sitePrefix}${universityName} ${programName} career outcomes placement salary employers`,
-    `${universityName} ${programName} QS ranking US News ranking`,
-  ];
+const TARGET_CATEGORIES: SubPageCategory[] = [
+  "admissions",
+  "deadlines",
+  "requirements",
+  "tuition",
+  "funding",
+  "class_profile",
+  "career",
+  "curriculum",
+  "international",
+];
 
-  const batches = await Promise.all(queries.map((query) => firecrawlSearch(query, { limit: 8 })));
-  const ranked = batches.flat()
-    .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName));
-  const urls = [websiteUrl, ...ranked.map((r) => r.url)].filter((url): url is string => !!url);
-  const docs = await scrapeUniqueUrls(urls, 12);
-  const officialDocs = docs.filter((doc) => officialHost && doc.url.toLowerCase().includes(officialHost.toLowerCase()));
-  const otherDocs = docs.filter((doc) => !officialHost || !doc.url.toLowerCase().includes(officialHost.toLowerCase()));
-  return [...officialDocs, ...otherDocs].slice(0, 10);
+/**
+ * Three-step deep crawl:
+ *   1. Locate the main program page (from websiteUrl or a targeted search) and scrape it with links.
+ *   2. Categorize discovered same-domain links; scrape the top link per category in parallel.
+ *   3. Fill any missing category via a targeted `site:` search + scrape, plus rankings.
+ */
+async function gatherLiveSources(
+  universityName: string,
+  programName: string,
+  websiteUrl?: string | null,
+): Promise<FirecrawlDocument[]> {
+  let officialHost = hostname(websiteUrl);
+
+  // ---------- STEP 1: main program page ----------
+  let mainDoc: FirecrawlDocument | null = null;
+  if (websiteUrl) {
+    mainDoc = await firecrawlScrape(websiteUrl, { includeLinks: true, maxMarkdownChars: 14000 });
+  }
+  if (!mainDoc) {
+    const seedQuery = officialHost
+      ? `site:${officialHost} ${programName} master's program`
+      : `${universityName} ${programName} master's program official site`;
+    const seeds = await firecrawlSearch(seedQuery, { limit: 5 });
+    const ranked = seeds.sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName));
+    for (const s of ranked) {
+      mainDoc = await firecrawlScrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
+      if (mainDoc) break;
+    }
+  }
+  if (mainDoc && !officialHost) officialHost = hostname(mainDoc.url);
+  const docs: FirecrawlDocument[] = [];
+  const covered = new Set<SubPageCategory>();
+  if (mainDoc) {
+    (mainDoc as any)._category = "overview";
+    docs.push(mainDoc);
+    covered.add("overview" as SubPageCategory);
+  }
+
+  // ---------- STEP 2: categorize + scrape sub-pages from main page links ----------
+  const linkPool: Array<{ url: string; category: SubPageCategory }> = [];
+  const seenUrls = new Set<string>(docs.map((d) => normalizeUrl(d.url)));
+  if (mainDoc?.links?.length) {
+    for (const raw of mainDoc.links) {
+      let abs = raw;
+      try {
+        abs = new URL(raw, mainDoc.url).toString();
+      } catch {
+        continue;
+      }
+      const norm = normalizeUrl(abs);
+      if (!norm || seenUrls.has(norm)) continue;
+      if (!isSameOrSubDomain(norm, officialHost)) continue;
+      const cat = categorizeUrl(norm);
+      if (!cat) continue;
+      linkPool.push({ url: norm, category: cat });
+    }
+  }
+
+  // Pick the first link per category to avoid over-scraping.
+  const perCat = new Map<SubPageCategory, string[]>();
+  for (const item of linkPool) {
+    const arr = perCat.get(item.category) ?? [];
+    if (arr.length < 2) arr.push(item.url);
+    perCat.set(item.category, arr);
+  }
+  const subPageUrls: Array<{ url: string; category: SubPageCategory }> = [];
+  for (const [cat, urls] of perCat) {
+    for (const url of urls) subPageUrls.push({ url, category: cat });
+  }
+
+  const step2Docs = await scrapeUniqueUrls(
+    subPageUrls.map((x) => x.url),
+    18,
+    { concurrency: 6, maxMarkdownChars: 10000 },
+  );
+  const urlToCat = new Map(subPageUrls.map((x) => [normalizeUrl(x.url), x.category]));
+  for (const d of step2Docs) {
+    const key = normalizeUrl(d.url);
+    if (seenUrls.has(key)) continue;
+    seenUrls.add(key);
+    const cat = urlToCat.get(key) ?? categorizeUrl(d.url);
+    if (cat) {
+      (d as any)._category = cat;
+      covered.add(cat);
+    }
+    docs.push(d);
+  }
+
+  // ---------- STEP 3: fill missing categories via targeted search + rankings ----------
+  const missing = TARGET_CATEGORIES.filter((c) => !covered.has(c));
+  const catQueries: Record<SubPageCategory, string> = {
+    overview: `${programName} overview`,
+    admissions: `${programName} admissions how to apply`,
+    deadlines: `${programName} application deadlines dates`,
+    requirements: `${programName} admission requirements prerequisites`,
+    tuition: `${programName} tuition fees cost of attendance`,
+    funding: `${programName} funding scholarships assistantship financial aid`,
+    class_profile: `${programName} class profile student statistics`,
+    career: `${programName} career outcomes placement salary employers`,
+    curriculum: `${programName} curriculum courses program structure`,
+    international: `${programName} international students STEM OPT visa`,
+    faculty: `${programName} faculty research`,
+  };
+  const gapQueries: string[] = missing.map((cat) => {
+    const base = catQueries[cat];
+    return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
+  });
+  gapQueries.push(`${universityName} ${programName} QS ranking US News ranking`);
+
+  const gapBatches = await Promise.all(gapQueries.map((q) => firecrawlSearch(q, { limit: 5 })));
+  const gapUrls: string[] = [];
+  for (const results of gapBatches) {
+    const top = results
+      .filter((r) => isSameOrSubDomain(r.url, officialHost) || /qs|usnews|topuniversities|ranking/i.test(r.url))
+      .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName))
+      .slice(0, 2);
+    for (const t of top) {
+      const norm = normalizeUrl(t.url);
+      if (!seenUrls.has(norm)) gapUrls.push(norm);
+    }
+  }
+  const step3Docs = await scrapeUniqueUrls(gapUrls, 10, { concurrency: 5, maxMarkdownChars: 9000 });
+  for (const d of step3Docs) {
+    const key = normalizeUrl(d.url);
+    if (seenUrls.has(key)) continue;
+    seenUrls.add(key);
+    (d as any)._category = categorizeUrl(d.url) ?? "overview";
+    docs.push(d);
+  }
+
+  // Prioritize: official host first, then category diversity.
+  const officialDocs = docs.filter((d) => officialHost && d.url.toLowerCase().includes(officialHost.toLowerCase()));
+  const otherDocs = docs.filter((d) => !officialHost || !d.url.toLowerCase().includes(officialHost.toLowerCase()));
+  return [...officialDocs, ...otherDocs].slice(0, 20);
 }
 
 function validUrlOrNull(url: unknown, validSources: Set<string>): string | null {
@@ -155,7 +293,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   "sources": [string]
 }`;
 
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 24000 });
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 32000 });
     let data: any;
     try {
       data = parseJsonLoose(raw);
