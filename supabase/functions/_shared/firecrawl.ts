@@ -37,7 +37,10 @@ export async function firecrawlSearch(
       return [];
     }
     const json = await res.json();
-    const items = json?.data ?? json?.web ?? [];
+    const data = json?.data ?? json;
+    const items = Array.isArray(data)
+      ? data
+      : (data?.web ?? data?.results ?? data?.news ?? []);
     if (!Array.isArray(items)) return [];
     return items.map((r: any) => ({
       url: r.url ?? "",
