@@ -51,7 +51,8 @@ function DashboardPage() {
   const quick = search.quick;
   const statusFilter = search.status as EntryStatus | "all";
   const sort = search.sort;
-  const setSearch = (patch: Partial<typeof search>) => navigate({ to: "/dashboard", search: (prev) => ({ ...prev, ...patch }) as any, replace: false });
+  const setSearch = (patch: Partial<typeof search>) =>
+    navigate({ to: "/dashboard", search: (prev: typeof search) => ({ ...prev, ...patch }) });
   const [entries, setEntries] = useState<EntryFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [discovering, setDiscovering] = useState(false);
@@ -127,6 +128,8 @@ function DashboardPage() {
       toast.error(`You've reached ${PAID_LIMITS.discover_runs} discover runs for this billing period.`);
       return;
     }
+    preRunCountRef.current = entries.length;
+    setLastRunCount(null);
     const { data: job, error } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();
     if (error) return toast.error(error.message);
     setActiveJobId(job.id);
@@ -190,19 +193,19 @@ function DashboardPage() {
           <>
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {(["all","favorites","liked","applied","offers"] as QuickFilter[]).map((q) => (
-                <button key={q} onClick={() => setQuick(q)} className={`rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
+                <button key={q} onClick={() => setSearch({ quick: q })} className={`rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
                   {q === "all" ? "All" : q[0].toUpperCase() + q.slice(1)}
                 </button>
               ))}
               <div className="ml-auto flex items-center gap-2">
-                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as EntryStatus | "all")}>
+                <Select value={statusFilter} onValueChange={(v) => setSearch({ status: v })}>
                   <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                <Select value={sort} onValueChange={(v) => setSearch({ sort: v as SortKey })}>
                   <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="score">Sort: Score</SelectItem>
