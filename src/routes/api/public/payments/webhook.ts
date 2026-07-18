@@ -39,9 +39,21 @@ async function upsertSubscriptionOnProfile(subscription: any) {
   const finalTier = activeUntilPeriodEnd ? "paid" : tier;
   const finalStatus = activeUntilPeriodEnd ? "canceled" : status;
 
-  await getSupabase()
+  // Detect a period rollover (renewal): if the stored period_end has advanced,
+  // zero the per-period usage counters so paid users get their fresh allotment.
+  const supa = getSupabase();
+  const { data: existing } = await supa
     .from("profiles")
-    .update({
+    .select("subscription_current_period_end")
+    .eq("id", userId)
+    .maybeSingle();
+  const prevEnd = existing?.subscription_current_period_end
+    ? new Date(existing.subscription_current_period_end as string).getTime()
+    : 0;
+  const newEnd = periodEnd ? periodEnd * 1000 : 0;
+  const isRenewal = newEnd > 0 && prevEnd > 0 && newEnd > prevEnd;
+
+  const update: Database["public"]["Tables"]["profiles"]["Update"] = {
       subscription_tier: finalTier,
       subscription_status: finalStatus,
       stripe_customer_id: subscription.customer,
@@ -52,8 +64,12 @@ async function upsertSubscriptionOnProfile(subscription: any) {
       trial_end_date: isoFromUnix(subscription.trial_end),
       usage_reset_at: isoFromUnix(periodEnd) ?? new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
+  };
+  if (isRenewal) {
+    update.discover_runs_used = 0;
+    update.ai_bullets_used = 0;
+  }
+  await supa.from("profiles").update(update).eq("id", userId);
 }
 
 async function handleSubscriptionDeleted(subscription: any) {

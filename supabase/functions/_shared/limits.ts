@@ -37,5 +37,12 @@ export async function ensureUsageWindow(admin: any, profile: any) {
 }
 
 export function isPaid(profile: any): boolean {
-  return profile?.subscription_tier === "paid" && profile?.subscription_status === "active";
+  if (profile?.subscription_tier !== "paid") return false;
+  const status = profile?.subscription_status;
+  if (status === "active" || status === "trialing" || status === "past_due") return true;
+  // Cancelled subscriptions keep access until the paid period ends.
+  if (status === "canceled" && profile?.subscription_current_period_end) {
+    return new Date(profile.subscription_current_period_end).getTime() > Date.now();
+  }
+  return false;
 }

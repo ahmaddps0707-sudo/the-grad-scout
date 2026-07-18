@@ -844,24 +844,33 @@ export type Database = {
           code: string
           created_at: string
           description: string | null
+          expires_at: string | null
           id: string
+          max_redemptions: number | null
           stripe_coupon_id: string
+          times_redeemed: number
         }
         Insert: {
           active?: boolean
           code: string
           created_at?: string
           description?: string | null
+          expires_at?: string | null
           id?: string
+          max_redemptions?: number | null
           stripe_coupon_id: string
+          times_redeemed?: number
         }
         Update: {
           active?: boolean
           code?: string
           created_at?: string
           description?: string | null
+          expires_at?: string | null
           id?: string
+          max_redemptions?: number | null
           stripe_coupon_id?: string
+          times_redeemed?: number
         }
         Relationships: []
       }
@@ -1093,6 +1102,35 @@ export type Database = {
             columns: ["university_id"]
             isOneToOne: false
             referencedRelation: "universities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_promo_usage: {
+        Row: {
+          id: string
+          promo_code_id: string
+          redeemed_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          promo_code_id: string
+          redeemed_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          promo_code_id?: string
+          redeemed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_promo_usage_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
             referencedColumns: ["id"]
           },
         ]
