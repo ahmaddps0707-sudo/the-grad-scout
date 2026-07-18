@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Check, X } from "lucide-react";
+import { Check, X, Loader2, AlertCircle } from "lucide-react";
 import { StripeEmbeddedCheckout } from "@/components/stripe-embedded-checkout";
+import { createCheckoutSession } from "@/utils/payments.functions";
+import { getStripeEnvironment } from "@/lib/stripe";
 
 // Kept for backwards compatibility with existing call sites.
 export type UpgradeReason = "discover" | "ai" | "contacts" | "resume" | "generic";
@@ -33,17 +35,48 @@ export function UpgradeModal({
   /** Legacy prop — no longer varies copy; kept so existing callers still typecheck. */
   reason?: UpgradeReason;
 }) {
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [promoCode, setPromoCode] = useState("");
-  const [appliedPromo, setAppliedPromo] = useState<string | undefined>(undefined);
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleClose = (v: boolean) => {
     if (!v) {
-      setCheckoutOpen(false);
-      setAppliedPromo(undefined);
+      setClientSecret(null);
+      setError(null);
+      setLoading(false);
       setPromoCode("");
     }
     onOpenChange(v);
+  };
+
+  const startCheckout = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const result = await createCheckoutSession({
+        data: {
+          priceId: "pro_monthly",
+          returnUrl: `${window.location.origin}/settings?checkout=success`,
+          environment: getStripeEnvironment(),
+          trialDays: 7,
+          promoCode: promoCode.trim() || undefined,
+        },
+      });
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+      if (!result.clientSecret) {
+        setError("Stripe did not return a client secret");
+        return;
+      }
+      setClientSecret(result.clientSecret);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start checkout");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,14 +89,9 @@ export function UpgradeModal({
           </p>
         </DialogHeader>
 
-        {checkoutOpen ? (
+        {clientSecret ? (
           <div className="mt-4">
-            <StripeEmbeddedCheckout
-              priceId="pro_monthly"
-              trialDays={7}
-              promoCode={appliedPromo}
-              returnUrl={`${window.location.origin}/settings?checkout=success`}
-            />
+            <StripeEmbeddedCheckout clientSecret={clientSecret} />
           </div>
         ) : (
           <>
@@ -102,18 +130,23 @@ export function UpgradeModal({
             <Input
               placeholder="Promo code (optional)"
               value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
+              onChange={(e) => { setPromoCode(e.target.value); if (error) setError(null); }}
+              disabled={loading}
             />
           </div>
+          {error && (
+            <div className="w-full max-w-sm flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
           <Button
             size="lg"
             className="w-full sm:w-auto sm:min-w-[280px]"
-            onClick={() => {
-              setAppliedPromo(promoCode.trim() || undefined);
-              setCheckoutOpen(true);
-            }}
+            onClick={startCheckout}
+            disabled={loading}
           >
-            Start 7-day free trial
+            {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Starting…</>) : "Start 7-day free trial"}
           </Button>
           <button
             type="button"
