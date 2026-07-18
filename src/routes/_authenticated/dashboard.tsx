@@ -227,10 +227,13 @@ function DashboardPage() {
               </div>
             </div>
 
+            {lastRunCount !== null && lastRunCount <= 2 && lastRunCount > 0 && (
+              <LowResultsBanner count={lastRunCount} onDismiss={() => setLastRunCount(null)} />
+            )}
             {loading ? (
               <div className="text-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" /></div>
             ) : filtered.length === 0 ? (
-              <EmptyState onDiscover={discoverMore} />
+              lastRunCount === 0 ? <LowResultsBanner count={0} onDismiss={() => setLastRunCount(null)} /> : <EmptyState onDiscover={discoverMore} />
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
@@ -242,6 +245,23 @@ function DashboardPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function LowResultsBanner({ count, onDismiss }: { count: number; onDismiss: () => void }) {
+  return (
+    <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-5 flex items-start gap-3">
+      <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <p className="text-sm text-foreground">
+          We found {count} {count === 1 ? "program" : "programs"} matching your current criteria. Your filters may be too specific — try broadening your tier preference or funding requirements in Settings to unlock more matches.
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <Button asChild size="sm"><Link to="/settings">Update preferences</Link></Button>
+          <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
+        </div>
+      </div>
+    </div>
   );
 }
 
