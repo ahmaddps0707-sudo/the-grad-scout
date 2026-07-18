@@ -238,57 +238,46 @@ function ResumePage() {
     const fullName = (content.personal.full_name || "Resume").trim();
     const filename = `${fullName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Resume"}.pdf`;
     try {
-      // html2canvas can't parse oklch()/lab()/lch() (Tailwind v4).
-      // Convert every computed color to an sRGB rgb(...) string via a
-      // canvas 2D context (which normalizes any browser-supported color).
+      // Render to PDF via the browser's print engine in a hidden iframe.
+      // Avoids html2canvas' oklch()/lab() parsing errors from Tailwind v4 by
+      // inlining every computed style as rgb, with no external stylesheet.
       const cvs = document.createElement("canvas");
       const ctx = cvs.getContext("2d")!;
       const toRgb = (v: string): string => {
-        if (!v || v === "none" || v === "transparent") return v;
-        try {
-          ctx.fillStyle = "#000";
-          ctx.fillStyle = v;
-          return ctx.fillStyle as string;
-        } catch { return "rgb(0,0,0)"; }
+        if (!v || v === "none" || v === "transparent" || v.startsWith("rgb")) return v;
+        try { ctx.fillStyle = "#000"; ctx.fillStyle = v; return ctx.fillStyle as string; }
+        catch { return v; }
       };
+      const normalize = (v: string): string =>
+        v ? v.replace(/(oklch|oklab|lab|lch|color)\([^)]*\)/gi, (m) => toRgb(m)) : v;
       const clone = el.cloneNode(true) as HTMLElement;
-      const srcNodes = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
-      const cloneNodes = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>("*"))];
-      const COLOR_PROPS = [
-        "color","backgroundColor",
-        "borderTopColor","borderRightColor","borderBottomColor","borderLeftColor",
-        "outlineColor","textDecorationColor","fill","stroke","caretColor","columnRuleColor",
-      ] as const;
-      srcNodes.forEach((n, i) => {
-        const d = cloneNodes[i];
-        if (!d) return;
+      const srcAll = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
+      const dstAll = [clone, ...Array.from(clone.querySelectorAll<HTMLElement>("*"))];
+      srcAll.forEach((n, i) => {
+        const d = dstAll[i]; if (!d) return;
         const cs = window.getComputedStyle(n);
-        for (const p of COLOR_PROPS) {
-          const v = (cs as any)[p] as string;
-          if (v) (d.style as any)[p] = toRgb(v);
+        let css = "";
+        for (let j = 0; j < cs.length; j++) {
+          const prop = cs.item(j);
+          const val = cs.getPropertyValue(prop);
+          if (!val) continue;
+          css += `${prop}:${normalize(val)};`;
         }
-        // Kill any background-image that may contain gradients with oklch
-        if (cs.backgroundImage && cs.backgroundImage !== "none") d.style.backgroundImage = "none";
+        d.setAttribute("style", css);
       });
-      const holder = document.createElement("div");
-      holder.style.position = "fixed";
-      holder.style.left = "-10000px";
-      holder.style.top = "0";
-      holder.appendChild(clone);
-      document.body.appendChild(holder);
-      const html2pdf: any = (await import("html2pdf.js")).default;
-      await html2pdf()
-        .set({
-          filename,
-          margin: 0,
-          image: { type: "jpeg", quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
-          jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-          pagebreak: { mode: ["css", "legacy"], avoid: ".entry-block" },
-        })
-        .from(clone)
-        .save();
-      document.body.removeChild(holder);
+      const iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;right:0;bottom:0;width:210mm;height:297mm;border:0;opacity:0;pointer-events:none;";
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument!;
+      doc.open();
+      doc.write(`<!doctype html><html><head><meta charset="utf-8"><title>${filename.replace(/\.pdf$/, "")}</title><style>@page{size:A4;margin:0;}html,body{margin:0;padding:0;background:#fff;}*{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;}</style></head><body></body></html>`);
+      doc.close();
+      doc.body.appendChild(clone);
+      await new Promise((r) => setTimeout(r, 150));
+      iframe.contentWindow!.focus();
+      iframe.contentWindow!.print();
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 1500);
+      toast.success("Choose 'Save as PDF' in the print dialog");
     } catch (e: any) {
       toast.error(`Download failed: ${e?.message || "unknown error"}`);
     }
