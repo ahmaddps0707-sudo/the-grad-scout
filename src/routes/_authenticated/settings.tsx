@@ -210,7 +210,7 @@ function SettingsPage() {
                 </p>
               )}
               {!paid && (
-                <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Admitly Pro for unlimited matches, unlimited AI resume assistance, and priority research runs.</p>
+                <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Admitly Pro for 20 program discovers, unlimited AI resume assistance, and priority research runs.</p>
               )}
             </div>
             {!paid ? (
