@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, Loader2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import type { Database } from "@/integrations/supabase/types";
@@ -114,6 +114,29 @@ function DetailPage() {
     } finally { setEnriching(false); }
   };
 
+  const manualRefresh = async () => {
+    if (!entry?.program) return;
+    setAdm(null); setCp(null); setFd(null); setCity(null); setCareer(null);
+    setEnriching(true);
+    try {
+      const { error } = await supabase.functions.invoke("enrich-university", {
+        body: {
+          program_id: entry.program.id,
+          university_name: entry.university.name,
+          program_name: entry.program.name,
+          website_url: entry.university.website_url ?? "",
+          force: true,
+        },
+      });
+      if (error) throw error;
+      await load();
+      toast.success("Information updated successfully");
+    } catch (e) {
+      console.error(e);
+      toast.error("Update failed — please try again");
+    } finally { setEnriching(false); }
+  };
+
   useEffect(() => { load(); }, [load]);
 
   const setStatus = async (s: EntryStatus) => {
@@ -158,6 +181,17 @@ function DetailPage() {
                   {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
+              <div className="flex flex-col items-end gap-1">
+                <Button variant="outline" size="sm" onClick={manualRefresh} disabled={enriching} className="gap-1.5">
+                  <RefreshCw className={`h-3.5 w-3.5 ${enriching ? "animate-spin" : ""}`} />
+                  {enriching ? "Updating..." : "Update Data"}
+                </Button>
+                {entry.program?.last_verified_at && (
+                  <span className="text-[11px] text-muted-foreground">
+                    Last updated: {new Date(entry.program.last_verified_at).toLocaleDateString()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </div>

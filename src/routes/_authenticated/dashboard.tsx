@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin } from "lucide-react";
+import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
@@ -27,6 +27,18 @@ interface EntryFull extends EntryRow {
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Admitly" }] }),
+  validateSearch: (search: Record<string, unknown>) => {
+    const quick = (search.quick as string) ?? "all";
+    const status = (search.status as string) ?? "all";
+    const sort = (search.sort as string) ?? "score";
+    const allowedQuick = ["all","favorites","liked","applied","offers"];
+    const allowedSort = ["score","qs","updated","deadline"];
+    return {
+      quick: (allowedQuick.includes(quick) ? quick : "all") as "all"|"favorites"|"liked"|"applied"|"offers",
+      status: status as string,
+      sort: (allowedSort.includes(sort) ? sort : "score") as "score"|"qs"|"updated"|"deadline",
+    };
+  },
   component: DashboardPage,
 });
 
@@ -35,15 +47,20 @@ type SortKey = "score" | "qs" | "updated" | "deadline";
 
 function DashboardPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
+  const quick = search.quick;
+  const statusFilter = search.status as EntryStatus | "all";
+  const sort = search.sort;
+  const setSearch = (patch: Partial<typeof search>) =>
+    navigate({ to: "/dashboard", search: (prev: typeof search) => ({ ...prev, ...patch }) });
   const [entries, setEntries] = useState<EntryFull[]>([]);
   const [loading, setLoading] = useState(true);
-  const [quick, setQuick] = useState<QuickFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<EntryStatus | "all">("all");
-  const [sort, setSort] = useState<SortKey>("score");
   const [discovering, setDiscovering] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
   const [tier, setTier] = useState<{ tier: "free" | "paid"; status: "active" | "canceled" | "past_due" | null; discover_runs_used: number }>({ tier: "free", status: null, discover_runs_used: 0 });
+  const [lastRunCount, setLastRunCount] = useState<number | null>(null);
+  const preRunCountRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
@@ -81,6 +98,8 @@ function DashboardPage() {
   // Poll the active job
   useEffect(() => {
     if (!activeJobId) return;
+    // Snapshot pre-run count for jobs we didn't start ourselves (post-onboarding)
+    if (preRunCountRef.current == null) preRunCountRef.current = entries.length;
     const interval = setInterval(async () => {
       const { data } = await supabase.from("discover_jobs").select("status,error").eq("id", activeJobId).single();
       if (!data) return;
@@ -88,8 +107,18 @@ function DashboardPage() {
         clearInterval(interval);
         setDiscovering(false);
         setActiveJobId(null);
+        const before = preRunCountRef.current;
         await load();
-        toast.success("New matches added");
+        const { data: u2 } = await supabase.auth.getUser();
+        let added = 0;
+        if (u2.user) {
+          const { count } = await supabase.from("user_entries")
+            .select("*", { count: "exact", head: true }).eq("user_id", u2.user.id);
+          if (before != null && count != null) added = Math.max(0, count - before);
+        }
+        setLastRunCount(added);
+        preRunCountRef.current = null;
+        toast.success(added > 0 ? `${added} new ${added === 1 ? "match" : "matches"} added` : "Discovery complete");
       } else if (data.status === "failed") {
         clearInterval(interval);
         setDiscovering(false);
@@ -111,6 +140,8 @@ function DashboardPage() {
       toast.error(`You've reached ${PAID_LIMITS.discover_runs} discover runs for this billing period.`);
       return;
     }
+    preRunCountRef.current = entries.length;
+    setLastRunCount(null);
     const { data: job, error } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();
     if (error) return toast.error(error.message);
     setActiveJobId(job.id);
@@ -174,19 +205,19 @@ function DashboardPage() {
           <>
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {(["all","favorites","liked","applied","offers"] as QuickFilter[]).map((q) => (
-                <button key={q} onClick={() => setQuick(q)} className={`rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
+                <button key={q} onClick={() => setSearch({ quick: q })} className={`rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
                   {q === "all" ? "All" : q[0].toUpperCase() + q.slice(1)}
                 </button>
               ))}
               <div className="ml-auto flex items-center gap-2">
-                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as EntryStatus | "all")}>
+                <Select value={statusFilter} onValueChange={(v) => setSearch({ status: v })}>
                   <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Select value={sort} onValueChange={(v) => setSort(v as SortKey)}>
+                <Select value={sort} onValueChange={(v) => setSearch({ sort: v as SortKey })}>
                   <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="score">Sort: Score</SelectItem>
@@ -198,10 +229,13 @@ function DashboardPage() {
               </div>
             </div>
 
+            {lastRunCount !== null && lastRunCount <= 2 && lastRunCount > 0 && (
+              <LowResultsBanner count={lastRunCount} onDismiss={() => setLastRunCount(null)} />
+            )}
             {loading ? (
               <div className="text-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground mx-auto" /></div>
             ) : filtered.length === 0 ? (
-              <EmptyState onDiscover={discoverMore} />
+              lastRunCount === 0 ? <LowResultsBanner count={0} onDismiss={() => setLastRunCount(null)} /> : <EmptyState onDiscover={discoverMore} />
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
@@ -213,6 +247,23 @@ function DashboardPage() {
         )}
       </div>
     </AppShell>
+  );
+}
+
+function LowResultsBanner({ count, onDismiss }: { count: number; onDismiss: () => void }) {
+  return (
+    <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 p-5 flex items-start gap-3">
+      <AlertCircle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+      <div className="flex-1">
+        <p className="text-sm text-foreground">
+          We found {count} {count === 1 ? "program" : "programs"} matching your current criteria. Your filters may be too specific — try broadening your tier preference or funding requirements in Settings to unlock more matches.
+        </p>
+        <div className="mt-3 flex items-center gap-2">
+          <Button asChild size="sm"><Link to="/settings">Update preferences</Link></Button>
+          <Button size="sm" variant="ghost" onClick={onDismiss}>Dismiss</Button>
+        </div>
+      </div>
+    </div>
   );
 }
 

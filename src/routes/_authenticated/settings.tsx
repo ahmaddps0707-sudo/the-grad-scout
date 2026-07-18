@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import type { Database } from "@/integrations/supabase/types";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
@@ -28,6 +29,7 @@ const COUNTRIES = ["United States","United Kingdom","Canada","Germany","Netherla
 
 function SettingsPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [email, setEmail] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -37,6 +39,7 @@ function SettingsPage() {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
+      setEmail(u.user.email ?? "");
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
       setProfile(data);
       const { data: pay } = await supabase
@@ -113,6 +116,13 @@ function SettingsPage() {
         <section className="rounded-2xl border border-border bg-surface-elevated p-6 space-y-5">
           <h2 className="font-display text-xl">Profile</h2>
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <Label>Email address</Label>
+              <div className="mt-1.5 flex items-center justify-between gap-2 rounded-md border border-border bg-background/40 px-3 py-2">
+                <span className="text-sm text-foreground">{email || "—"}</span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Cannot be changed</span>
+              </div>
+            </div>
             <div className="col-span-2">
               <Label>Full name</Label>
               <Input value={profile.full_name ?? ""} onChange={(e) => update({ full_name: e.target.value })} className="mt-1.5" />
