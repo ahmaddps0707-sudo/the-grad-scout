@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -32,6 +32,7 @@ export const Route = createFileRoute("/_authenticated/university/$id")({
 
 function DetailPage() {
   const { id } = Route.useParams();
+  const router = useRouter();
   const [entry, setEntry] = useState<(EntryRow & { university: Uni; program: Prog | null }) | null>(null);
   const [adm, setAdm] = useState<Adm | null>(null);
   const [cp, setCp] = useState<Cp | null>(null);
@@ -156,9 +157,19 @@ function DetailPage() {
     <AppShell>
       <div className="border-b border-border/60 bg-surface-elevated/70 backdrop-blur sticky top-[57px] z-20">
         <div className="mx-auto max-w-5xl px-6 py-5">
-          <Link to="/dashboard" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                router.history.back();
+              } else {
+                router.navigate({ to: "/dashboard" });
+              }
+            }}
+            className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3"
+          >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to pipeline
-          </Link>
+          </button>
           <div className="flex items-start justify-between gap-6 flex-wrap">
             <div className="min-w-0">
               <h1 className="font-display text-3xl leading-tight">{entry.university.name}</h1>
