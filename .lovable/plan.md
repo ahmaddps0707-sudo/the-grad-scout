@@ -1,30 +1,25 @@
-## Plan
+## Problem
 
-1. **Upgrade live web research pipeline**
-   - Extend the shared Firecrawl helper beyond search snippets to support scraping live pages and returning markdown, title, status code, and source URL.
-   - Add URL normalization/deduping and link validation so 404/410/broken pages are excluded before saving.
+Dashboard filters (quick, status, sort) already live in URL search params, so the browser Back button restores them correctly. The bug is the in-page "Back" link on the university detail page:
 
-2. **Make enrichment source-first instead of model-first**
-   - Update `enrich-university` to first search the live web for official university/program pages, admissions pages, tuition/funding pages, class profile pages, career outcomes pages, and ranking sources.
-   - Scrape the best live pages and pass the scraped content to Gemini 3.5 Flash as grounded context.
-   - Change the prompt so Gemini can only extract facts from the provided scraped sources and must return `null` when a value is not present.
+`src/routes/_authenticated/university.$id.tsx:159`
+```tsx
+<Link to="/dashboard" className="...">← Back</Link>
+```
 
-3. **Validate research source links before storing**
-   - Only write `program_research_sources` URLs that were successfully found/scraped and are not dead links.
-   - Prefer official university URLs; allow ranking/publication URLs only for ranking fields.
-   - Store source URLs tied to the data actually used, not model-invented citations.
+TanStack Router's `<Link to="/dashboard">` navigates to `/dashboard` with an empty search object, wiping `?quick=…&status=…&sort=…`. It's also a forward push, not a history pop, so filters are lost even if the user had them set moments before.
 
-4. **Refresh all detail tabs from grounded data**
-   - Continue writing structured results into the existing tables for Overview, Admissions, Class Profile, Tuition/Funding, City, and Career Outcomes.
-   - Ensure stale values are overwritten with current scraped values or `null` if not verifiable.
+Same issue applies to the `EntryCard` `onOpen` → `navigate({ to: "/university/$id", … })`: it works, but the return trip via the in-page Back link is what breaks state.
 
-5. **Improve failure behavior**
-   - If live search/scrape finds too little evidence, return a clear partial-data result instead of saving hallucinated data.
-   - Add logging that separates search failures, scrape failures, dead links, and model parse failures.
+## Fix
 
-## Technical details
+Change only the Back control on the university detail page to pop browser history so the previously visited dashboard URL (with its search params) is restored:
 
-- Keep using `google/gemini-3.5-flash` through the existing Lovable AI helper.
-- Use the existing Firecrawl connector gateway path because this project’s Firecrawl connection is gateway-backed.
-- Avoid scraping LinkedIn for university enrichment; this is for official program research pages and trusted public ranking/career sources.
-- No database schema changes are expected unless we decide later to store per-field source attribution.
+- Replace the `<Link to="/dashboard">` with a `<button>` (styled identically) that calls `router.history.back()` from `useRouter()`.
+- Fallback: if `window.history.length <= 1` (user landed directly on the detail URL), navigate to `/dashboard` with no params — same as today.
+
+That's the entire change. No dashboard, routing, or state changes needed — the search-param wiring from the previous turn is correct.
+
+## Files touched
+
+- `src/routes/_authenticated/university.$id.tsx` — swap the Back `<Link>` for a history-back button with a direct-load fallback.
