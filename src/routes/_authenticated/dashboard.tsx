@@ -105,8 +105,18 @@ function DashboardPage() {
         clearInterval(interval);
         setDiscovering(false);
         setActiveJobId(null);
+        const before = preRunCountRef.current;
         await load();
-        toast.success("New matches added");
+        const { data: u2 } = await supabase.auth.getUser();
+        let added = 0;
+        if (u2.user) {
+          const { count } = await supabase.from("user_entries")
+            .select("*", { count: "exact", head: true }).eq("user_id", u2.user.id);
+          if (before != null && count != null) added = Math.max(0, count - before);
+        }
+        setLastRunCount(added);
+        preRunCountRef.current = null;
+        toast.success(added > 0 ? `${added} new ${added === 1 ? "match" : "matches"} added` : "Discovery complete");
       } else if (data.status === "failed") {
         clearInterval(interval);
         setDiscovering(false);
