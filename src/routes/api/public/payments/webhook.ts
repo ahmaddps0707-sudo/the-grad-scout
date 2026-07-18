@@ -53,7 +53,7 @@ async function upsertSubscriptionOnProfile(subscription: any) {
   const newEnd = periodEnd ? periodEnd * 1000 : 0;
   const isRenewal = newEnd > 0 && prevEnd > 0 && newEnd > prevEnd;
 
-  const update: Record<string, unknown> = {
+  const update: Database["public"]["Tables"]["profiles"]["Update"] = {
       subscription_tier: finalTier,
       subscription_status: finalStatus,
       stripe_customer_id: subscription.customer,
