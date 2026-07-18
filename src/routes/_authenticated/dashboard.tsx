@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin } from "lucide-react";
+import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
@@ -27,6 +27,18 @@ interface EntryFull extends EntryRow {
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Admitly" }] }),
+  validateSearch: (search: Record<string, unknown>) => {
+    const quick = (search.quick as string) ?? "all";
+    const status = (search.status as string) ?? "all";
+    const sort = (search.sort as string) ?? "score";
+    const allowedQuick = ["all","favorites","liked","applied","offers"];
+    const allowedSort = ["score","qs","updated","deadline"];
+    return {
+      quick: (allowedQuick.includes(quick) ? quick : "all") as "all"|"favorites"|"liked"|"applied"|"offers",
+      status: status as string,
+      sort: (allowedSort.includes(sort) ? sort : "score") as "score"|"qs"|"updated"|"deadline",
+    };
+  },
   component: DashboardPage,
 });
 
@@ -35,15 +47,19 @@ type SortKey = "score" | "qs" | "updated" | "deadline";
 
 function DashboardPage() {
   const navigate = useNavigate();
+  const search = Route.useSearch();
+  const quick = search.quick;
+  const statusFilter = search.status as EntryStatus | "all";
+  const sort = search.sort;
+  const setSearch = (patch: Partial<typeof search>) => navigate({ to: "/dashboard", search: (prev) => ({ ...prev, ...patch }) as any, replace: false });
   const [entries, setEntries] = useState<EntryFull[]>([]);
   const [loading, setLoading] = useState(true);
-  const [quick, setQuick] = useState<QuickFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<EntryStatus | "all">("all");
-  const [sort, setSort] = useState<SortKey>("score");
   const [discovering, setDiscovering] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [upgradeReason, setUpgradeReason] = useState<UpgradeReason | null>(null);
   const [tier, setTier] = useState<{ tier: "free" | "paid"; status: "active" | "canceled" | "past_due" | null; discover_runs_used: number }>({ tier: "free", status: null, discover_runs_used: 0 });
+  const [lastRunCount, setLastRunCount] = useState<number | null>(null);
+  const preRunCountRef = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
