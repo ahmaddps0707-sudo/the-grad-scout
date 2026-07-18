@@ -98,6 +98,8 @@ function DashboardPage() {
   // Poll the active job
   useEffect(() => {
     if (!activeJobId) return;
+    // Snapshot pre-run count for jobs we didn't start ourselves (post-onboarding)
+    if (preRunCountRef.current == null) preRunCountRef.current = entries.length;
     const interval = setInterval(async () => {
       const { data } = await supabase.from("discover_jobs").select("status,error").eq("id", activeJobId).single();
       if (!data) return;
