@@ -123,17 +123,11 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           user_id: userId,
           promo_code_id: redeemedPromoId,
         });
-        await supabaseAdmin.rpc("increment_promo_redemption", { p_id: redeemedPromoId }).then(
-          () => {},
-          async () => {
-            // Fallback if RPC missing: raw increment.
-            const { data: cur } = await supabaseAdmin
-              .from("promo_codes").select("times_redeemed").eq("id", redeemedPromoId!).single();
-            await supabaseAdmin.from("promo_codes")
-              .update({ times_redeemed: (cur?.times_redeemed ?? 0) + 1 })
-              .eq("id", redeemedPromoId!);
-          },
-        );
+        const { data: cur } = await supabaseAdmin
+          .from("promo_codes").select("times_redeemed").eq("id", redeemedPromoId).single();
+        await supabaseAdmin.from("promo_codes")
+          .update({ times_redeemed: ((cur?.times_redeemed as number | null) ?? 0) + 1 })
+          .eq("id", redeemedPromoId);
       }
 
       return { clientSecret: session.client_secret ?? "" };
