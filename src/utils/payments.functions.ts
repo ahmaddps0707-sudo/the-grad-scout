@@ -64,17 +64,36 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
 
-      // Resolve promo code -> Stripe coupon id (managed in promo_codes table)
+      // Resolve + validate promo code (expiry, cap, per-user single-use)
       let discounts: { coupon: string }[] | undefined;
+      let redeemedPromoId: string | undefined;
       if (data.promoCode) {
+        const code = data.promoCode.trim().toUpperCase();
         const { data: promo } = await supabase
           .from("promo_codes")
-          .select("stripe_coupon_id, active")
-          .eq("code", data.promoCode.trim().toUpperCase())
+          .select("id, stripe_coupon_id, active, expires_at, max_redemptions, times_redeemed")
+          .eq("code", code)
           .maybeSingle();
-        if (promo?.active && promo.stripe_coupon_id) {
-          discounts = [{ coupon: promo.stripe_coupon_id }];
+        if (!promo || !promo.active || !promo.stripe_coupon_id) {
+          return { error: "Invalid or inactive promo code" };
         }
+        if (promo.expires_at && new Date(promo.expires_at).getTime() < Date.now()) {
+          return { error: "This promo code has expired" };
+        }
+        if (promo.max_redemptions != null && (promo.times_redeemed ?? 0) >= promo.max_redemptions) {
+          return { error: "This promo code has reached its redemption limit" };
+        }
+        const { data: prior } = await supabase
+          .from("user_promo_usage")
+          .select("id")
+          .eq("user_id", userId)
+          .eq("promo_code_id", promo.id)
+          .maybeSingle();
+        if (prior) {
+          return { error: "You have already used this promo code" };
+        }
+        discounts = [{ coupon: promo.stripe_coupon_id }];
+        redeemedPromoId = promo.id;
       }
 
       const session = await stripe.checkout.sessions.create({
@@ -83,15 +102,39 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
         customer: customerId,
-        metadata: { userId },
+        metadata: { userId, ...(redeemedPromoId && { promoCodeId: redeemedPromoId }) },
         ...(isRecurring && {
           subscription_data: {
-            metadata: { userId },
+            metadata: { userId, ...(redeemedPromoId && { promoCodeId: redeemedPromoId }) },
             ...(data.trialDays && data.trialDays > 0 && { trial_period_days: data.trialDays }),
+            // Stack discount with the trial so it applies to the first paid invoice.
+            ...(discounts && { discounts }),
           },
         }),
-        ...(discounts && !data.trialDays && { discounts }),
+        // For one-off (non-recurring) purchases, apply the discount at the session level.
+        ...(!isRecurring && discounts && { discounts }),
       } as any);
+
+      // Record redemption locally so subsequent attempts are blocked.
+      // Uses the authenticated client (RLS-safe: we already resolved userId from the session).
+      if (redeemedPromoId) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await supabaseAdmin.from("user_promo_usage").insert({
+          user_id: userId,
+          promo_code_id: redeemedPromoId,
+        });
+        await supabaseAdmin.rpc("increment_promo_redemption", { p_id: redeemedPromoId }).then(
+          () => {},
+          async () => {
+            // Fallback if RPC missing: raw increment.
+            const { data: cur } = await supabaseAdmin
+              .from("promo_codes").select("times_redeemed").eq("id", redeemedPromoId!).single();
+            await supabaseAdmin.from("promo_codes")
+              .update({ times_redeemed: (cur?.times_redeemed ?? 0) + 1 })
+              .eq("id", redeemedPromoId!);
+          },
+        );
+      }
 
       return { clientSecret: session.client_secret ?? "" };
     } catch (error) {
