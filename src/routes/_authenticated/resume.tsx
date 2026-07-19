@@ -408,6 +408,7 @@ function ResumePage() {
             <div className="min-w-0 max-h-[calc(100vh-180px)] overflow-y-auto">
               <div className="flex items-center gap-2 mb-2 flex-wrap justify-end">
                 <Button size="sm" onClick={downloadPDF} className="gap-1"><Download className="h-3 w-3" /> Download PDF</Button>
+                <SafariA4Hint />
               </div>
               <ResumePreview content={content} template="Clean Professional" />
             </div>
