@@ -69,7 +69,8 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       let redeemedPromoId: string | undefined;
       if (data.promoCode) {
         const code = data.promoCode.trim().toUpperCase();
-        const { data: promo } = await supabase
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: promo } = await supabaseAdmin
           .from("promo_codes")
           .select("id, stripe_coupon_id, active, expires_at, max_redemptions, times_redeemed")
           .eq("code", code)
