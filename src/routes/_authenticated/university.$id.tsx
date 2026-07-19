@@ -273,13 +273,14 @@ function DetailPage() {
           <TabsContent value="class" className="mt-6">
             {enriching && !cp ? <SkeletonCard /> : (
               <Card title="Class profile">
-                <Row k="Average GRE" v={cp?.avg_gre} />
-                <Row k="Average GMAT" v={cp?.avg_gmat} />
-                <Row k="Average GPA" v={cp?.avg_gpa} />
-                <Row k="Average IELTS" v={cp?.avg_ielts} />
-                <Row k="Average TOEFL" v={cp?.avg_toefl} />
+                <Row k="GRE" v={greDisplay(cp)} />
+                <Row k="Average GMAT" v={pick(cp?.avg_gmat, cp?.avg_gmat_note)} />
+                <Row k="Average GPA" v={pick(cp?.avg_gpa, cp?.avg_gpa_note)} />
+                <Row k="Average IELTS" v={pick(cp?.avg_ielts, cp?.avg_ielts_note)} />
+                <Row k="Average TOEFL" v={pick(cp?.avg_toefl, cp?.avg_toefl_note)} />
+                <Row k="Average work experience (yrs)" v={pick(cp?.avg_work_exp_years, cp?.avg_work_exp_note)} />
                 <Row k="Class size" v={cp?.class_size} />
-                <Row k="% International" v={cp?.intl_pct != null ? `${cp.intl_pct}%` : null} />
+                <Row k="% International" v={cp?.intl_pct != null ? `${cp.intl_pct}%` : (cp?.intl_student_pct_note ?? null)} />
                 <Row k="STEM-designated" v={entry.program?.is_stem == null ? null : entry.program.is_stem ? "Yes" : "No"} />
               </Card>
             )}
@@ -288,7 +289,7 @@ function DetailPage() {
           <TabsContent value="funding" className="mt-6">
             {enriching && !fd ? <SkeletonCard /> : (
               <Card title="Tuition & funding">
-                <Row k="Tuition" v={fd?.tuition_amount ? `${fd.tuition_amount.toLocaleString()} ${fd.tuition_currency ?? ""}` : null} />
+                <Row k="Tuition" v={fd?.tuition_amount ? `${fd.tuition_amount.toLocaleString()} ${fd.tuition_currency ?? ""}` : (fd?.tuition_note ?? null)} />
                 <Row k="Tuition basis" v={fd?.tuition_per} />
                 <Row k="Tuition as of" v={fd?.tuition_as_of} />
                 <Row k="GA / TA / GRA available" v={fd?.ga_ta_gra_available == null ? null : fd.ga_ta_gra_available ? "Yes" : "No"} />
@@ -321,7 +322,7 @@ function DetailPage() {
             {enriching && !career ? <SkeletonCard /> : (
               <Card title="Career outcomes">
                 <Row k="Placement rate" v={career?.placement_rate_pct != null ? `${career.placement_rate_pct}%` : null} />
-                <Row k="Average salary" v={career?.avg_salary != null ? `${Number(career.avg_salary).toLocaleString()} ${career.avg_salary_currency ?? ""}` : null} />
+                <Row k="Average salary" v={career?.avg_salary != null ? `${Number(career.avg_salary).toLocaleString()} ${career.avg_salary_currency ?? ""}` : (career?.avg_salary_note ?? null)} />
                 <Row k="Top employers" v={Array.isArray(career?.top_employers) && (career!.top_employers as string[]).length ? (career!.top_employers as string[]).join(", ") : null} />
                 <Row k="Top industries" v={Array.isArray(career?.top_industries) && (career!.top_industries as string[]).length ? (career!.top_industries as string[]).join(", ") : null} />
                 <Row k="International student salary note" v={career?.intl_student_salary_note} />
@@ -416,6 +417,25 @@ function Row({ k, v }: { k: string; v: React.ReactNode | null | undefined }) {
 }
 
 function DV() { return <span className="text-muted-foreground italic">Not publicly available</span>; }
+
+function pick(value: number | string | null | undefined, note?: string | null): React.ReactNode {
+  if (value != null && value !== "") return value as React.ReactNode;
+  if (note && note.trim() !== "") return note;
+  return null;
+}
+
+function greDisplay(cp: Cp | null): React.ReactNode {
+  const q = cp?.avg_gre_quant;
+  const v = cp?.avg_gre_verbal;
+  const total = cp?.gre_total;
+  if (q != null && v != null) return `${q}Q / ${v}V`;
+  if (q != null) return `GRE (Quant): ${q}`;
+  if (v != null) return `GRE (Verbal): ${v}`;
+  if (total != null) return `GRE (Composite): ${total}`;
+  const note = cp?.gre_total_note ?? cp?.avg_gre_quant_note ?? cp?.avg_gre_verbal_note;
+  if (note && note.trim() !== "") return note;
+  return null;
+}
 function SkeletonCard() {
   return (
     <div className="rounded-xl border border-border bg-surface-elevated p-6 space-y-3">

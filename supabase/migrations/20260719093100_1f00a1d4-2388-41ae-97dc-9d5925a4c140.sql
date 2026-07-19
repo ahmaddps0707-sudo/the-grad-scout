@@ -1,0 +1,1 @@
+ALTER TABLE public.program_career_stats ADD COLUMN IF NOT EXISTS avg_salary_note text;

@@ -219,7 +219,7 @@ Deno.serve(async (req) => {
     }
     const validSources = new Set(docs.map((doc) => normalizeUrl(doc.url)));
 
-    const system = "You are a graduate admissions research assistant. Extract structured data only from the live web sources provided by the user. Do not use memory. Do not browse independently. Do not estimate, infer, or fill gaps from general knowledge. If a field is not explicitly supported by the provided sources, return null or an empty array. Prefer official university sources for admissions, fees, funding, class profile, career outcomes, and city/program details. Use ranking sources only for ranking fields.";
+    const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the midpoint as a number and store the range string in the corresponding _note field.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: universities often publish composite (total), or verbal + quant separately, or a range. Extract whatever is present. If only composite is given, store it in gre_total and leave quant/verbal null. Do not skip GRE entirely just because it is not split into quant and verbal.";
 
     const user = `Research this master's program using ONLY the live scraped source content below:
 University: ${university_name}
@@ -249,19 +249,30 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   },
   "class_profile": {
     "profile_scope": "program" | "school",
+    "gre_total": number or null,
+    "gre_total_note": string or null,
     "avg_gre_quant": number or null,
+    "avg_gre_quant_note": string or null,
     "avg_gre_verbal": number or null,
+    "avg_gre_verbal_note": string or null,
     "avg_gmat": number or null,
+    "avg_gmat_note": string or null,
     "avg_gpa": number or null,
+    "avg_gpa_note": string or null,
     "avg_ielts": number or null,
+    "avg_ielts_note": string or null,
     "avg_toefl": number or null,
+    "avg_toefl_note": string or null,
     "avg_work_exp_years": number or null,
+    "avg_work_exp_note": string or null,
     "class_size": number or null,
     "intl_student_pct": number or null,
+    "intl_student_pct_note": string or null,
     "is_stem": boolean or null
   },
   "tuition_and_funding": {
     "tuition_amount": number or null,
+    "tuition_note": string or null,
     "tuition_currency": string or null,
     "tuition_per": "year" | "semester" | "credit" | "program" or null,
     "tuition_as_of": string or null,
@@ -284,6 +295,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   "career_outcomes": {
     "placement_rate_pct": number or null,
     "avg_salary": number or null,
+    "avg_salary_note": string or null,
     "avg_salary_currency": string or null,
     "top_employers": [string] or null,
     "top_industries": [string] or null,
@@ -337,15 +349,25 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
     await admin.from("program_class_profile").upsert({
       program_id,
       profile_scope: cp.profile_scope ?? null,
+      gre_total: cp.gre_total ?? null,
+      gre_total_note: cp.gre_total_note ?? null,
       avg_gre_quant: cp.avg_gre_quant ?? null,
+      avg_gre_quant_note: cp.avg_gre_quant_note ?? null,
       avg_gre_verbal: cp.avg_gre_verbal ?? null,
+      avg_gre_verbal_note: cp.avg_gre_verbal_note ?? null,
       avg_gmat: cp.avg_gmat ?? null,
+      avg_gmat_note: cp.avg_gmat_note ?? null,
       avg_gpa: cp.avg_gpa ?? null,
+      avg_gpa_note: cp.avg_gpa_note ?? null,
       avg_ielts: cp.avg_ielts ?? null,
+      avg_ielts_note: cp.avg_ielts_note ?? null,
       avg_toefl: cp.avg_toefl ?? null,
+      avg_toefl_note: cp.avg_toefl_note ?? null,
       avg_work_exp_years: cp.avg_work_exp_years ?? null,
+      avg_work_exp_note: cp.avg_work_exp_note ?? null,
       class_size: cp.class_size ?? null,
       intl_pct: cp.intl_student_pct ?? null,
+      intl_student_pct_note: cp.intl_student_pct_note ?? null,
       is_stem: cp.is_stem ?? null,
       updated_at: new Date().toISOString(),
     });
@@ -353,6 +375,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
     await admin.from("program_funding").upsert({
       program_id,
       tuition_amount: tf.tuition_amount ?? null,
+      tuition_note: tf.tuition_note ?? null,
       tuition_currency: tf.tuition_currency ?? null,
       tuition_per: tf.tuition_per ?? null,
       tuition_as_of: tf.tuition_as_of ?? null,
@@ -381,6 +404,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       program_id,
       placement_rate_pct: co.placement_rate_pct ?? null,
       avg_salary: co.avg_salary ?? null,
+      avg_salary_note: co.avg_salary_note ?? null,
       avg_salary_currency: co.avg_salary_currency ?? null,
       top_employers: co.top_employers ?? null,
       top_industries: co.top_industries ?? null,
