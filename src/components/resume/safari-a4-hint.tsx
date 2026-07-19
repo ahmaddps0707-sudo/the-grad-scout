@@ -99,7 +99,7 @@ export function SafariA4Hint() {
             width: "max-content",
           }}
         >
-          For best results in Safari, in the print dialog select Paper Size: A4 before saving as PDF.
+          This preview is sized to A4. Select A4 in Safari's print dialog to get a PDF that matches exactly — otherwise page breaks on longer resumes may shift.
           <span
             aria-hidden
             style={{
