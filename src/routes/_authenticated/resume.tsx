@@ -14,6 +14,7 @@ import { Upload, FileText, Loader2, Check, Download, Sparkles, ChevronDown, Exte
 import { emptyContent, nextVersionName, isMostlyEmpty, type ResumeContent } from "@/lib/resume-types";
 import { ResumeEditor } from "@/components/resume/editor";
 import { ResumePreview } from "@/components/resume/preview";
+import { SafariA4Hint } from "@/components/resume/safari-a4-hint";
 
 export const Route = createFileRoute("/_authenticated/resume")({
   head: () => ({ meta: [{ title: "Resume Builder — Admitly" }, { name: "description", content: "Upload, edit, and tailor your resume for master's applications with AI assistance." }] }),
@@ -408,6 +409,7 @@ function ResumePage() {
             <div className="min-w-0 max-h-[calc(100vh-180px)] overflow-y-auto">
               <div className="flex items-center gap-2 mb-2 flex-wrap justify-end">
                 <Button size="sm" onClick={downloadPDF} className="gap-1"><Download className="h-3 w-3" /> Download PDF</Button>
+                <SafariA4Hint />
               </div>
               <ResumePreview content={content} template="Clean Professional" />
             </div>
