@@ -35,7 +35,7 @@ function GatedResumePage() {
 type ResumeRow = { id: string; user_id: string; version_name: string; template_id: string | null; content: ResumeContent; is_active: boolean; source: string; original_file_url: string | null; parse_status: string | null; created_at: string; updated_at: string };
 
 const MAX_SIZE = 5 * 1024 * 1024;
-const ALLOWED = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+const ALLOWED = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"];
 
 function ResumePage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -138,7 +138,7 @@ function ResumePage() {
   };
 
   const validateFile = (f: File): string | null => {
-    if (!ALLOWED.includes(f.type) && !/\.(pdf|docx)$/i.test(f.name)) return "Only PDF and DOCX files are supported.";
+    if (!ALLOWED.includes(f.type) && !/\.(pdf|docx|doc)$/i.test(f.name)) return "Only PDF and DOCX files are supported.";
     if (f.size > MAX_SIZE) return "File is too large. Maximum size is 5MB. Try compressing your PDF and uploading again.";
     return null;
   };
