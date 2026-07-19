@@ -35,7 +35,7 @@ function GatedResumePage() {
 type ResumeRow = { id: string; user_id: string; version_name: string; template_id: string | null; content: ResumeContent; is_active: boolean; source: string; original_file_url: string | null; parse_status: string | null; created_at: string; updated_at: string };
 
 const MAX_SIZE = 5 * 1024 * 1024;
-const ALLOWED = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+const ALLOWED = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/msword"];
 
 function ResumePage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -138,7 +138,7 @@ function ResumePage() {
   };
 
   const validateFile = (f: File): string | null => {
-    if (!ALLOWED.includes(f.type) && !/\.(pdf|docx)$/i.test(f.name)) return "Only PDF and DOCX files are supported.";
+    if (!ALLOWED.includes(f.type) && !/\.(pdf|docx|doc)$/i.test(f.name)) return "Only PDF and DOCX files are supported.";
     if (f.size > MAX_SIZE) return "File is too large. Maximum size is 5MB. Try compressing your PDF and uploading again.";
     return null;
   };
@@ -341,7 +341,7 @@ function ResumePage() {
               <Button variant="outline" size="sm" asChild>
                 <span className="cursor-pointer gap-1"><Upload className="h-3 w-3" /> Upload Resume</span>
               </Button>
-              <input type="file" className="hidden" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.currentTarget.value = ""; }} />
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.currentTarget.value = ""; }} />
             </label>
             <Button variant="outline" size="sm" onClick={() => setNewVersionOpen(true)}>New Version</Button>
             <DropdownMenu>
@@ -484,7 +484,7 @@ function UploadCard({ onFile }: { onFile: (f: File) => void }) {
       <div className="font-semibold">Upload your existing resume</div>
       <div className="text-sm text-muted-foreground mt-1">Drag and drop your PDF or DOCX here, or click to browse. Max 5MB.</div>
       {err && <div className="mt-2 text-sm text-destructive">{err}</div>}
-      <input ref={ref} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(e) => handle(e.target.files?.[0] ?? null)} />
+      <input ref={ref} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(e) => handle(e.target.files?.[0] ?? null)} />
     </label>
   );
 }

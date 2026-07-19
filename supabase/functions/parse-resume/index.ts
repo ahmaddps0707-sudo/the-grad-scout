@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
+import mammoth from "https://esm.sh/mammoth@1.8.0";
 
 const SCHEMA = `{
   "personal": { "full_name": string, "email": string, "phone": string or null, "linkedin_url": string or null, "location": string or null, "website": string or null, "summary": string or null },
@@ -43,13 +44,26 @@ Deno.serve(async (req) => {
     if (dlErr || !file) throw new Error(`Download failed: ${dlErr?.message}`);
 
     const buf = await file.arrayBuffer();
-    const b64 = bufferToBase64(buf);
-    const isDocx = file_path.toLowerCase().endsWith(".docx");
-    const mime = isDocx ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document" : "application/pdf";
+    const lower = file_path.toLowerCase();
+    const isDocx = lower.endsWith(".docx") || lower.endsWith(".doc");
 
     const system = "You are a resume parsing assistant. Extract all information from the uploaded resume into structured JSON. Preserve the user's exact wording for all bullet points and descriptions — do not rephrase, improve, or summarize any content. Your job is to extract, not rewrite. If a field is not present in the resume, use null. For dates, use the format as written in the resume (e.g. 'May 2022', '2021-2023', 'Present'). For any array item, generate a random uuid for the 'id' field.";
 
-    const userText = `Parse this resume and return ONLY a JSON object matching exactly the schema provided. No other text, no markdown fences. Schema: ${SCHEMA}`;
+    let userContent: any;
+    if (isDocx) {
+      const result = await mammoth.extractRawText({ buffer: new Uint8Array(buf) });
+      const extractedText = (result?.value ?? "").trim();
+      if (extractedText.length < 100) {
+        throw new Error("Could not extract text from DOCX file");
+      }
+      userContent = `Parse this resume text and return ONLY a JSON object matching exactly the schema provided. No other text, no markdown fences.\n\nResume content:\n${extractedText}\n\nSchema: ${SCHEMA}`;
+    } else {
+      const b64 = bufferToBase64(buf);
+      userContent = [
+        { type: "text", text: `Parse this resume and return ONLY a JSON object matching exactly the schema provided. No other text, no markdown fences. Schema: ${SCHEMA}` },
+        { type: "image_url", image_url: { url: `data:application/pdf;base64,${b64}` } },
+      ];
+    }
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -58,13 +72,7 @@ Deno.serve(async (req) => {
         model: "google/gemini-3.5-flash",
         messages: [
           { role: "system", content: system },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userText },
-              { type: "image_url", image_url: { url: `data:${mime};base64,${b64}` } },
-            ],
-          },
+          { role: "user", content: userContent },
         ],
         max_completion_tokens: 8192,
       }),
