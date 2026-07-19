@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export function SafariA4Hint() {
   const [isSafari, setIsSafari] = useState(false);
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   useEffect(() => {
     setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
@@ -10,18 +13,32 @@ export function SafariA4Hint() {
 
   useEffect(() => {
     if (!open) return;
+    const update = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      setPos({ top: r.top, left: r.left + r.width / 2 });
+    };
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
     const onDocClick = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
       if (!t.closest("[data-safari-a4-hint]")) setOpen(false);
     };
     document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
+    return () => {
+      document.removeEventListener("click", onDocClick);
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
   }, [open]);
 
   if (!isSafari) return null;
 
   return (
     <span
+      ref={anchorRef}
       data-safari-a4-hint
       className="relative inline-flex items-center"
       onMouseEnter={() => setOpen(true)}
@@ -35,11 +52,16 @@ export function SafariA4Hint() {
       >
         i
       </button>
-      {open && (
+      {open && pos && typeof document !== "undefined" && createPortal(
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none"
+          className="pointer-events-none"
           style={{
+            position: "fixed",
+            top: pos.top - 8,
+            left: pos.left,
+            transform: "translate(-50%, -100%)",
+            zIndex: 9999,
             background: "#1A1A2E",
             color: "#fff",
             fontSize: "12px",
@@ -65,7 +87,8 @@ export function SafariA4Hint() {
               borderTop: "5px solid #1A1A2E",
             }}
           />
-        </span>
+        </span>,
+        document.body
       )}
     </span>
   );
