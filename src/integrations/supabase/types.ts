@@ -603,15 +603,25 @@ export type Database = {
       program_class_profile: {
         Row: {
           avg_gmat: number | null
+          avg_gmat_note: string | null
           avg_gpa: number | null
+          avg_gpa_note: string | null
           avg_gre: number | null
           avg_gre_quant: number | null
+          avg_gre_quant_note: string | null
           avg_gre_verbal: number | null
+          avg_gre_verbal_note: string | null
           avg_ielts: number | null
+          avg_ielts_note: string | null
           avg_toefl: number | null
+          avg_toefl_note: string | null
+          avg_work_exp_note: string | null
           avg_work_exp_years: number | null
           class_size: number | null
+          gre_total: number | null
+          gre_total_note: string | null
           intl_pct: number | null
+          intl_student_pct_note: string | null
           is_stem: boolean | null
           profile_scope: string | null
           program_id: string
@@ -619,15 +629,25 @@ export type Database = {
         }
         Insert: {
           avg_gmat?: number | null
+          avg_gmat_note?: string | null
           avg_gpa?: number | null
+          avg_gpa_note?: string | null
           avg_gre?: number | null
           avg_gre_quant?: number | null
+          avg_gre_quant_note?: string | null
           avg_gre_verbal?: number | null
+          avg_gre_verbal_note?: string | null
           avg_ielts?: number | null
+          avg_ielts_note?: string | null
           avg_toefl?: number | null
+          avg_toefl_note?: string | null
+          avg_work_exp_note?: string | null
           avg_work_exp_years?: number | null
           class_size?: number | null
+          gre_total?: number | null
+          gre_total_note?: string | null
           intl_pct?: number | null
+          intl_student_pct_note?: string | null
           is_stem?: boolean | null
           profile_scope?: string | null
           program_id: string
@@ -635,15 +655,25 @@ export type Database = {
         }
         Update: {
           avg_gmat?: number | null
+          avg_gmat_note?: string | null
           avg_gpa?: number | null
+          avg_gpa_note?: string | null
           avg_gre?: number | null
           avg_gre_quant?: number | null
+          avg_gre_quant_note?: string | null
           avg_gre_verbal?: number | null
+          avg_gre_verbal_note?: string | null
           avg_ielts?: number | null
+          avg_ielts_note?: string | null
           avg_toefl?: number | null
+          avg_toefl_note?: string | null
+          avg_work_exp_note?: string | null
           avg_work_exp_years?: number | null
           class_size?: number | null
+          gre_total?: number | null
+          gre_total_note?: string | null
           intl_pct?: number | null
+          intl_student_pct_note?: string | null
           is_stem?: boolean | null
           profile_scope?: string | null
           program_id?: string
@@ -712,6 +742,7 @@ export type Database = {
       program_funding: {
         Row: {
           accommodation_currency: string | null
+          avg_salary_note: string | null
           est_accommodation_high: number | null
           est_accommodation_low: number | null
           est_total_cost_of_attendance: number | null
@@ -723,12 +754,14 @@ export type Database = {
           tuition_amount: number | null
           tuition_as_of: string | null
           tuition_currency: string | null
+          tuition_note: string | null
           tuition_per: string | null
           tuition_waiver_with_assistantship: boolean | null
           updated_at: string
         }
         Insert: {
           accommodation_currency?: string | null
+          avg_salary_note?: string | null
           est_accommodation_high?: number | null
           est_accommodation_low?: number | null
           est_total_cost_of_attendance?: number | null
@@ -740,12 +773,14 @@ export type Database = {
           tuition_amount?: number | null
           tuition_as_of?: string | null
           tuition_currency?: string | null
+          tuition_note?: string | null
           tuition_per?: string | null
           tuition_waiver_with_assistantship?: boolean | null
           updated_at?: string
         }
         Update: {
           accommodation_currency?: string | null
+          avg_salary_note?: string | null
           est_accommodation_high?: number | null
           est_accommodation_low?: number | null
           est_total_cost_of_attendance?: number | null
@@ -757,6 +792,7 @@ export type Database = {
           tuition_amount?: number | null
           tuition_as_of?: string | null
           tuition_currency?: string | null
+          tuition_note?: string | null
           tuition_per?: string | null
           tuition_waiver_with_assistantship?: boolean | null
           updated_at?: string
