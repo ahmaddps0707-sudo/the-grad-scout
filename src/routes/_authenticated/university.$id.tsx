@@ -289,7 +289,7 @@ function DetailPage() {
           <TabsContent value="funding" className="mt-6">
             {enriching && !fd ? <SkeletonCard /> : (
               <Card title="Tuition & funding">
-                <Row k="Tuition" v={fd?.tuition_amount ? `${fd.tuition_amount.toLocaleString()} ${fd.tuition_currency ?? ""}` : null} />
+                <Row k="Tuition" v={fd?.tuition_amount ? `${fd.tuition_amount.toLocaleString()} ${fd.tuition_currency ?? ""}` : (fd?.tuition_note ?? null)} />
                 <Row k="Tuition basis" v={fd?.tuition_per} />
                 <Row k="Tuition as of" v={fd?.tuition_as_of} />
                 <Row k="GA / TA / GRA available" v={fd?.ga_ta_gra_available == null ? null : fd.ga_ta_gra_available ? "Yes" : "No"} />
@@ -322,7 +322,7 @@ function DetailPage() {
             {enriching && !career ? <SkeletonCard /> : (
               <Card title="Career outcomes">
                 <Row k="Placement rate" v={career?.placement_rate_pct != null ? `${career.placement_rate_pct}%` : null} />
-                <Row k="Average salary" v={career?.avg_salary != null ? `${Number(career.avg_salary).toLocaleString()} ${career.avg_salary_currency ?? ""}` : null} />
+                <Row k="Average salary" v={career?.avg_salary != null ? `${Number(career.avg_salary).toLocaleString()} ${career.avg_salary_currency ?? ""}` : (career?.avg_salary_note ?? null)} />
                 <Row k="Top employers" v={Array.isArray(career?.top_employers) && (career!.top_employers as string[]).length ? (career!.top_employers as string[]).join(", ") : null} />
                 <Row k="Top industries" v={Array.isArray(career?.top_industries) && (career!.top_industries as string[]).length ? (career!.top_industries as string[]).join(", ") : null} />
                 <Row k="International student salary note" v={career?.intl_student_salary_note} />
