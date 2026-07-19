@@ -1,11 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+const TW = 220;
+const TH_EST = 72;
+const MARGIN = 16;
+const GAP = 8;
+
+type Pos = {
+  top: number;
+  left: number;
+  placement: "top" | "bottom";
+  caretLeft: number;
+};
+
 export function SafariA4Hint() {
   const [isSafari, setIsSafari] = useState(false);
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const [pos, setPos] = useState<Pos | null>(null);
 
   useEffect(() => {
     setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
@@ -17,7 +29,23 @@ export function SafariA4Hint() {
       const el = anchorRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
-      setPos({ top: r.top, left: r.left + r.width / 2 });
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const centerX = r.left + r.width / 2;
+      let left = centerX - TW / 2;
+      if (left + TW > vw - MARGIN) left = vw - MARGIN - TW;
+      if (left < MARGIN) left = MARGIN;
+
+      let placement: "top" | "bottom" = "top";
+      let top = r.top - GAP - TH_EST;
+      if (top < MARGIN) {
+        placement = "bottom";
+        top = r.bottom + GAP;
+        if (top + TH_EST > vh - MARGIN) top = Math.max(MARGIN, vh - MARGIN - TH_EST);
+      }
+
+      const caretLeft = Math.max(10, Math.min(TW - 10, centerX - left));
+      setPos({ top, left, placement, caretLeft });
     };
     update();
     window.addEventListener("scroll", update, true);
@@ -58,9 +86,8 @@ export function SafariA4Hint() {
           className="pointer-events-none"
           style={{
             position: "fixed",
-            top: pos.top - 8,
+            top: pos.top,
             left: pos.left,
-            transform: "translate(-50%, -100%)",
             zIndex: 9999,
             background: "#1A1A2E",
             color: "#fff",
@@ -68,7 +95,7 @@ export function SafariA4Hint() {
             lineHeight: 1.4,
             borderRadius: "8px",
             padding: "8px 12px",
-            maxWidth: "220px",
+            maxWidth: `${TW}px`,
             width: "max-content",
           }}
         >
@@ -77,14 +104,15 @@ export function SafariA4Hint() {
             aria-hidden
             style={{
               position: "absolute",
-              top: "100%",
-              left: "50%",
+              left: `${pos.caretLeft}px`,
               transform: "translateX(-50%)",
               width: 0,
               height: 0,
               borderLeft: "5px solid transparent",
               borderRight: "5px solid transparent",
-              borderTop: "5px solid #1A1A2E",
+              ...(pos.placement === "top"
+                ? { top: "100%", borderTop: "5px solid #1A1A2E" }
+                : { bottom: "100%", borderBottom: "5px solid #1A1A2E" }),
             }}
           />
         </span>,
