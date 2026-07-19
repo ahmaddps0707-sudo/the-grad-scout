@@ -522,6 +522,7 @@ export type Database = {
         Row: {
           avg_salary: number | null
           avg_salary_currency: string | null
+          avg_salary_note: string | null
           intl_student_salary_note: string | null
           placement_rate_pct: number | null
           program_id: string
@@ -533,6 +534,7 @@ export type Database = {
         Insert: {
           avg_salary?: number | null
           avg_salary_currency?: string | null
+          avg_salary_note?: string | null
           intl_student_salary_note?: string | null
           placement_rate_pct?: number | null
           program_id: string
@@ -544,6 +546,7 @@ export type Database = {
         Update: {
           avg_salary?: number | null
           avg_salary_currency?: string | null
+          avg_salary_note?: string | null
           intl_student_salary_note?: string | null
           placement_rate_pct?: number | null
           program_id?: string
