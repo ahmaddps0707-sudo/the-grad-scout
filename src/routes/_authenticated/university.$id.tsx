@@ -417,6 +417,25 @@ function Row({ k, v }: { k: string; v: React.ReactNode | null | undefined }) {
 }
 
 function DV() { return <span className="text-muted-foreground italic">Not publicly available</span>; }
+
+function pick(value: number | string | null | undefined, note?: string | null): React.ReactNode {
+  if (value != null && value !== "") return value as React.ReactNode;
+  if (note && note.trim() !== "") return note;
+  return null;
+}
+
+function greDisplay(cp: Cp | null): React.ReactNode {
+  const q = cp?.avg_gre_quant;
+  const v = cp?.avg_gre_verbal;
+  const total = cp?.gre_total;
+  if (q != null && v != null) return `${q}Q / ${v}V`;
+  if (q != null) return `GRE (Quant): ${q}`;
+  if (v != null) return `GRE (Verbal): ${v}`;
+  if (total != null) return `GRE (Composite): ${total}`;
+  const note = cp?.gre_total_note ?? cp?.avg_gre_quant_note ?? cp?.avg_gre_verbal_note;
+  if (note && note.trim() !== "") return note;
+  return null;
+}
 function SkeletonCard() {
   return (
     <div className="rounded-xl border border-border bg-surface-elevated p-6 space-y-3">
