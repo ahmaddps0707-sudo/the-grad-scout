@@ -341,7 +341,7 @@ function ResumePage() {
               <Button variant="outline" size="sm" asChild>
                 <span className="cursor-pointer gap-1"><Upload className="h-3 w-3" /> Upload Resume</span>
               </Button>
-              <input type="file" className="hidden" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.currentTarget.value = ""; }} />
+              <input type="file" className="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.currentTarget.value = ""; }} />
             </label>
             <Button variant="outline" size="sm" onClick={() => setNewVersionOpen(true)}>New Version</Button>
             <DropdownMenu>
@@ -484,7 +484,7 @@ function UploadCard({ onFile }: { onFile: (f: File) => void }) {
       <div className="font-semibold">Upload your existing resume</div>
       <div className="text-sm text-muted-foreground mt-1">Drag and drop your PDF or DOCX here, or click to browse. Max 5MB.</div>
       {err && <div className="mt-2 text-sm text-destructive">{err}</div>}
-      <input ref={ref} type="file" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(e) => handle(e.target.files?.[0] ?? null)} />
+      <input ref={ref} type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="hidden" onChange={(e) => handle(e.target.files?.[0] ?? null)} />
     </label>
   );
 }
