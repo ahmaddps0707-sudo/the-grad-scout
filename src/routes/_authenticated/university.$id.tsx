@@ -440,6 +440,93 @@ function SkeletonCard() {
 }
 
 function NotesEditor({ entryId, initial }: { entryId: string; initial: string }) {
+  return _NotesEditorInner({ entryId, initial });
+}
+
+type DeadlineItem = { round?: string; deadline_date?: string | null; decision_date?: string | null; notes?: string | null; date?: string | null };
+
+function parseDeadlineDate(s?: string | null): Date | null {
+  if (!s) return null;
+  const t = s.trim();
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(t) ? new Date(t + "T00:00:00") : new Date(t);
+  return isNaN(iso.getTime()) ? null : iso;
+}
+
+function DeadlineStatusBadge({ dateStr }: { dateStr?: string | null }) {
+  const d = parseDeadlineDate(dateStr);
+  if (!d) return null;
+  const now = new Date();
+  const diffDays = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+  if (diffDays < 0) return <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">Passed</span>;
+  if (diffDays <= 30) return <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-amber-600 dark:text-amber-400">Coming up</span>;
+  return null;
+}
+
+function DeadlinesBlock({ adm, applyUrl }: { adm: Adm | null; applyUrl: string | null }) {
+  const [showRaw, setShowRaw] = useState(false);
+  const list: DeadlineItem[] = Array.isArray(adm?.deadlines) ? (adm!.deadlines as unknown as DeadlineItem[]) : [];
+  const isRolling = adm?.deadline_type === "rolling";
+  const isTbd = adm?.deadline_type === "tbd" || (!adm?.deadline_type && list.length === 0);
+  const rawText = (adm as unknown as { deadline_raw_text?: string | null } | null)?.deadline_raw_text ?? null;
+
+  return (
+    <div className="py-2 border-b border-border last:border-0">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">Deadlines</div>
+      {isRolling && (
+        <div className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          This program uses rolling admissions — apply earlier for better consideration.
+        </div>
+      )}
+      {list.length > 0 ? (
+        <div className="mt-2 divide-y divide-border rounded-md border border-border">
+          {list.map((d, i) => {
+            const dl = d.deadline_date ?? d.date ?? null;
+            const parsed = parseDeadlineDate(dl);
+            const passed = parsed && parsed.getTime() < Date.now();
+            return (
+              <div key={i} className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 px-3 py-2 text-sm items-center">
+                <div className="font-medium truncate">{d.round ?? "Application Deadline"}</div>
+                <div className={passed ? "text-muted-foreground line-through" : ""}>
+                  {dl ?? "—"}
+                  <DeadlineStatusBadge dateStr={dl} />
+                </div>
+                <div className="text-right text-muted-foreground">{d.decision_date ?? "—"}</div>
+                {d.notes && <div className="col-span-3 text-xs text-muted-foreground -mt-1">{d.notes}</div>}
+              </div>
+            );
+          })}
+        </div>
+      ) : isTbd ? (
+        <div className="mt-2 text-sm text-muted-foreground">
+          Deadline information not publicly available — check the university website directly
+          {applyUrl && (
+            <>
+              {" "}
+              <a href={applyUrl} target="_blank" rel="noreferrer" className="text-primary underline">open apply page</a>.
+            </>
+          )}
+        </div>
+      ) : <DV />}
+
+      {rawText && rawText.trim() !== "" && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => setShowRaw((v) => !v)}
+            className="text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          >
+            {showRaw ? "Hide" : "Show"} source data
+          </button>
+          {showRaw && (
+            <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-[11px] text-muted-foreground">{rawText}</pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function _NotesEditorInner({ entryId, initial }: { entryId: string; initial: string }) {
   const [notes, setNotes] = useState(initial);
   const [saving, setSaving] = useState(false);
   useEffect(() => {
