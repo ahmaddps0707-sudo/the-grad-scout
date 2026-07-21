@@ -1,0 +1,1 @@
+ALTER TABLE public.program_admissions ADD COLUMN IF NOT EXISTS deadline_raw_text text;

@@ -471,6 +471,7 @@ export type Database = {
           application_fee: number | null
           application_fee_currency: string | null
           apply_url: string | null
+          deadline_raw_text: string | null
           deadline_type: string | null
           deadlines: Json | null
           english_test_requirement: string | null
@@ -485,6 +486,7 @@ export type Database = {
           application_fee?: number | null
           application_fee_currency?: string | null
           apply_url?: string | null
+          deadline_raw_text?: string | null
           deadline_type?: string | null
           deadlines?: Json | null
           english_test_requirement?: string | null
@@ -499,6 +501,7 @@ export type Database = {
           application_fee?: number | null
           application_fee_currency?: string | null
           apply_url?: string | null
+          deadline_raw_text?: string | null
           deadline_type?: string | null
           deadlines?: Json | null
           english_test_requirement?: string | null

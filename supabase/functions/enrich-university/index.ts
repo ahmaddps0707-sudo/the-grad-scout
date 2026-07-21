@@ -58,6 +58,152 @@ const TARGET_CATEGORIES: SubPageCategory[] = [
   "international",
 ];
 
+const DEADLINE_URL_KEYWORDS = [
+  "deadline",
+  "deadlines",
+  "apply",
+  "application",
+  "how-to-apply",
+  "admissions",
+  "apply-now",
+  "dates",
+  "important-dates",
+  "rounds",
+  "timeline",
+];
+
+/**
+ * Dedicated deadline-page discovery. Runs in parallel with the main enrichment
+ * gather. Returns scraped markdown of up to 3 deadline-oriented pages plus a
+ * concatenated context string.
+ */
+async function gatherDeadlineSources(
+  universityName: string,
+  programName: string,
+  mainDoc: FirecrawlDocument | null,
+  officialHost: string | null,
+): Promise<{ docs: FirecrawlDocument[]; context: string }> {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  if (mainDoc?.links?.length) {
+    for (const raw of mainDoc.links) {
+      let abs = raw;
+      try { abs = new URL(raw, mainDoc.url).toString(); } catch { continue; }
+      const norm = normalizeUrl(abs);
+      if (!norm || seen.has(norm)) continue;
+      if (!isSameOrSubDomain(norm, officialHost)) continue;
+      const lower = norm.toLowerCase();
+      if (DEADLINE_URL_KEYWORDS.some((kw) => lower.includes(kw))) {
+        seen.add(norm);
+        candidates.push(norm);
+      }
+    }
+  }
+
+  let deadlineDocs: FirecrawlDocument[] = [];
+  if (candidates.length > 0) {
+    deadlineDocs = await scrapeUniqueUrls(candidates, 3, { concurrency: 3, maxMarkdownChars: 12000 });
+  } else {
+    const year = new Date().getFullYear();
+    const queries = [
+      `${universityName} ${programName} application deadline ${year} ${year + 1} rounds`,
+      `${universityName} ${programName} when to apply deadline dates rounds`,
+    ];
+    if (officialHost) queries.push(`site:${officialHost} ${programName} deadline`);
+    const batches = await Promise.all(queries.map((q) => firecrawlSearch(q, { limit: 5 })));
+    const urls: string[] = [];
+    for (const results of batches) {
+      for (const r of results) {
+        const norm = normalizeUrl(r.url);
+        if (!seen.has(norm) && (isSameOrSubDomain(norm, officialHost) || !officialHost)) {
+          seen.add(norm);
+          urls.push(norm);
+          if (urls.length >= 5) break;
+        }
+      }
+      if (urls.length >= 5) break;
+    }
+    deadlineDocs = await scrapeUniqueUrls(urls, 3, { concurrency: 3, maxMarkdownChars: 12000 });
+  }
+
+  const context = deadlineDocs
+    .map((d, i) => `SOURCE ${i + 1}\nURL: ${d.url}\nTitle: ${d.title ?? ""}\nContent:\n${d.markdown.replace(/\s+/g, " ").slice(0, 12000)}`)
+    .join("\n\n---\n\n");
+  return { docs: deadlineDocs, context };
+}
+
+async function extractDeadlines(opts: {
+  apiKey: string;
+  universityName: string;
+  programName: string;
+  targetIntake: string | null;
+  deadlineContext: string;
+  fallbackContext: string;
+}): Promise<{ deadline_type: "fixed" | "rolling" | "tbd"; deadlines: Array<{ round: string; deadline_date: string | null; decision_date: string | null; notes: string | null }>; raw_deadline_text: string }> {
+  const system = `You are an admissions deadline extraction specialist. Your only job is to find and extract every application deadline mentioned in the content provided.
+
+RULES:
+- Extract every date that relates to applying, submitting documents, receiving a decision, or getting notified.
+- University websites use many formats for deadlines. Recognize all of them: tables, bullet lists, prose sentences, headers, bold text, and numbered rounds.
+- For MBA programs: look for Round 1 / Round 2 / Round 3 (or R1/R2/R3) — each has its own application deadline and decision date. Extract all rounds separately.
+- For non-MBA programs: look for Early Action, Early Decision, Regular Decision, Priority Deadline, Final Deadline, Rolling Admission.
+- Date formats vary: 'January 15, 2026', 'Jan 15', '1/15/26', '15 January', 'November 1st', 'Fall 2026'. Extract whatever format is present.
+- If no year is specified on a date, infer the most logical upcoming year based on the intake term context. If a Fall intake program lists 'November 1' with no year, it means the upcoming November 1 before that Fall term.
+- If the program says 'rolling admissions' or 'applications reviewed on a rolling basis', set deadline_type to 'rolling' and still extract any priority deadline dates mentioned.
+- If no deadlines are found anywhere in the content, return deadline_type: 'tbd' and an empty deadlines array.
+- Never return null for deadline_type — always return 'fixed', 'rolling', or 'tbd'.
+- Look for these deadline label variations: Application Deadline / App Deadline / Submit By / Due Date / Application Due / Deadline to Apply / Applications Due / Apply By / Submit Application / Round 1 Deadline / R1 / First Round / Early Deadline / Priority Deadline / Early Action Deadline / Regular Deadline / Final Deadline / Late Deadline / Document Deadline / Materials Due / Supporting Documents Due / Decision Date / Notification Date / Decision Released / Interview Invitation / Interview Date / Scholarship Deadline / Financial Aid Deadline`;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const combined = [
+    opts.deadlineContext ? `=== DEADLINE PAGES (highest priority for dates) ===\n${opts.deadlineContext}` : "",
+    opts.fallbackContext ? `=== OTHER SCRAPED CONTENT ===\n${opts.fallbackContext}` : "",
+  ].filter(Boolean).join("\n\n").slice(0, 80000);
+
+  const user = `Extract all application deadlines for this program from the content below. The current date is ${today}. The program intake is ${opts.targetIntake ?? "unspecified"}.
+
+Program: ${opts.programName}
+University: ${opts.universityName}
+
+Content:
+${combined}
+
+Return ONLY this JSON, no markdown fences:
+{
+  "deadline_type": "fixed" | "rolling" | "tbd",
+  "deadlines": [
+    {
+      "round": string,
+      "deadline_date": string or null,
+      "decision_date": string or null,
+      "notes": string or null
+    }
+  ],
+  "raw_deadline_text": string
+}`;
+
+  try {
+    const raw = await callLovableAI({ apiKey: opts.apiKey, system, user, maxTokens: 4096 });
+    const parsed = parseJsonLoose(raw);
+    const dt = parsed?.deadline_type;
+    const deadline_type: "fixed" | "rolling" | "tbd" = dt === "fixed" || dt === "rolling" || dt === "tbd" ? dt : "tbd";
+    const deadlines = Array.isArray(parsed?.deadlines)
+      ? parsed.deadlines.map((d: any) => ({
+          round: typeof d?.round === "string" && d.round.trim() ? d.round : "Application Deadline",
+          deadline_date: typeof d?.deadline_date === "string" ? d.deadline_date : null,
+          decision_date: typeof d?.decision_date === "string" ? d.decision_date : null,
+          notes: typeof d?.notes === "string" ? d.notes : null,
+        }))
+      : [];
+    const raw_deadline_text = typeof parsed?.raw_deadline_text === "string" ? parsed.raw_deadline_text : "";
+    return { deadline_type, deadlines, raw_deadline_text };
+  } catch (e) {
+    console.error("extractDeadlines failed", e);
+    return { deadline_type: "tbd", deadlines: [], raw_deadline_text: "" };
+  }
+}
+
 /**
  * Three-step deep crawl:
  *   1. Locate the main program page (from websiteUrl or a targeted search) and scrape it with links.
@@ -68,7 +214,7 @@ async function gatherLiveSources(
   universityName: string,
   programName: string,
   websiteUrl?: string | null,
-): Promise<FirecrawlDocument[]> {
+): Promise<{ docs: FirecrawlDocument[]; mainDoc: FirecrawlDocument | null; officialHost: string | null }> {
   let officialHost = hostname(websiteUrl);
 
   // ---------- STEP 1: main program page ----------
@@ -191,7 +337,7 @@ async function gatherLiveSources(
   // Prioritize: official host first, then category diversity.
   const officialDocs = docs.filter((d) => officialHost && d.url.toLowerCase().includes(officialHost.toLowerCase()));
   const otherDocs = docs.filter((d) => !officialHost || !d.url.toLowerCase().includes(officialHost.toLowerCase()));
-  return [...officialDocs, ...otherDocs].slice(0, 20);
+  return { docs: [...officialDocs, ...otherDocs].slice(0, 20), mainDoc, officialHost };
 }
 
 function validUrlOrNull(url: unknown, validSources: Set<string>): string | null {
@@ -213,11 +359,31 @@ Deno.serve(async (req) => {
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
-    const docs = await gatherLiveSources(university_name, program_name, website_url);
+    const gathered = await gatherLiveSources(university_name, program_name, website_url);
+    const docs = gathered.docs;
     if (docs.length === 0) {
       throw new Error("No live university sources could be found or scraped. Please retry later.");
     }
     const validSources = new Set(docs.map((doc) => normalizeUrl(doc.url)));
+
+    // Kick off dedicated deadline discovery + extraction in parallel with the main enrichment call.
+    const deadlinePromise = (async () => {
+      const { docs: deadlineDocs, context: deadlineContext } = await gatherDeadlineSources(
+        university_name,
+        program_name,
+        gathered.mainDoc,
+        gathered.officialHost,
+      );
+      const fallbackContext = deadlineDocs.length === 0 ? sourceContext(docs, 6000, 40000) : "";
+      return extractDeadlines({
+        apiKey,
+        universityName: university_name,
+        programName: program_name,
+        targetIntake: null,
+        deadlineContext,
+        fallbackContext,
+      });
+    })();
 
     const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the midpoint as a number and store the range string in the corresponding _note field.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: universities often publish composite (total), or verbal + quant separately, or a range. Extract whatever is present. If only composite is given, store it in gre_total and leave quant/verbal null. Do not skip GRE entirely just because it is not split into quant and verbal.";
 
@@ -313,6 +479,9 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
 
+    // Await dedicated deadline extraction and merge.
+    const deadlineResult = await deadlinePromise;
+
     const ov = data.overview ?? {};
     const ad = data.admissions ?? {};
     const cp = data.class_profile ?? {};
@@ -332,11 +501,19 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       last_verified_at: new Date().toISOString(),
     }).eq("id", program_id);
 
+    // Merge: dedicated deadline call wins when it found anything; otherwise fall back to main call.
+    const mainDeadlines = Array.isArray(ad.deadlines) ? ad.deadlines : [];
+    const finalDeadlines = deadlineResult.deadlines.length > 0 ? deadlineResult.deadlines : mainDeadlines;
+    const finalDeadlineType = deadlineResult.deadlines.length > 0
+      ? deadlineResult.deadline_type
+      : (ad.deadline_type ?? deadlineResult.deadline_type);
+
     await admin.from("program_admissions").upsert({
       program_id,
       apply_url: validUrlOrNull(ad.apply_url, validSources),
-      deadline_type: ad.deadline_type ?? null,
-      deadlines: ad.deadlines ?? [],
+      deadline_type: finalDeadlineType ?? null,
+      deadlines: finalDeadlines,
+      deadline_raw_text: deadlineResult.raw_deadline_text || null,
       required_materials: ad.required_materials ?? [],
       gre_gmat_requirement: ad.gre_gmat_requirement ?? null,
       english_test_requirement: ad.english_test_requirement ?? null,
