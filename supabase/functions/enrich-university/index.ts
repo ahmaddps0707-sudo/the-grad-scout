@@ -214,7 +214,7 @@ async function gatherLiveSources(
   universityName: string,
   programName: string,
   websiteUrl?: string | null,
-): Promise<FirecrawlDocument[]> {
+): Promise<{ docs: FirecrawlDocument[]; mainDoc: FirecrawlDocument | null; officialHost: string | null }> {
   let officialHost = hostname(websiteUrl);
 
   // ---------- STEP 1: main program page ----------
@@ -337,7 +337,7 @@ async function gatherLiveSources(
   // Prioritize: official host first, then category diversity.
   const officialDocs = docs.filter((d) => officialHost && d.url.toLowerCase().includes(officialHost.toLowerCase()));
   const otherDocs = docs.filter((d) => !officialHost || !d.url.toLowerCase().includes(officialHost.toLowerCase()));
-  return [...officialDocs, ...otherDocs].slice(0, 20);
+  return { docs: [...officialDocs, ...otherDocs].slice(0, 20), mainDoc, officialHost };
 }
 
 function validUrlOrNull(url: unknown, validSources: Set<string>): string | null {
