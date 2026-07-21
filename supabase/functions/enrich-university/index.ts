@@ -359,11 +359,31 @@ Deno.serve(async (req) => {
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
-    const docs = await gatherLiveSources(university_name, program_name, website_url);
+    const gathered = await gatherLiveSources(university_name, program_name, website_url);
+    const docs = gathered.docs;
     if (docs.length === 0) {
       throw new Error("No live university sources could be found or scraped. Please retry later.");
     }
     const validSources = new Set(docs.map((doc) => normalizeUrl(doc.url)));
+
+    // Kick off dedicated deadline discovery + extraction in parallel with the main enrichment call.
+    const deadlinePromise = (async () => {
+      const { docs: deadlineDocs, context: deadlineContext } = await gatherDeadlineSources(
+        university_name,
+        program_name,
+        gathered.mainDoc,
+        gathered.officialHost,
+      );
+      const fallbackContext = deadlineDocs.length === 0 ? sourceContext(docs, 6000, 40000) : "";
+      return extractDeadlines({
+        apiKey,
+        universityName: university_name,
+        programName: program_name,
+        targetIntake: null,
+        deadlineContext,
+        fallbackContext,
+      });
+    })();
 
     const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the midpoint as a number and store the range string in the corresponding _note field.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: universities often publish composite (total), or verbal + quant separately, or a range. Extract whatever is present. If only composite is given, store it in gre_total and leave quant/verbal null. Do not skip GRE entirely just because it is not split into quant and verbal.";
 
