@@ -479,6 +479,11 @@ function DeadlinesBlock({ adm, applyUrl }: { adm: Adm | null; applyUrl: string |
       )}
       {list.length > 0 ? (
         <div className="mt-2 divide-y divide-border rounded-md border border-border">
+          <div className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] gap-3 px-3 py-2 text-[11px] uppercase tracking-wider font-semibold text-[#6B7280] border-b border-border">
+            <div />
+            <div>Deadline</div>
+            <div className="text-right">Decision Date</div>
+          </div>
           {list.map((d, i) => {
             const dl = d.deadline_date ?? d.date ?? null;
             const parsed = parseDeadlineDate(dl);
