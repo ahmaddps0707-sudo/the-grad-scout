@@ -479,6 +479,9 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
 
+    // Await dedicated deadline extraction and merge.
+    const deadlineResult = await deadlinePromise;
+
     const ov = data.overview ?? {};
     const ad = data.admissions ?? {};
     const cp = data.class_profile ?? {};
@@ -498,11 +501,19 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       last_verified_at: new Date().toISOString(),
     }).eq("id", program_id);
 
+    // Merge: dedicated deadline call wins when it found anything; otherwise fall back to main call.
+    const mainDeadlines = Array.isArray(ad.deadlines) ? ad.deadlines : [];
+    const finalDeadlines = deadlineResult.deadlines.length > 0 ? deadlineResult.deadlines : mainDeadlines;
+    const finalDeadlineType = deadlineResult.deadlines.length > 0
+      ? deadlineResult.deadline_type
+      : (ad.deadline_type ?? deadlineResult.deadline_type);
+
     await admin.from("program_admissions").upsert({
       program_id,
       apply_url: validUrlOrNull(ad.apply_url, validSources),
-      deadline_type: ad.deadline_type ?? null,
-      deadlines: ad.deadlines ?? [],
+      deadline_type: finalDeadlineType ?? null,
+      deadlines: finalDeadlines,
+      deadline_raw_text: deadlineResult.raw_deadline_text || null,
       required_materials: ad.required_materials ?? [],
       gre_gmat_requirement: ad.gre_gmat_requirement ?? null,
       english_test_requirement: ad.english_test_requirement ?? null,
