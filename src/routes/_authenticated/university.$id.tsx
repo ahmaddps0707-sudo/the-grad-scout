@@ -239,16 +239,7 @@ function DetailPage() {
             {enriching && !adm ? <SkeletonCard /> : (
               <Card title="Admissions">
                 <Row k="Deadline type" v={adm?.deadline_type} />
-                <div className="py-2 border-b border-border last:border-0">
-                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Deadlines</div>
-                  {Array.isArray(adm?.deadlines) && adm!.deadlines.length ? (
-                    <ul className="mt-1 text-sm space-y-1">
-                      {(adm!.deadlines as Array<{round?:string;date?:string|null}>).map((d, i) => (
-                        <li key={i}><span className="font-medium">{d.round ?? "Round"}:</span> {d.date ?? "TBA"}</li>
-                      ))}
-                    </ul>
-                  ) : <DV />}
-                </div>
+                <DeadlinesBlock adm={adm} applyUrl={adm?.apply_url ?? entry.university.website_url ?? null} />
                 <div className="py-2 border-b border-border last:border-0">
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Required materials</div>
                   {Array.isArray(adm?.required_materials) && adm!.required_materials.length ? (
