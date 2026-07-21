@@ -58,6 +58,152 @@ const TARGET_CATEGORIES: SubPageCategory[] = [
   "international",
 ];
 
+const DEADLINE_URL_KEYWORDS = [
+  "deadline",
+  "deadlines",
+  "apply",
+  "application",
+  "how-to-apply",
+  "admissions",
+  "apply-now",
+  "dates",
+  "important-dates",
+  "rounds",
+  "timeline",
+];
+
+/**
+ * Dedicated deadline-page discovery. Runs in parallel with the main enrichment
+ * gather. Returns scraped markdown of up to 3 deadline-oriented pages plus a
+ * concatenated context string.
+ */
+async function gatherDeadlineSources(
+  universityName: string,
+  programName: string,
+  mainDoc: FirecrawlDocument | null,
+  officialHost: string | null,
+): Promise<{ docs: FirecrawlDocument[]; context: string }> {
+  const candidates: string[] = [];
+  const seen = new Set<string>();
+
+  if (mainDoc?.links?.length) {
+    for (const raw of mainDoc.links) {
+      let abs = raw;
+      try { abs = new URL(raw, mainDoc.url).toString(); } catch { continue; }
+      const norm = normalizeUrl(abs);
+      if (!norm || seen.has(norm)) continue;
+      if (!isSameOrSubDomain(norm, officialHost)) continue;
+      const lower = norm.toLowerCase();
+      if (DEADLINE_URL_KEYWORDS.some((kw) => lower.includes(kw))) {
+        seen.add(norm);
+        candidates.push(norm);
+      }
+    }
+  }
+
+  let deadlineDocs: FirecrawlDocument[] = [];
+  if (candidates.length > 0) {
+    deadlineDocs = await scrapeUniqueUrls(candidates, 3, { concurrency: 3, maxMarkdownChars: 12000 });
+  } else {
+    const year = new Date().getFullYear();
+    const queries = [
+      `${universityName} ${programName} application deadline ${year} ${year + 1} rounds`,
+      `${universityName} ${programName} when to apply deadline dates rounds`,
+    ];
+    if (officialHost) queries.push(`site:${officialHost} ${programName} deadline`);
+    const batches = await Promise.all(queries.map((q) => firecrawlSearch(q, { limit: 5 })));
+    const urls: string[] = [];
+    for (const results of batches) {
+      for (const r of results) {
+        const norm = normalizeUrl(r.url);
+        if (!seen.has(norm) && (isSameOrSubDomain(norm, officialHost) || !officialHost)) {
+          seen.add(norm);
+          urls.push(norm);
+          if (urls.length >= 5) break;
+        }
+      }
+      if (urls.length >= 5) break;
+    }
+    deadlineDocs = await scrapeUniqueUrls(urls, 3, { concurrency: 3, maxMarkdownChars: 12000 });
+  }
+
+  const context = deadlineDocs
+    .map((d, i) => `SOURCE ${i + 1}\nURL: ${d.url}\nTitle: ${d.title ?? ""}\nContent:\n${d.markdown.replace(/\s+/g, " ").slice(0, 12000)}`)
+    .join("\n\n---\n\n");
+  return { docs: deadlineDocs, context };
+}
+
+async function extractDeadlines(opts: {
+  apiKey: string;
+  universityName: string;
+  programName: string;
+  targetIntake: string | null;
+  deadlineContext: string;
+  fallbackContext: string;
+}): Promise<{ deadline_type: "fixed" | "rolling" | "tbd"; deadlines: Array<{ round: string; deadline_date: string | null; decision_date: string | null; notes: string | null }>; raw_deadline_text: string }> {
+  const system = `You are an admissions deadline extraction specialist. Your only job is to find and extract every application deadline mentioned in the content provided.
+
+RULES:
+- Extract every date that relates to applying, submitting documents, receiving a decision, or getting notified.
+- University websites use many formats for deadlines. Recognize all of them: tables, bullet lists, prose sentences, headers, bold text, and numbered rounds.
+- For MBA programs: look for Round 1 / Round 2 / Round 3 (or R1/R2/R3) — each has its own application deadline and decision date. Extract all rounds separately.
+- For non-MBA programs: look for Early Action, Early Decision, Regular Decision, Priority Deadline, Final Deadline, Rolling Admission.
+- Date formats vary: 'January 15, 2026', 'Jan 15', '1/15/26', '15 January', 'November 1st', 'Fall 2026'. Extract whatever format is present.
+- If no year is specified on a date, infer the most logical upcoming year based on the intake term context. If a Fall intake program lists 'November 1' with no year, it means the upcoming November 1 before that Fall term.
+- If the program says 'rolling admissions' or 'applications reviewed on a rolling basis', set deadline_type to 'rolling' and still extract any priority deadline dates mentioned.
+- If no deadlines are found anywhere in the content, return deadline_type: 'tbd' and an empty deadlines array.
+- Never return null for deadline_type — always return 'fixed', 'rolling', or 'tbd'.
+- Look for these deadline label variations: Application Deadline / App Deadline / Submit By / Due Date / Application Due / Deadline to Apply / Applications Due / Apply By / Submit Application / Round 1 Deadline / R1 / First Round / Early Deadline / Priority Deadline / Early Action Deadline / Regular Deadline / Final Deadline / Late Deadline / Document Deadline / Materials Due / Supporting Documents Due / Decision Date / Notification Date / Decision Released / Interview Invitation / Interview Date / Scholarship Deadline / Financial Aid Deadline`;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const combined = [
+    opts.deadlineContext ? `=== DEADLINE PAGES (highest priority for dates) ===\n${opts.deadlineContext}` : "",
+    opts.fallbackContext ? `=== OTHER SCRAPED CONTENT ===\n${opts.fallbackContext}` : "",
+  ].filter(Boolean).join("\n\n").slice(0, 80000);
+
+  const user = `Extract all application deadlines for this program from the content below. The current date is ${today}. The program intake is ${opts.targetIntake ?? "unspecified"}.
+
+Program: ${opts.programName}
+University: ${opts.universityName}
+
+Content:
+${combined}
+
+Return ONLY this JSON, no markdown fences:
+{
+  "deadline_type": "fixed" | "rolling" | "tbd",
+  "deadlines": [
+    {
+      "round": string,
+      "deadline_date": string or null,
+      "decision_date": string or null,
+      "notes": string or null
+    }
+  ],
+  "raw_deadline_text": string
+}`;
+
+  try {
+    const raw = await callLovableAI({ apiKey: opts.apiKey, system, user, maxTokens: 4096 });
+    const parsed = parseJsonLoose(raw);
+    const dt = parsed?.deadline_type;
+    const deadline_type: "fixed" | "rolling" | "tbd" = dt === "fixed" || dt === "rolling" || dt === "tbd" ? dt : "tbd";
+    const deadlines = Array.isArray(parsed?.deadlines)
+      ? parsed.deadlines.map((d: any) => ({
+          round: typeof d?.round === "string" && d.round.trim() ? d.round : "Application Deadline",
+          deadline_date: typeof d?.deadline_date === "string" ? d.deadline_date : null,
+          decision_date: typeof d?.decision_date === "string" ? d.decision_date : null,
+          notes: typeof d?.notes === "string" ? d.notes : null,
+        }))
+      : [];
+    const raw_deadline_text = typeof parsed?.raw_deadline_text === "string" ? parsed.raw_deadline_text : "";
+    return { deadline_type, deadlines, raw_deadline_text };
+  } catch (e) {
+    console.error("extractDeadlines failed", e);
+    return { deadline_type: "tbd", deadlines: [], raw_deadline_text: "" };
+  }
+}
+
 /**
  * Three-step deep crawl:
  *   1. Locate the main program page (from websiteUrl or a targeted search) and scrape it with links.
