@@ -57,7 +57,7 @@ export const deleteUserEntry = createServerFn({ method: "POST" })
         .select("id", { count: "exact", head: true })
         .eq("university_id", universityId);
       if ((uniRefs ?? 0) === 0) {
-        await supabaseAdmin.from("program_city_info").delete().eq("university_id", universityId);
+        // program_city_info FKs to programs with ON DELETE CASCADE, so it's already gone.
         await supabaseAdmin.from("universities").delete().eq("id", universityId);
         deletedUniversity = true;
       }
