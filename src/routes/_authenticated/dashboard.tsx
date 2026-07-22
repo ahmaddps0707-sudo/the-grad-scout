@@ -121,7 +121,11 @@ function DashboardPage() {
         }
         setLastRunCount(added);
         preRunCountRef.current = null;
-        toast.success(added > 0 ? `${added} new ${added === 1 ? "match" : "matches"} added` : "Discovery complete");
+        if (added > 0) {
+          toast.success(`${added} new ${added === 1 ? "match" : "matches"} added`);
+        } else {
+          toast.info("No new matches — try broadening your preferences in Settings.");
+        }
       } else if (data.status === "failed") {
         clearInterval(interval);
         setDiscovering(false);
