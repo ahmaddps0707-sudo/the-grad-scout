@@ -172,10 +172,42 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     }
 
     const liveUrls = new Set(liveResults.map((result) => result.url));
+    const targetCountriesLc = ((profile.target_countries ?? []) as string[])
+      .map((c) => c.toLowerCase().trim())
+      .filter(Boolean);
+    const targetMajorLc = (profile.target_major ?? "").toLowerCase().trim();
+    const stop = new Set(["and","of","the","in","for","a","an","to","science","sciences","studies","study","program","master","masters","ms","msc","ma","degree"]);
+    const majorTokens = targetMajorLc
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 3 && !stop.has(t));
+
+    function matchesTargetCountry(country: string | null | undefined): boolean {
+      if (!targetCountriesLc.length) return true; // user has no preference
+      if (!country) return false;
+      const c = country.toLowerCase().trim();
+      return targetCountriesLc.some((t) => c === t || c.includes(t) || t.includes(c));
+    }
+    function matchesTargetMajor(programName: string, department: string | null | undefined): boolean {
+      if (!majorTokens.length) return true; // no target major specified
+      const hay = `${programName ?? ""} ${department ?? ""}`.toLowerCase();
+      return majorTokens.some((tok) => hay.includes(tok));
+    }
+
     const validatedPrograms = parsed
       .filter((p) => p?.university_name && p?.program_name && p?.website_url)
       .map((p) => ({ ...p, website_url: normalizeUrl(p.website_url) }))
       .filter((p) => liveUrls.has(p.website_url))
+      .filter((p) => {
+        const okCountry = matchesTargetCountry(p.university_country);
+        const okMajor = matchesTargetMajor(p.program_name, p.department);
+        if (!okCountry || !okMajor) {
+          console.log("discard program (country/major mismatch)", {
+            program: p.program_name, country: p.university_country, okCountry, okMajor,
+          });
+          return false;
+        }
+        return true;
+      })
       .slice(0, 5);
 
     for (const p of validatedPrograms) {
