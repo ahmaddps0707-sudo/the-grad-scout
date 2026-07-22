@@ -385,7 +385,7 @@ Deno.serve(async (req) => {
       });
     })();
 
-    const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the midpoint as a number and store the range string in the corresponding _note field.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: universities often publish composite (total), or verbal + quant separately, or a range. Extract whatever is present. If only composite is given, store it in gre_total and leave quant/verbal null. Do not skip GRE entirely just because it is not split into quant and verbal.";
+    const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.";
 
     const user = `Research this master's program using ONLY the live scraped source content below:
 University: ${university_name}
@@ -416,11 +416,11 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   "class_profile": {
     "profile_scope": "program" | "school",
     "gre_total": number or null,
-    "gre_total_note": string or null,
-    "avg_gre_quant": number or null,
-    "avg_gre_quant_note": string or null,
-    "avg_gre_verbal": number or null,
-    "avg_gre_verbal_note": string or null,
+    "gre_total_range": string or null,
+    "gre_quant": number or null,
+    "gre_quant_range": string or null,
+    "gre_verbal": number or null,
+    "gre_verbal_range": string or null,
     "avg_gmat": number or null,
     "avg_gmat_note": string or null,
     "avg_gpa": number or null,
@@ -527,11 +527,11 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       program_id,
       profile_scope: cp.profile_scope ?? null,
       gre_total: cp.gre_total ?? null,
-      gre_total_note: cp.gre_total_note ?? null,
-      avg_gre_quant: cp.avg_gre_quant ?? null,
-      avg_gre_quant_note: cp.avg_gre_quant_note ?? null,
-      avg_gre_verbal: cp.avg_gre_verbal ?? null,
-      avg_gre_verbal_note: cp.avg_gre_verbal_note ?? null,
+      gre_total_range: cp.gre_total_range ?? null,
+      gre_quant: cp.gre_quant ?? null,
+      gre_quant_range: cp.gre_quant_range ?? null,
+      gre_verbal: cp.gre_verbal ?? null,
+      gre_verbal_range: cp.gre_verbal_range ?? null,
       avg_gmat: cp.avg_gmat ?? null,
       avg_gmat_note: cp.avg_gmat_note ?? null,
       avg_gpa: cp.avg_gpa ?? null,

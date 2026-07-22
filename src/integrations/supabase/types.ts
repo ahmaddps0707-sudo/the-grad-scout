@@ -624,8 +624,13 @@ export type Database = {
           avg_work_exp_note: string | null
           avg_work_exp_years: number | null
           class_size: number | null
+          gre_quant: number | null
+          gre_quant_range: string | null
           gre_total: number | null
           gre_total_note: string | null
+          gre_total_range: string | null
+          gre_verbal: number | null
+          gre_verbal_range: string | null
           intl_pct: number | null
           intl_student_pct_note: string | null
           is_stem: boolean | null
@@ -650,8 +655,13 @@ export type Database = {
           avg_work_exp_note?: string | null
           avg_work_exp_years?: number | null
           class_size?: number | null
+          gre_quant?: number | null
+          gre_quant_range?: string | null
           gre_total?: number | null
           gre_total_note?: string | null
+          gre_total_range?: string | null
+          gre_verbal?: number | null
+          gre_verbal_range?: string | null
           intl_pct?: number | null
           intl_student_pct_note?: string | null
           is_stem?: boolean | null
@@ -676,8 +686,13 @@ export type Database = {
           avg_work_exp_note?: string | null
           avg_work_exp_years?: number | null
           class_size?: number | null
+          gre_quant?: number | null
+          gre_quant_range?: string | null
           gre_total?: number | null
           gre_total_note?: string | null
+          gre_total_range?: string | null
+          gre_verbal?: number | null
+          gre_verbal_range?: string | null
           intl_pct?: number | null
           intl_student_pct_note?: string | null
           is_stem?: boolean | null
