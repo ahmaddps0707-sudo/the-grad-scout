@@ -182,6 +182,19 @@ function DashboardPage() {
     }
   };
 
+  const deleteFn = useServerFn(deleteUserEntry);
+  const removeEntry = async (id: string) => {
+    const prev = entries;
+    setEntries((es) => es.filter((e) => e.id !== id));
+    try {
+      await deleteFn({ data: { entryId: id } });
+      toast.success("Removed from your dashboard");
+    } catch (err) {
+      setEntries(prev);
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -246,7 +259,7 @@ function DashboardPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
-                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
+                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onDelete={() => removeEntry(e.id)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
                 ))}
               </div>
             )}
