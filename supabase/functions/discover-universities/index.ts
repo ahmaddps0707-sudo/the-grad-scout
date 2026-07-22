@@ -106,13 +106,51 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    const targetCountries = (profile.target_countries ?? []).join(" ");
-    const searchQueries = [
-      `current master's programs ${profile.target_major ?? "graduate"} ${targetCountries} admissions official`,
-      `site:.edu master's ${profile.target_major ?? "graduate"} program admissions tuition`,
-      `site:.ac.uk master's ${profile.target_major ?? "graduate"} program admissions tuition`,
-      `site:.edu.au master's ${profile.target_major ?? "graduate"} program admissions tuition`,
-    ];
+    const major = profile.target_major ?? "graduate";
+    const targetCountriesArr: string[] = profile.target_countries ?? [];
+    // Map user's target countries to academic TLDs for site-scoped search.
+    const TLDS: Record<string, string[]> = {
+      "united states": [".edu"],
+      "usa": [".edu"],
+      "us": [".edu"],
+      "united kingdom": [".ac.uk"],
+      "uk": [".ac.uk"],
+      "england": [".ac.uk"],
+      "scotland": [".ac.uk"],
+      "australia": [".edu.au"],
+      "canada": [".ca"],
+      "germany": [".de"],
+      "netherlands": [".nl"],
+      "ireland": [".ie"],
+      "france": [".fr"],
+      "italy": [".it"],
+      "spain": [".es"],
+      "sweden": [".se"],
+      "switzerland": [".ch"],
+      "singapore": [".edu.sg"],
+      "hong kong": [".edu.hk"],
+      "new zealand": [".ac.nz"],
+      "japan": [".ac.jp"],
+    };
+    const searchQueries: string[] = [];
+    if (targetCountriesArr.length) {
+      for (const c of targetCountriesArr) {
+        // Plain-language query per country
+        searchQueries.push(`master's ${major} programs in ${c} admissions official`);
+        // Site-scoped query when we know the country's academic TLD
+        const tlds = TLDS[c.toLowerCase().trim()];
+        if (tlds) {
+          for (const tld of tlds) {
+            searchQueries.push(`site:${tld} master's ${major} program admissions tuition`);
+          }
+        }
+      }
+    } else {
+      searchQueries.push(
+        `current master's programs ${major} admissions official`,
+        `site:.edu master's ${major} program admissions tuition`,
+      );
+    }
     const searchBatches = await Promise.all(searchQueries.map((query) => firecrawlSearch(query, { limit: 8 })));
     const seenUrls = new Set<string>();
     const liveResults = searchBatches.flat()
