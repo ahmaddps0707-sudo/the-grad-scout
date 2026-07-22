@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
@@ -8,12 +9,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle } from "lucide-react";
+import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle, Trash2 } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal, type UpgradeReason } from "@/components/upgrade-modal";
+import { deleteUserEntry } from "@/utils/entries.functions";
 import type { Database } from "@/integrations/supabase/types";
 
 type EntryRow = Database["public"]["Tables"]["user_entries"]["Row"];
@@ -118,7 +121,11 @@ function DashboardPage() {
         }
         setLastRunCount(added);
         preRunCountRef.current = null;
-        toast.success(added > 0 ? `${added} new ${added === 1 ? "match" : "matches"} added` : "Discovery complete");
+        if (added > 0) {
+          toast.success(`${added} new ${added === 1 ? "match" : "matches"} added`);
+        } else {
+          toast.info("No new matches — try broadening your preferences in Settings.");
+        }
       } else if (data.status === "failed") {
         clearInterval(interval);
         setDiscovering(false);
@@ -172,6 +179,19 @@ function DashboardPage() {
     if (error) {
       toast.error(error.message);
       if (prev) setEntries((es) => es.map((e) => e.id === id ? prev : e));
+    }
+  };
+
+  const deleteFn = useServerFn(deleteUserEntry);
+  const removeEntry = async (id: string) => {
+    const prev = entries;
+    setEntries((es) => es.filter((e) => e.id !== id));
+    try {
+      await deleteFn({ data: { entryId: id } });
+      toast.success("Removed from your dashboard");
+    } catch (err) {
+      setEntries(prev);
+      toast.error(err instanceof Error ? err.message : "Failed to delete");
     }
   };
 
@@ -239,7 +259,7 @@ function DashboardPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
-                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
+                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onDelete={() => removeEntry(e.id)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
                 ))}
               </div>
             )}
@@ -277,7 +297,7 @@ function EmptyState({ onDiscover }: { onDiscover: () => void }) {
   );
 }
 
-function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p: Partial<EntryRow>) => void; onOpen: () => void }) {
+function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; onUpdate: (p: Partial<EntryRow>) => void; onDelete: () => void; onOpen: () => void }) {
   const score = entry.score ?? 0;
   return (
     <div className="group rounded-xl border border-border bg-surface-elevated p-5 hover:border-primary/30 transition-colors">
@@ -304,6 +324,25 @@ function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p
           <IconBtn active={entry.is_favorite} onClick={() => onUpdate({ is_favorite: !entry.is_favorite })} label="Favorite"><Star className="h-4 w-4" fill={entry.is_favorite ? "currentColor" : "none"} /></IconBtn>
           <IconBtn active={entry.is_liked} onClick={() => onUpdate({ is_liked: !entry.is_liked, is_disliked: false })} label="Like"><ThumbsUp className="h-4 w-4" /></IconBtn>
           <IconBtn active={entry.is_disliked} onClick={() => onUpdate({ is_disliked: !entry.is_disliked, is_liked: false })} label="Dislike"><ThumbsDown className="h-4 w-4" /></IconBtn>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button aria-label="Delete" className="p-2 rounded-md transition-colors text-muted-foreground hover:text-destructive hover:bg-secondary">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this university?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This removes {entry.university.name} and all its research data (overview, admissions, funding, class profile, city, career, outreach) from your dashboard. Contacts you've saved will stay in your Contacts page. This can't be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
         <Select value={entry.status} onValueChange={(v) => onUpdate({ status: v as EntryStatus })}>
           <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue /></SelectTrigger>
