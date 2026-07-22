@@ -56,8 +56,29 @@ Deno.serve(async (req) => {
     const programId: string | undefined = body.program_id;
     const universityName: string = body.university_name ?? "";
     const programName: string = body.program_name ?? "";
-    const userCountry: string = body.user_country ?? "";
+    let userCountry: string = body.user_country ?? "";
     if (!programId) throw new Error("program_id is required");
+
+    // Prefer the authoritative value from profiles.country_of_origin for the
+    // requesting user. Falls back to whatever the caller passed in body.
+    try {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const token = authHeader.replace(/^Bearer\s+/i, "");
+      if (token) {
+        const { data: userRes } = await admin.auth.getUser(token);
+        const uid = userRes?.user?.id;
+        if (uid) {
+          const { data: prof } = await admin
+            .from("profiles")
+            .select("country_of_origin")
+            .eq("id", uid)
+            .maybeSingle();
+          if (prof?.country_of_origin) userCountry = prof.country_of_origin;
+        }
+      }
+    } catch (_e) {
+      // If profile lookup fails, run search without country prioritization.
+    }
 
     // Check cache: any contacts verified within last 90 days?
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
@@ -95,7 +116,11 @@ Deno.serve(async (req) => {
     const system =
       "You are a research assistant helping international master's applicants find students and alumni to contact. Only extract profiles explicitly present in the search snippets provided. Never invent names or URLs not found in the context.";
 
-    const user = `From the following public search result snippets, extract LinkedIn profiles of current students or recent graduates (last 3 years) of this master's program. Prioritize people from ${userCountry || "the user's home country"}. Only include entries with a valid linkedin.com/in/ URL present in the snippets.
+    const priorityLine = userCountry
+      ? `Prioritize returning people from ${userCountry} first in the results array, but do not limit results to only that country. Include students and alumni from all countries — just rank the user's home country contacts higher. If no contacts from ${userCountry} are found, return contacts from other countries normally.`
+      : `Include students and alumni from all countries.`;
+
+    const user = `From the following public search result snippets, extract LinkedIn profiles of current students or recent graduates (last 3 years) of this master's program. ${priorityLine} Only include entries with a valid linkedin.com/in/ URL present in the snippets.
 
 University: ${universityName}
 Program: ${programName}

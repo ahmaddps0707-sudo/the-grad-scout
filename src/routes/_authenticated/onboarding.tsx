@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
+import { CountrySelect } from "@/components/country-select";
 
 type ProfileUpd = Database["public"]["Tables"]["profiles"]["Update"];
 
@@ -33,6 +34,7 @@ function OnboardingPage() {
 
   const [form, setForm] = useState({
     target_major: "",
+    country_of_origin: "",
     target_countries: [] as string[],
     target_tier: "no_preference" as Database["public"]["Enums"]["tier_pref"],
     funding_preference: "partial_ok" as Database["public"]["Enums"]["funding_pref"],
@@ -57,6 +59,7 @@ function OnboardingPage() {
         setForm((f) => ({
           ...f,
           target_major: data.target_major ?? "",
+          country_of_origin: data.country_of_origin ?? "",
           target_countries: data.target_countries ?? [],
           target_tier: data.target_tier ?? f.target_tier,
           funding_preference: data.funding_preference ?? f.funding_preference,
@@ -78,6 +81,7 @@ function OnboardingPage() {
     setSaving(true);
     const upd: ProfileUpd = {
       target_major: next.target_major || null,
+      country_of_origin: next.country_of_origin || null,
       target_countries: next.target_countries,
       target_tier: next.target_tier,
       funding_preference: next.funding_preference,
@@ -153,6 +157,13 @@ function OnboardingPage() {
                   <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pick a field" /></SelectTrigger>
                   <SelectContent>{MAJORS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Where are you from?</Label>
+                <p className="text-xs text-muted-foreground mt-1">We use this to prioritize alumni from your country in the Outreach section.</p>
+                <div className="mt-1.5">
+                  <CountrySelect value={form.country_of_origin || null} onChange={(v) => update({ country_of_origin: v })} />
+                </div>
               </div>
             </div>
           )}
@@ -258,7 +269,12 @@ function OnboardingPage() {
                 <Button variant="ghost" onClick={() => setStep((s) => s + 1)}>Skip for now</Button>
               )}
               {step < STEPS.length - 1 ? (
-                <Button onClick={() => setStep((s) => s + 1)}>Continue</Button>
+                <Button
+                  onClick={() => setStep((s) => s + 1)}
+                  disabled={step === 0 && (!form.target_major || !form.country_of_origin)}
+                >
+                  Continue
+                </Button>
               ) : (
                 <Button onClick={finish} disabled={submitting}>
                   {submitting ? <><Loader2 className="animate-spin h-4 w-4 mr-2" /> Researching…</> : "Finish & find matches"}

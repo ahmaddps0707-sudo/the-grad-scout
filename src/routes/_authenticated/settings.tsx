@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { createPortalSession } from "@/utils/payments.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
 import { PaymentTestModeBanner } from "@/components/payment-test-mode-banner";
+import { CountrySelect } from "@/components/country-select";
 
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
@@ -90,6 +91,7 @@ function SettingsPage() {
     setSaving(true);
     const { error } = await supabase.from("profiles").update({
       full_name: profile.full_name,
+      country_of_origin: (profile as any).country_of_origin ?? null,
       target_major: profile.target_major,
       target_countries: profile.target_countries,
       target_tier: profile.target_tier,
@@ -126,6 +128,16 @@ function SettingsPage() {
             <div className="col-span-2">
               <Label>Full name</Label>
               <Input value={profile.full_name ?? ""} onChange={(e) => update({ full_name: e.target.value })} className="mt-1.5" />
+            </div>
+            <div className="col-span-2">
+              <Label>Where are you from?</Label>
+              <p className="text-xs text-muted-foreground mt-1">We use this to prioritize alumni from your country in the Outreach section.</p>
+              <div className="mt-1.5">
+                <CountrySelect
+                  value={(profile as any).country_of_origin ?? null}
+                  onChange={(v) => update({ country_of_origin: v } as Partial<ProfileRow>)}
+                />
+              </div>
             </div>
             <div className="col-span-2">
               <Label>Desired major</Label>
