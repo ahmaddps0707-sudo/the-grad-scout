@@ -297,7 +297,7 @@ function EmptyState({ onDiscover }: { onDiscover: () => void }) {
   );
 }
 
-function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p: Partial<EntryRow>) => void; onOpen: () => void }) {
+function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; onUpdate: (p: Partial<EntryRow>) => void; onDelete: () => void; onOpen: () => void }) {
   const score = entry.score ?? 0;
   return (
     <div className="group rounded-xl border border-border bg-surface-elevated p-5 hover:border-primary/30 transition-colors">
@@ -324,6 +324,25 @@ function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p
           <IconBtn active={entry.is_favorite} onClick={() => onUpdate({ is_favorite: !entry.is_favorite })} label="Favorite"><Star className="h-4 w-4" fill={entry.is_favorite ? "currentColor" : "none"} /></IconBtn>
           <IconBtn active={entry.is_liked} onClick={() => onUpdate({ is_liked: !entry.is_liked, is_disliked: false })} label="Like"><ThumbsUp className="h-4 w-4" /></IconBtn>
           <IconBtn active={entry.is_disliked} onClick={() => onUpdate({ is_disliked: !entry.is_disliked, is_liked: false })} label="Dislike"><ThumbsDown className="h-4 w-4" /></IconBtn>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button aria-label="Delete" className="p-2 rounded-md transition-colors text-muted-foreground hover:text-destructive hover:bg-secondary">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this university?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This removes {entry.university.name} and all its research data (overview, admissions, funding, class profile, city, career, outreach) from your dashboard. Contacts you've saved will stay in your Contacts page. This can't be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
         <Select value={entry.status} onValueChange={(v) => onUpdate({ status: v as EntryStatus })}>
           <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue /></SelectTrigger>
