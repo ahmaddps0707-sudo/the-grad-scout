@@ -264,7 +264,7 @@ function DetailPage() {
           <TabsContent value="class" className="mt-6">
             {enriching && !cp ? <SkeletonCard /> : (
               <Card title="Class profile">
-                <Row k="GRE" v={greDisplay(cp)} />
+                <GreRows cp={cp} />
                 <Row k="Average GMAT" v={pick(cp?.avg_gmat, cp?.avg_gmat_note)} />
                 <Row k="Average GPA" v={pick(cp?.avg_gpa, cp?.avg_gpa_note)} />
                 <Row k="Average IELTS" v={pick(cp?.avg_ielts, cp?.avg_ielts_note)} />
@@ -415,17 +415,30 @@ function pick(value: number | string | null | undefined, note?: string | null): 
   return null;
 }
 
-function greDisplay(cp: Cp | null): React.ReactNode {
-  const q = cp?.avg_gre_quant;
-  const v = cp?.avg_gre_verbal;
-  const total = cp?.gre_total;
-  if (q != null && v != null) return `${q}Q / ${v}V`;
-  if (q != null) return `GRE (Quant): ${q}`;
-  if (v != null) return `GRE (Verbal): ${v}`;
-  if (total != null) return `GRE (Composite): ${total}`;
-  const note = cp?.gre_total_note ?? cp?.avg_gre_quant_note ?? cp?.avg_gre_verbal_note;
-  if (note && note.trim() !== "") return note;
+function formatGre(num: number | null | undefined, range: string | null | undefined): string | null {
+  const hasNum = num != null;
+  const hasRange = range != null && String(range).trim() !== "";
+  if (hasNum && hasRange) return `${num} (range: ${range})`;
+  if (hasNum) return String(num);
+  if (hasRange) return String(range);
   return null;
+}
+
+function GreRows({ cp }: { cp: Cp | null }) {
+  const c = cp as any;
+  const total = formatGre(c?.gre_total, c?.gre_total_range);
+  const quant = formatGre(c?.gre_quant ?? c?.avg_gre_quant, c?.gre_quant_range);
+  const verbal = formatGre(c?.gre_verbal ?? c?.avg_gre_verbal, c?.gre_verbal_range);
+  if (!total && !quant && !verbal) {
+    return <Row k="GRE" v={null} />;
+  }
+  return (
+    <>
+      {total && <Row k="GRE Total" v={total} />}
+      {quant && <Row k="GRE Quant" v={quant} />}
+      {verbal && <Row k="GRE Verbal" v={verbal} />}
+    </>
+  );
 }
 function SkeletonCard() {
   return (
