@@ -293,7 +293,20 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       })
       .slice(0, 5);
 
-    for (const p of validatedPrograms) {
+    // Resolve specific program page URL for each result via Firecrawl.
+    const resolvedPrograms: ResolvedProgram[] = await Promise.all(
+      validatedPrograms.map(async (p) => {
+        try {
+          const program_url = await resolveProgramUrl(p);
+          return { ...p, program_url };
+        } catch (e) {
+          console.error("resolveProgramUrl error", p.program_name, e);
+          return { ...p, program_url: p.website_url ?? null };
+        }
+      }),
+    );
+
+    for (const p of resolvedPrograms) {
       // Upsert university (by case-insensitive name + country)
       const { data: existingUni } = await admin.from("universities")
         .select("*").ilike("name", p.university_name).ilike("country", p.university_country ?? "").maybeSingle();
@@ -322,9 +335,12 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
           duration_months: p.duration_months ?? null,
           department: p.department,
           is_stem: p.is_stem,
+          program_url: p.program_url ?? null,
         }).select().single();
         if (pErr2) { console.error("prog insert", pErr2); continue; }
         progId = newProg.id;
+      } else if (!existingProg?.program_url && p.program_url) {
+        await admin.from("programs").update({ program_url: p.program_url }).eq("id", progId);
       }
 
       const score = computeScore(profile, p);
