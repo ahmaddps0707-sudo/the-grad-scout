@@ -475,7 +475,10 @@ export type Database = {
           deadline_type: string | null
           deadlines: Json | null
           english_test_requirement: string | null
+          gmat_required: string | null
+          gre_gmat_notes: string | null
           gre_gmat_requirement: string | null
+          gre_required: string | null
           program_id: string
           required_materials: Json | null
           test_requirement_status: string | null
@@ -490,7 +493,10 @@ export type Database = {
           deadline_type?: string | null
           deadlines?: Json | null
           english_test_requirement?: string | null
+          gmat_required?: string | null
+          gre_gmat_notes?: string | null
           gre_gmat_requirement?: string | null
+          gre_required?: string | null
           program_id: string
           required_materials?: Json | null
           test_requirement_status?: string | null
@@ -505,7 +511,10 @@ export type Database = {
           deadline_type?: string | null
           deadlines?: Json | null
           english_test_requirement?: string | null
+          gmat_required?: string | null
+          gre_gmat_notes?: string | null
           gre_gmat_requirement?: string | null
+          gre_required?: string | null
           program_id?: string
           required_materials?: Json | null
           test_requirement_status?: string | null
