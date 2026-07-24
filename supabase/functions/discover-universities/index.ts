@@ -18,6 +18,56 @@ interface DiscoveredProgram {
   match_rationale: string;
 }
 
+interface ResolvedProgram extends DiscoveredProgram {
+  program_url: string | null;
+}
+
+function extractDomain(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function tokenize(s: string): string[] {
+  const stop = new Set(["and","of","the","in","for","a","an","to","science","sciences","studies","study","program","programs","master","masters","ms","msc","ma","degree","school","university"]);
+  return (s ?? "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3 && !stop.has(t));
+}
+
+async function resolveProgramUrl(p: DiscoveredProgram): Promise<string | null> {
+  const originalDomain = extractDomain(p.website_url);
+  const query = `${p.university_name} ${p.program_name} ${p.degree_type ?? ""} official program page admissions`.trim();
+  const results = await firecrawlSearch(query, { limit: 3 });
+  const normalized = results
+    .map((r) => ({ ...r, url: normalizeUrl(r.url) }))
+    .filter((r) => !!r.url);
+  const sameDomain = originalDomain
+    ? normalized.filter((r) => {
+        const d = extractDomain(r.url);
+        return d && (d === originalDomain || d.endsWith("." + originalDomain) || originalDomain.endsWith("." + d));
+      })
+    : normalized;
+  const nameTokens = tokenize(`${p.program_name} ${p.department ?? ""}`);
+  // 1. Same-domain URL containing program name tokens
+  const byName = sameDomain.find((r) => {
+    const lower = r.url.toLowerCase();
+    return nameTokens.some((t) => lower.includes(t));
+  });
+  if (byName) return byName.url;
+  // 2. Same-domain URL containing admission/program keywords
+  const kwRe = /(program|programs|degree|admission|admissions|graduate|apply|application)/i;
+  const byKw = sameDomain.find((r) => kwRe.test(r.url));
+  if (byKw) return byKw.url;
+  // 3. First same-domain URL
+  if (sameDomain[0]) return sameDomain[0].url;
+  // 4. Fallback to original
+  return p.website_url ?? null;
+}
+
 function tierLabel(t: string | null | undefined) {
   if (t === "top_10") return "Top 10";
   if (t === "top_50") return "Top 50";
@@ -186,7 +236,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
   "university_country": string,
   "university_city": string,
   "qs_ranking": number or null,
-  "website_url": string,
+  "website_url": string — the university homepage or best available URL from the search results. Do not guess or construct URLs. Only use URLs that appear explicitly in the search context provided. If no URL is visible in the context, return null.,
   "program_name": string,
   "degree_type": string,
   "department": string,
@@ -243,7 +293,20 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       })
       .slice(0, 5);
 
-    for (const p of validatedPrograms) {
+    // Resolve specific program page URL for each result via Firecrawl.
+    const resolvedPrograms: ResolvedProgram[] = await Promise.all(
+      validatedPrograms.map(async (p) => {
+        try {
+          const program_url = await resolveProgramUrl(p);
+          return { ...p, program_url };
+        } catch (e) {
+          console.error("resolveProgramUrl error", p.program_name, e);
+          return { ...p, program_url: p.website_url ?? null };
+        }
+      }),
+    );
+
+    for (const p of resolvedPrograms) {
       // Upsert university (by case-insensitive name + country)
       const { data: existingUni } = await admin.from("universities")
         .select("*").ilike("name", p.university_name).ilike("country", p.university_country ?? "").maybeSingle();
@@ -272,9 +335,12 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
           duration_months: p.duration_months ?? null,
           department: p.department,
           is_stem: p.is_stem,
+          program_url: p.program_url ?? null,
         }).select().single();
         if (pErr2) { console.error("prog insert", pErr2); continue; }
         progId = newProg.id;
+      } else if (!existingProg?.program_url && p.program_url) {
+        await admin.from("programs").update({ program_url: p.program_url }).eq("id", progId);
       }
 
       const score = computeScore(profile, p);

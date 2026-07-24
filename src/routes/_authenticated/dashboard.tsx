@@ -313,8 +313,8 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
         {entry.program?.us_news_ranking != null && <span>US News #{entry.program.us_news_ranking}</span>}
         {entry.program?.school_ranking != null && <span>School #{entry.program.school_ranking}</span>}
         {entry.university.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{entry.university.city}{entry.university.country ? `, ${entry.university.country}` : ""}</span>}
-        {entry.university.website_url && (
-          <a href={entry.university.website_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:text-foreground">
+        {(entry.program?.program_url || entry.university.website_url) && (
+          <a href={entry.program?.program_url || entry.university.website_url!} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="flex items-center gap-1 hover:text-foreground">
             <ExternalLink className="h-3 w-3" /> site
           </a>
         )}

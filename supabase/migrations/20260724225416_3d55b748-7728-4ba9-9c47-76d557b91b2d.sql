@@ -1,0 +1,1 @@
+ALTER TABLE public.programs ADD COLUMN IF NOT EXISTS program_url TEXT;

@@ -177,8 +177,8 @@ function DetailPage() {
               <div className="mt-3 flex items-center gap-3 text-sm text-muted-foreground">
                 {entry.university.qs_ranking && <span>QS #{entry.university.qs_ranking}</span>}
                 {entry.university.city && <span>{entry.university.city}{entry.university.country ? `, ${entry.university.country}` : ""}</span>}
-                {entry.university.website_url && (
-                  <a href={entry.university.website_url} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-foreground">
+                {(entry.program?.program_url || entry.university.website_url) && (
+                  <a href={entry.program?.program_url || entry.university.website_url!} target="_blank" rel="noreferrer" className="flex items-center gap-1 hover:text-foreground">
                     <ExternalLink className="h-3.5 w-3.5" /> Visit website
                   </a>
                 )}
@@ -239,7 +239,7 @@ function DetailPage() {
             {enriching && !adm ? <SkeletonCard /> : (
               <Card title="Admissions">
                 <Row k="Deadline type" v={adm?.deadline_type} />
-                <DeadlinesBlock adm={adm} applyUrl={adm?.apply_url ?? entry.university.website_url ?? null} />
+                <DeadlinesBlock adm={adm} applyUrl={adm?.apply_url ?? entry.program?.program_url ?? entry.university.website_url ?? null} />
                 <div className="py-2 border-b border-border last:border-0">
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Required materials</div>
                   {Array.isArray(adm?.required_materials) && adm!.required_materials.length ? (
@@ -250,10 +250,10 @@ function DetailPage() {
                 </div>
                 <Row k="Test requirement" v={adm?.test_requirement_status} />
                 <Row k="Application fee" v={adm?.application_fee ? `${adm.application_fee} ${adm.application_fee_currency ?? ""}` : null} />
-                {entry.university.website_url && (
+                {(entry.program?.program_url || entry.university.website_url) && (
                   <div className="pt-4">
                     <Button asChild variant="outline" size="sm">
-                      <a href={entry.university.website_url} target="_blank" rel="noreferrer">Open apply page <ExternalLink className="h-3.5 w-3.5 ml-1" /></a>
+                      <a href={entry.program?.program_url || entry.university.website_url!} target="_blank" rel="noreferrer">Open apply page <ExternalLink className="h-3.5 w-3.5 ml-1" /></a>
                     </Button>
                   </div>
                 )}
