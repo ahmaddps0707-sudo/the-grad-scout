@@ -871,6 +871,7 @@ export type Database = {
           name: string
           name_normalized: string | null
           program_description: string | null
+          program_url: string | null
           school_ranking: number | null
           university_id: string
           us_news_ranking: number | null
@@ -888,6 +889,7 @@ export type Database = {
           name: string
           name_normalized?: string | null
           program_description?: string | null
+          program_url?: string | null
           school_ranking?: number | null
           university_id: string
           us_news_ranking?: number | null
@@ -905,6 +907,7 @@ export type Database = {
           name?: string
           name_normalized?: string | null
           program_description?: string | null
+          program_url?: string | null
           school_ranking?: number | null
           university_id?: string
           us_news_ranking?: number | null
