@@ -290,7 +290,9 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       if (eErr && !eErr.message.includes("duplicate")) console.error("entry insert", eErr);
     }
 
-    await admin.from("discover_jobs").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", jobId);
+    const doneUpdate: Record<string, unknown> = { status: "done", completed_at: new Date().toISOString() };
+    if (validatedPrograms.length === 0) doneUpdate.error = "no_matches_for_targets";
+    await admin.from("discover_jobs").update(doneUpdate).eq("id", jobId);
     // Always increment discover_runs_used (both tiers are metered)
     await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
     return new Response(JSON.stringify({ ok: true, count: validatedPrograms.length }), {
