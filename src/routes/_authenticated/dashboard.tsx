@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle } from "lucide-react";
+import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle, Trash2 } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
@@ -175,6 +176,24 @@ function DashboardPage() {
     }
   };
 
+  const deleteEntry = async (id: string) => {
+    const prev = entries;
+    setEntries((es) => es.filter((e) => e.id !== id));
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setEntries(prev);
+      toast.error("Not signed in");
+      return;
+    }
+    const { error } = await supabase.from("user_entries").delete().eq("id", id).eq("user_id", u.user.id);
+    if (error) {
+      setEntries(prev);
+      toast.error(error.message);
+    } else {
+      toast.success("Removed from your dashboard");
+    }
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -239,7 +258,7 @@ function DashboardPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
-                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
+                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onDelete={() => deleteEntry(e.id)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
                 ))}
               </div>
             )}
@@ -277,7 +296,8 @@ function EmptyState({ onDiscover }: { onDiscover: () => void }) {
   );
 }
 
-function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p: Partial<EntryRow>) => void; onOpen: () => void }) {
+function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; onUpdate: (p: Partial<EntryRow>) => void; onDelete: () => void; onOpen: () => void }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const score = entry.score ?? 0;
   return (
     <div className="group rounded-xl border border-border bg-surface-elevated p-5 hover:border-primary/30 transition-colors">
@@ -304,6 +324,23 @@ function EntryCard({ entry, onUpdate, onOpen }: { entry: EntryFull; onUpdate: (p
           <IconBtn active={entry.is_favorite} onClick={() => onUpdate({ is_favorite: !entry.is_favorite })} label="Favorite"><Star className="h-4 w-4" fill={entry.is_favorite ? "currentColor" : "none"} /></IconBtn>
           <IconBtn active={entry.is_liked} onClick={() => onUpdate({ is_liked: !entry.is_liked, is_disliked: false })} label="Like"><ThumbsUp className="h-4 w-4" /></IconBtn>
           <IconBtn active={entry.is_disliked} onClick={() => onUpdate({ is_disliked: !entry.is_disliked, is_liked: false })} label="Dislike"><ThumbsDown className="h-4 w-4" /></IconBtn>
+          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <PopoverTrigger asChild>
+              <button
+                aria-label="Remove"
+                className="p-2 rounded-md transition-colors text-muted-foreground hover:text-destructive hover:bg-secondary"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" onClick={(e) => e.stopPropagation()}>
+              <p className="text-sm text-foreground">Remove {entry.university.name} from your dashboard?</p>
+              <div className="mt-3 flex items-center justify-end gap-2">
+                <Button size="sm" variant="ghost" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                <Button size="sm" variant="destructive" onClick={() => { setConfirmOpen(false); onDelete(); }}>Remove</Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
         <Select value={entry.status} onValueChange={(v) => onUpdate({ status: v as EntryStatus })}>
           <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue /></SelectTrigger>
