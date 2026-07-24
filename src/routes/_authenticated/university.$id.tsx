@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ExternalLink, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, RefreshCw, Info } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import type { Database } from "@/integrations/supabase/types";
@@ -248,7 +248,7 @@ function DetailPage() {
                     </ul>
                   ) : <DV />}
                 </div>
-                <Row k="Test requirement" v={adm?.test_requirement_status} />
+                <TestRequirementRows adm={adm} />
                 <Row k="Application fee" v={adm?.application_fee ? `${adm.application_fee} ${adm.application_fee_currency ?? ""}` : null} />
                 {(entry.program?.program_url || entry.university.website_url) && (
                   <div className="pt-4">
