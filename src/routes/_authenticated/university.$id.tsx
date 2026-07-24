@@ -475,6 +475,65 @@ function DeadlineStatusBadge({ dateStr }: { dateStr?: string | null }) {
   return null;
 }
 
+function TestStatusBadge({ status, notes }: { status: string; notes?: string | null }) {
+  const s = status.toLowerCase();
+  const map: Record<string, { label: string; cls: string }> = {
+    required: { label: "Required", cls: "bg-red-500/15 text-red-600 dark:text-red-400" },
+    optional: { label: "Optional", cls: "bg-blue-500/15 text-blue-600 dark:text-blue-400" },
+    not_required: { label: "Not Required", cls: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+    waived: { label: "Waived", cls: "bg-muted text-muted-foreground" },
+  };
+  const m = map[s] ?? { label: status, cls: "bg-muted text-muted-foreground" };
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${m.cls}`}>
+      {m.label}
+      {s === "waived" && notes ? <Info className="h-3 w-3" aria-label={notes} /> : null}
+    </span>
+  );
+}
+
+function TestRequirementRows({ adm }: { adm: Adm | null }) {
+  const gre = (adm as any)?.gre_required as string | null | undefined;
+  const gmat = (adm as any)?.gmat_required as string | null | undefined;
+  const notes = (adm as any)?.gre_gmat_notes as string | null | undefined;
+  const legacy = (adm as any)?.gre_gmat_requirement as string | null | undefined;
+
+  if (!gre && !gmat) {
+    if (legacy) {
+      return (
+        <div className="py-2 border-b border-border last:border-0 flex items-center justify-between">
+          <div className="text-xs uppercase tracking-wider text-muted-foreground">GRE/GMAT</div>
+          <div className="text-sm">{legacy.charAt(0).toUpperCase() + legacy.slice(1)}</div>
+        </div>
+      );
+    }
+    return (
+      <div className="py-2 border-b border-border last:border-0">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">Test requirement</div>
+        <div className="mt-1 text-sm text-muted-foreground italic">Not publicly available — check the program website directly</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="py-2 border-b border-border last:border-0 space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">GRE</div>
+        {gre ? <TestStatusBadge status={gre} notes={notes} /> : <span className="text-sm text-muted-foreground">—</span>}
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground">GMAT</div>
+        {gmat ? <TestStatusBadge status={gmat} notes={notes} /> : <span className="text-sm text-muted-foreground">—</span>}
+      </div>
+      {notes ? (
+        <div className="text-xs italic text-muted-foreground flex items-start gap-1">
+          <Info className="h-3 w-3 mt-0.5 shrink-0" /> <span>{notes}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DeadlinesBlock({ adm, applyUrl }: { adm: Adm | null; applyUrl: string | null }) {
   const [showRaw, setShowRaw] = useState(false);
   const list: DeadlineItem[] = Array.isArray(adm?.deadlines) ? (adm!.deadlines as unknown as DeadlineItem[]) : [];
