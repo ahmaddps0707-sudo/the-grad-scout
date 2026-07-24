@@ -1,25 +1,24 @@
 ## Problem
 
-Dashboard filters (quick, status, sort) already live in URL search params, so the browser Back button restores them correctly. The bug is the in-page "Back" link on the university detail page:
+Discovery runs finish "successfully" but insert zero programs. Edge function logs show every candidate discarded with `okCountry: false` — programs from the UK and Australia are returned even though the user's `target_countries` is `["United States"]`.
 
-`src/routes/_authenticated/university.$id.tsx:159`
-```tsx
-<Link to="/dashboard" className="...">← Back</Link>
-```
+Root cause: `discover-universities` fires four Firecrawl queries in parallel — one generic plus hardcoded `site:.edu`, `site:.ac.uk`, and `site:.edu.au` — regardless of the user's target countries. The UK/AU results dominate the live-context pool, so Gemini picks non-US programs, which are then correctly rejected by the final country validator, leaving nothing to insert.
 
-TanStack Router's `<Link to="/dashboard">` navigates to `/dashboard` with an empty search object, wiping `?quick=…&status=…&sort=…`. It's also a forward push, not a history pop, so filters are lost even if the user had them set moments before.
+## Fix (only `supabase/functions/discover-universities/index.ts`)
 
-Same issue applies to the `EntryCard` `onOpen` → `navigate({ to: "/university/$id", … })`: it works, but the return trip via the in-page Back link is what breaks state.
+1. **Country-aware search queries.** Build the Firecrawl query list from the user's `target_countries` instead of hardcoding TLDs:
+   - Map each target country to its site filter(s): US → `site:.edu`, UK → `site:.ac.uk`, Australia → `site:.edu.au`, Canada → `site:.ca`, Germany → `site:.de`, Netherlands → `site:.nl`, France → `site:.fr`, Singapore → `site:.edu.sg`, Ireland → `site:.ie`, Hong Kong → `site:.edu.hk`, etc. Unknown countries fall back to a generic `"<major>" "<country>" master's admissions` query.
+   - Always include one generic query per country: `master's <target_major> <country> admissions official tuition`.
+   - Drop the mixed-TLD fan-out so UK/AU pages don't contaminate a US-only search.
 
-## Fix
+2. **Country-scoped live context.** After Firecrawl, tag each result with the country it was searched for and prefer results from country-matched queries when trimming to the top ~24, so Gemini sees mostly on-target evidence.
 
-Change only the Back control on the university detail page to pop browser history so the previously visited dashboard URL (with its search params) is restored:
+3. **Prompt reinforcement.** In the user prompt, restate the target countries as a hard filter ("Do not include programs outside these countries") and repeat the country list right before the JSON schema. No new fields.
 
-- Replace the `<Link to="/dashboard">` with a `<button>` (styled identically) that calls `router.history.back()` from `useRouter()`.
-- Fallback: if `window.history.length <= 1` (user landed directly on the detail URL), navigate to `/dashboard` with no params — same as today.
+4. **Better failure signal.** When the validator discards everything, mark the job `done` with a soft `error: "no_matches_for_targets"` (kept as-is elsewhere) so the existing Low Results banner can explain the outcome instead of the current silent zero-insert.
 
-That's the entire change. No dashboard, routing, or state changes needed — the search-param wiring from the previous turn is correct.
+No schema, RLS, UI, or other function changes.
 
 ## Files touched
 
-- `src/routes/_authenticated/university.$id.tsx` — swap the Back `<Link>` for a history-back button with a direct-load fallback.
+- `supabase/functions/discover-universities/index.ts`

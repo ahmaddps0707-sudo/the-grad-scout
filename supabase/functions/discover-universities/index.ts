@@ -106,13 +106,44 @@ Deno.serve(async (req) => {
       return v ? `${t}: ${v}` : `${t}: not taken`;
     }).join(", ");
 
-    const targetCountries = (profile.target_countries ?? []).join(" ");
-    const searchQueries = [
-      `current master's programs ${profile.target_major ?? "graduate"} ${targetCountries} admissions official`,
-      `site:.edu master's ${profile.target_major ?? "graduate"} program admissions tuition`,
-      `site:.ac.uk master's ${profile.target_major ?? "graduate"} program admissions tuition`,
-      `site:.edu.au master's ${profile.target_major ?? "graduate"} program admissions tuition`,
-    ];
+    const major = profile.target_major ?? "graduate";
+    const countries: string[] = (profile.target_countries ?? []).filter(Boolean);
+
+    const COUNTRY_SITE_FILTERS: Record<string, string[]> = {
+      "united states": ["site:.edu"],
+      "usa": ["site:.edu"],
+      "us": ["site:.edu"],
+      "united kingdom": ["site:.ac.uk"],
+      "uk": ["site:.ac.uk"],
+      "england": ["site:.ac.uk"],
+      "scotland": ["site:.ac.uk"],
+      "australia": ["site:.edu.au"],
+      "canada": ["site:.ca"],
+      "germany": ["site:.de"],
+      "netherlands": ["site:.nl"],
+      "france": ["site:.fr"],
+      "singapore": ["site:.edu.sg"],
+      "ireland": ["site:.ie"],
+      "hong kong": ["site:.edu.hk"],
+      "switzerland": ["site:.ch"],
+      "sweden": ["site:.se"],
+      "italy": ["site:.it"],
+      "spain": ["site:.es"],
+      "new zealand": ["site:.ac.nz"],
+    };
+
+    const searchQueries: string[] = [];
+    if (countries.length === 0) {
+      searchQueries.push(`master's ${major} program admissions tuition official`);
+    } else {
+      for (const c of countries) {
+        const filters = COUNTRY_SITE_FILTERS[c.toLowerCase().trim()] ?? [];
+        searchQueries.push(`master's ${major} "${c}" admissions tuition official`);
+        for (const f of filters) {
+          searchQueries.push(`${f} master's ${major} program admissions tuition`);
+        }
+      }
+    }
     const searchBatches = await Promise.all(searchQueries.map((query) => firecrawlSearch(query, { limit: 8 })));
     const seenUrls = new Set<string>();
     const liveResults = searchBatches.flat()
@@ -146,6 +177,8 @@ Live web search results to use as evidence:
 ${liveContext || "(No live search results were available. Return an empty array.)"}
 
 Find up to 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Only include programs that appear in the live web search results above. Use the official program or university URL from those results as website_url.
+
+HARD FILTER — Do NOT include any program whose university is located outside these countries: ${countries.length ? countries.join(", ") : "any"}. Do NOT include programs whose name/department is unrelated to "${major}". Discard rather than guess.
 
 Respond with ONLY a JSON array, no other text, no markdown fences:
 [{
@@ -257,7 +290,9 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       if (eErr && !eErr.message.includes("duplicate")) console.error("entry insert", eErr);
     }
 
-    await admin.from("discover_jobs").update({ status: "done", completed_at: new Date().toISOString() }).eq("id", jobId);
+    const doneUpdate: Record<string, unknown> = { status: "done", completed_at: new Date().toISOString() };
+    if (validatedPrograms.length === 0) doneUpdate.error = "no_matches_for_targets";
+    await admin.from("discover_jobs").update(doneUpdate).eq("id", jobId);
     // Always increment discover_runs_used (both tiers are metered)
     await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
     return new Response(JSON.stringify({ ok: true, count: validatedPrograms.length }), {
