@@ -236,7 +236,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
   "university_country": string,
   "university_city": string,
   "qs_ranking": number or null,
-  "website_url": string,
+  "website_url": string — the university homepage or best available URL from the search results. Do not guess or construct URLs. Only use URLs that appear explicitly in the search context provided. If no URL is visible in the context, return null.,
   "program_name": string,
   "degree_type": string,
   "department": string,
