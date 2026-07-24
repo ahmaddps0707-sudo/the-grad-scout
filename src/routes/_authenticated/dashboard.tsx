@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle } from "lucide-react";
+import { Heart, ThumbsDown, ThumbsUp, Star, Plus, Sparkles, ExternalLink, Loader2, MapPin, AlertCircle, Trash2 } from "lucide-react";
 import { STATUS_LABELS, STATUS_ORDER, type EntryStatus } from "@/lib/status";
 import { scoreColorClass } from "@/lib/scoring";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
@@ -175,6 +176,24 @@ function DashboardPage() {
     }
   };
 
+  const deleteEntry = async (id: string) => {
+    const prev = entries;
+    setEntries((es) => es.filter((e) => e.id !== id));
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) {
+      setEntries(prev);
+      toast.error("Not signed in");
+      return;
+    }
+    const { error } = await supabase.from("user_entries").delete().eq("id", id).eq("user_id", u.user.id);
+    if (error) {
+      setEntries(prev);
+      toast.error(error.message);
+    } else {
+      toast.success("Removed from your dashboard");
+    }
+  };
+
   return (
     <AppShell>
       <div className="mx-auto max-w-7xl px-6 py-8">
@@ -239,7 +258,7 @@ function DashboardPage() {
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
-                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
+                  <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onDelete={() => deleteEntry(e.id)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
                 ))}
               </div>
             )}
