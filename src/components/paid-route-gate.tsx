@@ -4,6 +4,8 @@ import { UpgradeModal } from "@/components/upgrade-modal";
 import { AppShell } from "@/components/app-shell";
 import { Loader2, Lock } from "lucide-react";
 import { isPaidTier } from "@/lib/limits";
+import { getStripeEnvironment } from "@/lib/stripe";
+import { envScopedSub } from "@/lib/subscription";
 
 type State = "loading" | "paid" | "locked";
 
@@ -27,13 +29,10 @@ export function PaidRouteGate({
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) { setState("locked"); return; }
-      const { data: prof } = await supabase.from("profiles")
-        .select("subscription_tier,subscription_status")
-        .eq("id", u.user.id).single();
-      const paid = prof && isPaidTier({
-        tier: (prof as any).subscription_tier,
-        status: (prof as any).subscription_status,
-      });
+      const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
+      const { data: prof } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      const view = envScopedSub(prof, env);
+      const paid = isPaidTier({ tier: view.tier, status: view.status as any });
       setState(paid ? "paid" : "locked");
     })();
   }, []);

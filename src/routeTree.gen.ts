@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedResumeRouteImport } from './routes/_authenticated/resume'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated/onboarding'
@@ -34,6 +35,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
+  id: '/checkout/return',
+  path: '/checkout/return',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -93,6 +99,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/resume': typeof AuthenticatedResumeRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/checkout/return': typeof CheckoutReturnRoute
   '/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
   '/forum/': typeof AuthenticatedForumIndexRoute
@@ -106,6 +113,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/resume': typeof AuthenticatedResumeRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/checkout/return': typeof CheckoutReturnRoute
   '/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
   '/forum': typeof AuthenticatedForumIndexRoute
@@ -121,6 +129,7 @@ export interface FileRoutesById {
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
   '/_authenticated/resume': typeof AuthenticatedResumeRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/checkout/return': typeof CheckoutReturnRoute
   '/_authenticated/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/_authenticated/university/$id': typeof AuthenticatedUniversityIdRoute
   '/_authenticated/forum/': typeof AuthenticatedForumIndexRoute
@@ -136,6 +145,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/resume'
     | '/settings'
+    | '/checkout/return'
     | '/forum/$postId'
     | '/university/$id'
     | '/forum/'
@@ -149,6 +159,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/resume'
     | '/settings'
+    | '/checkout/return'
     | '/forum/$postId'
     | '/university/$id'
     | '/forum'
@@ -163,6 +174,7 @@ export interface FileRouteTypes {
     | '/_authenticated/onboarding'
     | '/_authenticated/resume'
     | '/_authenticated/settings'
+    | '/checkout/return'
     | '/_authenticated/forum/$postId'
     | '/_authenticated/university/$id'
     | '/_authenticated/forum/'
@@ -173,6 +185,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  CheckoutReturnRoute: typeof CheckoutReturnRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
 }
 
@@ -197,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/return': {
+      id: '/checkout/return'
+      path: '/checkout/return'
+      fullPath: '/checkout/return'
+      preLoaderRoute: typeof CheckoutReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings': {
@@ -294,6 +314,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  CheckoutReturnRoute: CheckoutReturnRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
 }
 export const routeTree = rootRouteImport

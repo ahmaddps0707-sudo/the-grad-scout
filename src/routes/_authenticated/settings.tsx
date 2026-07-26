@@ -16,6 +16,7 @@ import { UpgradeModal } from "@/components/upgrade-modal";
 import { Progress } from "@/components/ui/progress";
 import { createPortalSession } from "@/utils/payments.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
+import { envScopedSub } from "@/lib/subscription";
 import { PaymentTestModeBanner } from "@/components/payment-test-mode-banner";
 import { CountrySelect } from "@/components/country-select";
 
@@ -55,15 +56,16 @@ function SettingsPage() {
 
   if (!profile) return <AppShell><div className="mx-auto max-w-3xl p-8">Loading…</div></AppShell>;
 
-  const p = profile as any;
-  const paid = isPaidTier({ tier: p.subscription_tier ?? "free", status: p.subscription_status ?? null });
-  const discoverUsed = p.discover_runs_used ?? 0;
-  const aiUsed = p.ai_bullets_used ?? 0;
-  const resetAt = p.usage_reset_at ? new Date(p.usage_reset_at) : null;
-  const status = p.subscription_status as string | null;
-  const trialEnd = p.trial_end_date ? new Date(p.trial_end_date) : null;
-  const periodEnd = p.subscription_current_period_end ? new Date(p.subscription_current_period_end) : null;
-  const cancelAtEnd = !!p.cancel_at_period_end;
+  const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
+  const sub = envScopedSub(profile, env);
+  const paid = isPaidTier({ tier: sub.tier, status: sub.status as any });
+  const discoverUsed = sub.discover_runs_used;
+  const aiUsed = sub.ai_bullets_used;
+  const resetAt = sub.usage_reset_at ? new Date(sub.usage_reset_at) : null;
+  const status = sub.status;
+  const trialEnd = sub.trial_end_date ? new Date(sub.trial_end_date) : null;
+  const periodEnd = sub.current_period_end ? new Date(sub.current_period_end) : null;
+  const cancelAtEnd = sub.cancel_at_period_end;
   const isTrialing = status === "trialing";
 
   const openPortal = async () => {
