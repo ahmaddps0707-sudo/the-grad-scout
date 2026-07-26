@@ -71,7 +71,7 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
     update[cols.discoverUsed] = 0;
     update[cols.aiUsed] = 0;
   }
-  await supa.from("profiles").update(update).eq("id", userId);
+  await supa.from("profiles").update(update as Database["public"]["Tables"]["profiles"]["Update"]).eq("id", userId);
 }
 
 async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
@@ -95,7 +95,7 @@ async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
     [cols.discoverUsed]: cappedUsed,
     updated_at: new Date().toISOString(),
   };
-  await supa.from("profiles").update(update).eq("id", userId);
+  await supa.from("profiles").update(update as Database["public"]["Tables"]["profiles"]["Update"]).eq("id", userId);
 }
 
 async function handleInvoicePaid(invoice: any, env: StripeEnv) {
@@ -134,7 +134,7 @@ async function handleInvoicePaymentFailed(invoice: any, env: StripeEnv) {
   const cols = subColumns(env);
   await getSupabase()
     .from("profiles")
-    .update({ [cols.status]: "past_due", updated_at: new Date().toISOString() })
+    .update({ [cols.status]: "past_due", updated_at: new Date().toISOString() } as Database["public"]["Tables"]["profiles"]["Update"])
     .eq("id", userId);
 }
 
