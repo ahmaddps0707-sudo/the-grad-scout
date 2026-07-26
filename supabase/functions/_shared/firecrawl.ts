@@ -13,6 +13,17 @@ export interface FirecrawlDocument extends FirecrawlResult {
 
 const FIRECRAWL_GATEWAY_V2 = "https://connector-gateway.lovable.dev/firecrawl/v2";
 
+export class FirecrawlProviderError extends Error {
+  code: "search_provider_out_of_credits" | "search_provider_error";
+  status: number;
+  constructor(status: number, body: string) {
+    const code = status === 402 ? "search_provider_out_of_credits" : "search_provider_error";
+    super(`${code}: ${status} ${body.slice(0, 200)}`);
+    this.code = code;
+    this.status = status;
+  }
+}
+
 function firecrawlHeaders(): HeadersInit | null {
   const connKey = Deno.env.get("FIRECRAWL_API_KEY");
   const lovableKey = Deno.env.get("LOVABLE_API_KEY");
@@ -58,16 +69,22 @@ export async function firecrawlSearch(
 ): Promise<FirecrawlResult[]> {
   const headers = firecrawlHeaders();
   if (!headers) return [];
-  try {
-    const res = await fetch(`${FIRECRAWL_GATEWAY_V2}/search`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ query, limit: opts.limit ?? 10 }),
-    });
-    if (!res.ok) {
-      console.error("firecrawl search failed", res.status, await res.text().catch(() => ""));
-      return [];
+  const res = await fetch(`${FIRECRAWL_GATEWAY_V2}/search`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ query, limit: opts.limit ?? 10 }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error("firecrawl search failed", res.status, body);
+    // Surface provider auth/credit/rate errors so the caller can fail the job
+    // instead of masking as "zero results".
+    if (res.status === 402 || res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) {
+      throw new FirecrawlProviderError(res.status, body);
     }
+    return [];
+  }
+  try {
     const json: any = await res.json().catch(() => ({}));
     const data = Array.isArray(json?.data)
       ? json.data
@@ -84,7 +101,7 @@ export async function firecrawlSearch(
       }))
       .filter((r: FirecrawlResult) => r.url);
   } catch (e) {
-    console.error("firecrawl search error", e);
+    console.error("firecrawl search parse error", e);
     return [];
   }
 }
