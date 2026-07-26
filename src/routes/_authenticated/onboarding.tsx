@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
 import { CountrySelect } from "@/components/country-select";
+import { getStripeEnvironment } from "@/lib/stripe";
 
 type ProfileUpd = Database["public"]["Tables"]["profiles"]["Update"];
 
