@@ -15,7 +15,7 @@ import { CountrySelect } from "@/components/country-select";
 type ProfileUpd = Database["public"]["Tables"]["profiles"]["Update"];
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
-  head: () => ({ meta: [{ title: "Welcome — Admitly" }] }),
+  head: () => ({ meta: [{ title: "Welcome — The Grad Scout" }] }),
   component: OnboardingPage,
 });
 

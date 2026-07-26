@@ -28,7 +28,7 @@ type CommentRow = {
 };
 
 export const Route = createFileRoute("/_authenticated/forum/$postId")({
-  head: () => ({ meta: [{ title: "Discussion — Admitly" }] }),
+  head: () => ({ meta: [{ title: "Discussion — The Grad Scout" }] }),
   component: PostThread,
 });
 

@@ -6,35 +6,35 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Admitly — Find your program. Not just a list of them." },
-      { name: "description", content: "Admitly researches master's programs that match your profile, scores each on fit, and tracks every application from first shortlist to final decision." },
-      { property: "og:title", content: "Admitly — Find your master's program" },
+      { title: "The Grad Scout — Find your program. Not just a list of them." },
+      { name: "description", content: "The Grad Scout researches master's programs that match your profile, scores each on fit, and tracks every application from first shortlist to final decision." },
+      { property: "og:title", content: "The Grad Scout — Find your master's program" },
       { property: "og:description", content: "Research, score, and track international master's programs." },
     ],
     links: [
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
     ],
   }),
-  component: AdmitlyLanding,
+  component: GradScoutLanding,
 });
 
-const NAV = "#0D1B35";
-const BG = "#F8F7F3";
-const BG2 = "#EEEAE0";
-const AMBER = "#F59E0B";
-const BLUE = "#4169E1";
-const TEXT = "#1A1A2E";
+const NAV = "#0A1220";
+const BG = "#FAF9F4";
+const BG2 = "#F0EBDE";
+const AMBER = "#C9A24B";
+const BLUE = "#3B5BDB";
+const TEXT = "#15172A";
 const MUTED = "#6B7280";
-const BORDER = "#E5E1D8";
+const BORDER = "#E7E1D2";
 const WHITE = "#FFFFFF";
 const GREEN = "#10B981";
 
 const faqs = [
-  { q: "How does Admitly find universities for me?", a: "After a short preferences form — your field, target countries, GPA, test scores, and budget — Admitly uses AI and live web search to research and score matching master's programs. Each program gets a 0–100 fit score based on your specific profile, not generic rankings." },
-  { q: "Is the university data current?", a: "Yes. Admitly fetches live web data every time a university is enriched, pulling current admissions deadlines, tuition, class profiles, and career outcomes from official sources. You can also manually refresh any university's data at any time." },
+  { q: "How does The Grad Scout find universities for me?", a: "After a short preferences form — your field, target countries, GPA, test scores, and budget — The Grad Scout uses AI and live web search to research and score matching master's programs. Each program gets a 0–100 fit score based on your specific profile, not generic rankings." },
+  { q: "Is the university data current?", a: "Yes. The Grad Scout fetches live web data every time a university is enriched, pulling current admissions deadlines, tuition, class profiles, and career outcomes from official sources. You can also manually refresh any university's data at any time." },
   { q: "What's the difference between Free and Pro?", a: "Free gives you dashboard access, 3 university discovery runs, discussion forum, and the ability to save contacts. Pro ($10/month) unlocks the full contacts CRM, resume builder with AI assistance, 20 discovery runs per month, and 50 AI resume bullet suggestions." },
-  { q: "Can I use Admitly for MBA programs?", a: "Yes — MBA is a master's degree and Admitly supports it fully. We cover MSc, MA, MEng, MBA, MPA, MPH, LLM, and all master's-level programs. PhD and bachelor's programs are not in scope." },
-  { q: "How does the resume builder work?", a: "Upload your existing resume (PDF or DOCX) and Admitly parses it into a structured editor. Edit all sections, save multiple versions for different programs, and use the AI assistant to strengthen bullets — based only on what you provide, never fabricated." },
+  { q: "Can I use The Grad Scout for MBA programs?", a: "Yes — MBA is a master's degree and The Grad Scout supports it fully. We cover MSc, MA, MEng, MBA, MPA, MPH, LLM, and all master's-level programs. PhD and bachelor's programs are not in scope." },
+  { q: "How does the resume builder work?", a: "Upload your existing resume (PDF or DOCX) and The Grad Scout parses it into a structured editor. Edit all sections, save multiple versions for different programs, and use the AI assistant to strengthen bullets — based only on what you provide, never fabricated." },
   { q: "Can I connect with alumni from programs I'm targeting?", a: "Yes. Each university's Outreach tab surfaces publicly findable LinkedIn profiles of current students and recent graduates, prioritized by your home country. Save contacts and manage outreach across a five-stage board." },
   { q: "Is my data secure?", a: "Your resume and profile are stored with row-level security — only you can access your own data. We never share your information with universities or third parties." },
   { q: "Can I cancel my Pro subscription anytime?", a: "Yes. Cancel anytime from Settings. Your Pro access continues until the end of your current billing period — we don't cut access the moment you cancel." },
@@ -51,13 +51,28 @@ const features = [
 
 const steps = [
   { num: "01", title: "Tell us your goals", desc: "Complete a short form — your field, target countries, GPA, test scores, and budget. Takes under 5 minutes." },
-  { num: "02", title: "We research your matches", desc: "Admitly finds and scores master's programs that fit your profile, pulling live admissions data, class profiles, and career outcomes for each one." },
+  { num: "02", title: "We research your matches", desc: "The Grad Scout finds and scores master's programs that fit your profile, pulling live admissions data, class profiles, and career outcomes for each one." },
   { num: "03", title: "Track, connect, and apply", desc: "Manage your shortlist, reach out to alumni, build your resume, and track every application through to your final decision." },
 ];
 
 const serif = { fontFamily: "'Playfair Display', serif" as const };
 
-function AdmitlyLanding() {
+function Wordmark({ dark = false }: { dark?: boolean }) {
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
+      <span style={{
+        width: 30, height: 30, borderRadius: 8,
+        background: dark ? "rgba(255,255,255,0.08)" : NAV,
+        border: dark ? "1px solid rgba(255,255,255,0.14)" : "none",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 15, color: AMBER, flexShrink: 0,
+      }}>🧭</span>
+      <span style={{ ...serif, fontSize: 20, fontWeight: 900, color: dark ? WHITE : NAV, letterSpacing: "-0.4px" }}>The Grad Scout</span>
+    </span>
+  );
+}
+
+function GradScoutLanding() {
   const navigate = useNavigate();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -67,26 +82,26 @@ function AdmitlyLanding() {
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
-      @keyframes admitly-float1 { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(-2deg); } }
-      @keyframes admitly-float2 { 0%,100% { transform: translateY(0) rotate(1.5deg); } 50% { transform: translateY(-16px) rotate(1.5deg); } }
-      @keyframes admitly-float3 { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(-1deg); } }
-      .admitly-f-card { transition: transform 0.2s, box-shadow 0.2s; }
-      .admitly-f-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.09) !important; }
-      .admitly-nav-a:hover { color: #4169E1 !important; }
-      .admitly-btn-amber:hover { background: #D97706 !important; }
-      .admitly-faq-body { overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
-      .admitly-root input:focus, .admitly-root textarea:focus { border-color: #4169E1 !important; box-shadow: 0 0 0 3px rgba(65,105,225,0.12); outline: none; }
+      @keyframes gs-float1 { 0%,100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-12px) rotate(-2deg); } }
+      @keyframes gs-float2 { 0%,100% { transform: translateY(0) rotate(1.5deg); } 50% { transform: translateY(-16px) rotate(1.5deg); } }
+      @keyframes gs-float3 { 0%,100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-8px) rotate(-1deg); } }
+      .gs-f-card { transition: transform 0.2s, box-shadow 0.2s; }
+      .gs-f-card:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.09) !important; }
+      .gs-nav-a:hover { color: #3B5BDB !important; }
+      .gs-btn-amber:hover { background: #A9822F !important; }
+      .gs-faq-body { overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
+      .gs-root input:focus, .gs-root textarea:focus { border-color: #3B5BDB !important; box-shadow: 0 0 0 3px rgba(59,91,219,0.12); outline: none; }
       @media (max-width: 820px) {
-        .admitly-hero-inner { flex-direction: column !important; }
-        .admitly-hero-cards { display: none !important; }
-        .admitly-feat-grid { grid-template-columns: 1fr 1fr !important; }
-        .admitly-price-wrap { flex-direction: column !important; }
-        .admitly-steps-wrap { flex-direction: column !important; gap: 40px !important; }
-        .admitly-prob-grid { grid-template-columns: 1fr !important; }
+        .gs-hero-inner { flex-direction: column !important; }
+        .gs-hero-cards { display: none !important; }
+        .gs-feat-grid { grid-template-columns: 1fr 1fr !important; }
+        .gs-price-wrap { flex-direction: column !important; }
+        .gs-steps-wrap { flex-direction: column !important; gap: 40px !important; }
+        .gs-prob-grid { grid-template-columns: 1fr !important; }
       }
       @media (max-width: 520px) {
-        .admitly-feat-grid { grid-template-columns: 1fr !important; }
-        .admitly-nav-links { display: none !important; }
+        .gs-feat-grid { grid-template-columns: 1fr !important; }
+        .gs-nav-links { display: none !important; }
       }
     `;
     document.head.appendChild(style);
@@ -109,27 +124,27 @@ function AdmitlyLanding() {
   };
 
   return (
-    <div className="admitly-root" style={{ fontFamily: "'Inter', sans-serif", background: BG, color: TEXT }}>
+    <div className="gs-root" style={{ fontFamily: "'Inter', sans-serif", background: BG, color: TEXT }}>
       {/* NAV */}
-      <nav style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(248,247,243,0.96)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6%", height: 64 }}>
-        <span style={{ ...serif, fontSize: 22, fontWeight: 900, color: NAV, letterSpacing: "-0.5px" }}>admitly</span>
-        <div className="admitly-nav-links" style={{ display: "flex", gap: 28, alignItems: "center" }}>
+      <nav style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(250,249,244,0.96)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6%", height: 64 }}>
+        <Wordmark />
+        <div className="gs-nav-links" style={{ display: "flex", gap: 28, alignItems: "center" }}>
           {[["Features","#features"],["How it works","#how-it-works"],["Pricing","#pricing"],["FAQ","#faq"]].map(([l,h]) => (
-            <a key={l} href={h} className="admitly-nav-a" style={{ fontSize: 14, fontWeight: 500, color: TEXT, textDecoration: "none" }}>{l}</a>
+            <a key={l} href={h} className="gs-nav-a" style={{ fontSize: 14, fontWeight: 500, color: TEXT, textDecoration: "none" }}>{l}</a>
           ))}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <a href="/auth" onClick={goAuth} style={{ fontSize: 14, fontWeight: 500, color: MUTED, textDecoration: "none", padding: "8px 14px" }}>Sign in</a>
-          <a href="/auth" onClick={goAuth} className="admitly-btn-amber" style={{ fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 8, padding: "9px 18px", textDecoration: "none" }}>Get started free</a>
+          <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 8, padding: "9px 18px", textDecoration: "none" }}>Get started free</a>
         </div>
       </nav>
 
       {/* HERO */}
       <section style={{ background: NAV, padding: "96px 6% 80px", overflow: "hidden", position: "relative" }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.07, background: "radial-gradient(ellipse at 70% 40%, #4169E1 0%, transparent 55%), radial-gradient(ellipse at 20% 80%, #F59E0B 0%, transparent 45%)" }} />
-        <div className="admitly-hero-inner" style={{ display: "flex", alignItems: "center", gap: 56, maxWidth: 1080, margin: "0 auto", position: "relative" }}>
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.07, background: "radial-gradient(ellipse at 70% 40%, #3B5BDB 0%, transparent 55%), radial-gradient(ellipse at 20% 80%, #C9A24B 0%, transparent 45%)" }} />
+        <div className="gs-hero-inner" style={{ display: "flex", alignItems: "center", gap: 56, maxWidth: 1080, margin: "0 auto", position: "relative" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(65,105,225,0.15)", border: "1px solid rgba(65,105,225,0.3)", borderRadius: 100, padding: "6px 14px", marginBottom: 28 }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(59,91,219,0.15)", border: "1px solid rgba(59,91,219,0.3)", borderRadius: 100, padding: "6px 14px", marginBottom: 28 }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80" }} />
               <span style={{ fontSize: 11, fontWeight: 700, color: "#93C5FD", letterSpacing: "0.07em", textTransform: "uppercase" }}>Built for international master's applicants</span>
             </div>
@@ -139,19 +154,19 @@ function AdmitlyLanding() {
               of them.
             </h1>
             <p style={{ fontSize: 17, lineHeight: 1.75, color: "rgba(255,255,255,0.65)", marginBottom: 40, maxWidth: 460 }}>
-              Admitly researches master's programs that match your profile, scores each on fit, and tracks every application from first shortlist to final decision.
+              The Grad Scout researches master's programs that match your profile, scores each on fit, and tracks every application from first shortlist to final decision.
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <a href="/auth" onClick={goAuth} className="admitly-btn-amber" style={{ fontSize: 15, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 10, padding: "14px 26px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>Start free — no card needed →</a>
+              <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ fontSize: 15, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 10, padding: "14px 26px", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 8 }}>Start free — no card needed →</a>
               <a href="#how-it-works" style={{ fontSize: 15, fontWeight: 500, color: "rgba(255,255,255,0.8)", background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "14px 22px", textDecoration: "none" }}>See how it works</a>
             </div>
             <p style={{ marginTop: 20, fontSize: 12, color: "rgba(255,255,255,0.3)" }}>Free plan available · Pro at $10/month · 7-day trial included · Cancel anytime</p>
           </div>
-          <div className="admitly-hero-cards" style={{ flex: "0 0 360px", position: "relative", height: 360 }}>
+          <div className="gs-hero-cards" style={{ flex: "0 0 360px", position: "relative", height: 360 }}>
             {[
-              { style: { top: 0, left: 24, animation: "admitly-float1 4.2s ease-in-out infinite" }, uni: "Harvard Business School", prog: "MBA · Boston, MA · QS #1", score: "94", scoreBg: GREEN, status: "Planning to Apply", statusBg: "rgba(65,105,225,0.2)", statusDot: BLUE, statusText: "#93C5FD", w: 300 },
-              { style: { top: 120, right: 0, animation: "admitly-float2 5.5s ease-in-out infinite" }, uni: "London Business School", prog: "MiM · London, UK · QS #4", score: "88", scoreBg: "#3B82F6", status: "Application In Progress", statusBg: "rgba(245,158,11,0.18)", statusDot: AMBER, statusText: "#FCD34D", w: 280 },
-              { style: { bottom: 0, left: 10, animation: "admitly-float3 6s ease-in-out infinite" }, uni: "INSEAD", prog: "MBA · Fontainebleau · QS #3", score: "82", scoreBg: "#8B5CF6", status: "Offer Received ✓", statusBg: "rgba(16,185,129,0.18)", statusDot: GREEN, statusText: "#6EE7B7", w: 268 },
+              { style: { top: 0, left: 24, animation: "gs-float1 4.2s ease-in-out infinite" }, uni: "Harvard Business School", prog: "MBA · Boston, MA · QS #1", score: "94", scoreBg: GREEN, status: "Planning to Apply", statusBg: "rgba(59,91,219,0.2)", statusDot: BLUE, statusText: "#93C5FD", w: 300 },
+              { style: { top: 120, right: 0, animation: "gs-float2 5.5s ease-in-out infinite" }, uni: "London Business School", prog: "MiM · London, UK · QS #4", score: "88", scoreBg: "#3B82F6", status: "Application In Progress", statusBg: "rgba(201,162,75,0.18)", statusDot: AMBER, statusText: "#FCD34D", w: 280 },
+              { style: { bottom: 0, left: 10, animation: "gs-float3 6s ease-in-out infinite" }, uni: "INSEAD", prog: "MBA · Fontainebleau · QS #3", score: "82", scoreBg: "#8B5CF6", status: "Offer Received ✓", statusBg: "rgba(16,185,129,0.18)", statusDot: GREEN, statusText: "#6EE7B7", w: 268 },
             ].map((c, i) => (
               <div key={i} style={{ position: "absolute", ...c.style, width: c.w, background: "rgba(255,255,255,0.055)", backdropFilter: "blur(14px)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 16, padding: "18px 20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
@@ -193,7 +208,7 @@ function AdmitlyLanding() {
               Most students navigate this alone — no advisor, no benchmarks, and a browser full of tabs that don't talk to each other.
             </p>
           </div>
-          <div className="admitly-prob-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
+          <div className="gs-prob-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
             {[
               { icon: "⏱", title: "Weeks lost to research", desc: "Hunting for programs across spreadsheets, Reddit, and university websites — before you've even looked at a single deadline or class profile average." },
               { icon: "❓", title: "No idea if you're competitive", desc: "Average GPA and test score data is buried in PDFs. By the time you find it, you've shortlisted programs that were never realistic fits." },
@@ -218,10 +233,10 @@ function AdmitlyLanding() {
               From zero to shortlist<br />in one afternoon
             </h2>
           </div>
-          <div className="admitly-steps-wrap" style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
+          <div className="gs-steps-wrap" style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
             {steps.map((s, i) => (
               <div key={i} style={{ flex: 1, textAlign: "center", padding: "0 16px" }}>
-                <div style={{ ...serif, fontSize: 52, fontWeight: 900, lineHeight: 1, marginBottom: 20, background: `linear-gradient(135deg, rgba(65,105,225,0.5), rgba(245,158,11,0.3))`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.num}</div>
+                <div style={{ ...serif, fontSize: 52, fontWeight: 900, lineHeight: 1, marginBottom: 20, background: `linear-gradient(135deg, rgba(59,91,219,0.5), rgba(201,162,75,0.3))`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.num}</div>
                 <h3 style={{ fontSize: 17, fontWeight: 700, color: WHITE, marginBottom: 12 }}>{s.title}</h3>
                 <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.8 }}>{s.desc}</p>
               </div>
@@ -242,9 +257,9 @@ function AdmitlyLanding() {
               Every tool international master's applicants need — in one place, not scattered across twelve tabs.
             </p>
           </div>
-          <div className="admitly-feat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
+          <div className="gs-feat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
             {features.map((f, i) => (
-              <div key={i} className="admitly-f-card" style={{ background: WHITE, borderRadius: 16, padding: "28px 24px", border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+              <div key={i} className="gs-f-card" style={{ background: WHITE, borderRadius: 16, padding: "28px 24px", border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
                 <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: NAV, marginBottom: 10 }}>{f.title}</h3>
                 <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.8 }}>{f.desc}</p>
@@ -263,7 +278,7 @@ function AdmitlyLanding() {
               Simple, honest pricing
             </h2>
           </div>
-          <div className="admitly-price-wrap" style={{ display: "flex", gap: 20, alignItems: "stretch" }}>
+          <div className="gs-price-wrap" style={{ display: "flex", gap: 20, alignItems: "stretch" }}>
             <div style={{ flex: 1, background: WHITE, borderRadius: 20, padding: 36, border: `1px solid ${BORDER}` }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Free</p>
               <div style={{ marginBottom: 28 }}>
@@ -297,7 +312,7 @@ function AdmitlyLanding() {
                   <span style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", lineHeight: 1.5 }}>{x}</span>
                 </div>
               ))}
-              <a href="/auth" onClick={goAuth} className="admitly-btn-amber" style={{ display: "block", textAlign: "center", marginTop: 28, fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 10, padding: "14px", textDecoration: "none" }}>Start 7-day free trial →</a>
+              <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ display: "block", textAlign: "center", marginTop: 28, fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 10, padding: "14px", textDecoration: "none" }}>Start 7-day free trial →</a>
               <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>No credit card required during trial</p>
             </div>
           </div>
@@ -320,7 +335,7 @@ function AdmitlyLanding() {
                   <span style={{ fontSize: 14, fontWeight: 600, color: NAV, flex: 1, lineHeight: 1.4 }}>{f.q}</span>
                   <span style={{ fontSize: 22, color: BLUE, fontWeight: 300, flexShrink: 0, lineHeight: 1, transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform 0.2s ease", display: "block" }}>+</span>
                 </button>
-                <div className="admitly-faq-body" style={{ maxHeight: openFaq === i ? 500 : 0, padding: openFaq === i ? "0 24px 22px" : "0 24px" }}>
+                <div className="gs-faq-body" style={{ maxHeight: openFaq === i ? 500 : 0, padding: openFaq === i ? "0 24px 22px" : "0 24px" }}>
                   <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.85 }}>{f.a}</p>
                 </div>
               </div>
@@ -359,7 +374,7 @@ function AdmitlyLanding() {
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Message</label>
                 <textarea rows={4} placeholder="Tell us what's on your mind..." required maxLength={2000} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8", resize: "vertical" }} />
               </div>
-              <button type="submit" disabled={submitting} className="admitly-btn-amber" style={{ width: "100%", padding: "14px", background: AMBER, color: WHITE, fontWeight: 700, fontSize: 15, border: "none", borderRadius: 10, cursor: submitting ? "not-allowed" : "pointer", fontFamily: "Inter, sans-serif", opacity: submitting ? 0.7 : 1 }}>
+              <button type="submit" disabled={submitting} className="gs-btn-amber" style={{ width: "100%", padding: "14px", background: AMBER, color: WHITE, fontWeight: 700, fontSize: 15, border: "none", borderRadius: 10, cursor: submitting ? "not-allowed" : "pointer", fontFamily: "Inter, sans-serif", opacity: submitting ? 0.7 : 1 }}>
                 {submitting ? "Sending..." : "Send message →"}
               </button>
             </form>
@@ -372,8 +387,8 @@ function AdmitlyLanding() {
         <div style={{ maxWidth: 1060, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 40, marginBottom: 48 }}>
             <div>
-              <span style={{ ...serif, fontSize: 22, fontWeight: 900, color: WHITE }}>admitly</span>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 10, maxWidth: 230, lineHeight: 1.75 }}>
+              <Wordmark dark />
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 12, maxWidth: 230, lineHeight: 1.75 }}>
                 The research and tracking platform built for international master's applicants.
               </p>
             </div>
@@ -392,7 +407,8 @@ function AdmitlyLanding() {
             </div>
           </div>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2025 Admitly. All rights reserved.</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2025 The Grad Scout. All rights reserved.</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>Built for the students who made the brave choice to apply abroad.</p>
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>Built for the students who made the brave choice to apply abroad.</p>
           </div>
         </div>

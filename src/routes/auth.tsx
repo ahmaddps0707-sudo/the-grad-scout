@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in — Admitly" }] }),
+  head: () => ({ meta: [{ title: "Sign in — The Grad Scout" }] }),
   component: AuthPage,
 });
 
@@ -99,7 +99,10 @@ function AuthPage() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="border-b border-border/60">
         <div className="mx-auto flex max-w-6xl items-center px-6 py-5">
-          <Link to="/" className="text-xl font-display font-semibold tracking-tight text-primary">Admitly</Link>
+          <Link to="/" className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-[15px] text-accent">🧭</span>
+            <span className="text-lg font-display font-black tracking-tight text-primary">The Grad Scout</span>
+          </Link>
         </div>
       </header>
       <main className="flex-1 flex items-center justify-center px-6 py-12">
@@ -122,7 +125,7 @@ function AuthPage() {
                   {mode === "signup" ? "Create your account" : mode === "forgot" ? "Reset password" : "Welcome back"}
                 </h1>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {mode === "signup" ? "Start scoring programs against your profile." : mode === "forgot" ? "We'll email you a reset link." : "Sign in to your Admitly workspace."}
+                  {mode === "signup" ? "Start scoring programs against your profile." : mode === "forgot" ? "We'll email you a reset link." : "Sign in to your Grad Scout workspace."}
                 </p>
                 {mode !== "forgot" && (
                   <>

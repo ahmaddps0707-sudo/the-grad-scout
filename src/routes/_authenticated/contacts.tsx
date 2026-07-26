@@ -40,7 +40,7 @@ import {
 } from "@dnd-kit/core";
 
 export const Route = createFileRoute("/_authenticated/contacts")({
-  head: () => ({ meta: [{ title: "Contacts — Admitly" }] }),
+  head: () => ({ meta: [{ title: "Contacts — The Grad Scout" }] }),
   component: GatedContactsPage,
 });
 
