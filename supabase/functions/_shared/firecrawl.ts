@@ -11,7 +11,7 @@ export interface FirecrawlDocument extends FirecrawlResult {
   links?: string[];
 }
 
-const FIRECRAWL_GATEWAY_V2 = "https://connector-gateway.lovable.dev/firecrawl/v2";
+const FIRECRAWL_API_V2 = "https://api.firecrawl.dev/v2";
 
 export class FirecrawlProviderError extends Error {
   code: "search_provider_out_of_credits" | "search_provider_error";
@@ -25,16 +25,14 @@ export class FirecrawlProviderError extends Error {
 }
 
 function firecrawlHeaders(): HeadersInit | null {
-  const connKey = Deno.env.get("FIRECRAWL_API_KEY");
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (!connKey || !lovableKey) {
-    console.error("firecrawl missing keys", { hasConn: !!connKey, hasLovable: !!lovableKey });
+  const apiKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!apiKey) {
+    console.error("firecrawl missing FIRECRAWL_API_KEY");
     return null;
   }
   return {
     "content-type": "application/json",
-    authorization: `Bearer ${lovableKey}`,
-    "x-connection-api-key": connKey,
+    authorization: `Bearer ${apiKey}`,
   };
 }
 
@@ -69,7 +67,7 @@ export async function firecrawlSearch(
 ): Promise<FirecrawlResult[]> {
   const headers = firecrawlHeaders();
   if (!headers) return [];
-  const res = await fetch(`${FIRECRAWL_GATEWAY_V2}/search`, {
+  const res = await fetch(`${FIRECRAWL_API_V2}/search`, {
     method: "POST",
     headers,
     body: JSON.stringify({ query, limit: opts.limit ?? 10 }),
@@ -117,7 +115,7 @@ export async function firecrawlScrape(
   try {
     const formats: any[] = ["markdown"];
     if (opts.includeLinks) formats.push("links");
-    const res = await fetch(`${FIRECRAWL_GATEWAY_V2}/scrape`, {
+    const res = await fetch(`${FIRECRAWL_API_V2}/scrape`, {
       method: "POST",
       headers,
       body: JSON.stringify({
