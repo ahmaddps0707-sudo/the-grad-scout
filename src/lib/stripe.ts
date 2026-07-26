@@ -1,6 +1,6 @@
 import { loadStripe, Stripe } from "@stripe/stripe-js";
 
-type StripeEnv = "sandbox" | "live";
+export type StripeEnv = "sandbox" | "live";
 
 const clientToken = import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined;
 
