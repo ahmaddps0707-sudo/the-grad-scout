@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid, envColumns, envView, parseEnv } from "../_shared/limits.ts";
+import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
 import { concatSnippets, firecrawlSearch, normalizeUrl } from "../_shared/firecrawl.ts";
 
 interface DiscoveredProgram {
@@ -31,7 +31,30 @@ function extractDomain(url: string): string | null {
 }
 
 function tokenize(s: string): string[] {
-  const stop = new Set(["and","of","the","in","for","a","an","to","science","sciences","studies","study","program","programs","master","masters","ms","msc","ma","degree","school","university"]);
+  const stop = new Set([
+    "and",
+    "of",
+    "the",
+    "in",
+    "for",
+    "a",
+    "an",
+    "to",
+    "science",
+    "sciences",
+    "studies",
+    "study",
+    "program",
+    "programs",
+    "master",
+    "masters",
+    "ms",
+    "msc",
+    "ma",
+    "degree",
+    "school",
+    "university",
+  ]);
   return (s ?? "")
     .toLowerCase()
     .split(/[^a-z0-9]+/)
@@ -42,9 +65,7 @@ async function resolveProgramUrl(p: DiscoveredProgram): Promise<string | null> {
   const originalDomain = extractDomain(p.website_url);
   const query = `${p.university_name} ${p.program_name} ${p.degree_type ?? ""} official program page admissions`.trim();
   const results = await firecrawlSearch(query, { limit: 3 });
-  const normalized = results
-    .map((r) => ({ ...r, url: normalizeUrl(r.url) }))
-    .filter((r) => !!r.url);
+  const normalized = results.map((r) => ({ ...r, url: normalizeUrl(r.url) })).filter((r) => !!r.url);
   const sameDomain = originalDomain
     ? normalized.filter((r) => {
         const d = extractDomain(r.url);
@@ -94,7 +115,8 @@ function computeScore(profile: any, p: DiscoveredProgram): number {
   else score += rank <= 100 ? 10 : rank <= 300 ? 4 : 0;
   if (p.is_stem) score += 4;
   const gpa = Number(profile.gpa ?? 0);
-  if (gpa >= 3.7) score += 6; else if (gpa >= 3.3) score += 3;
+  if (gpa >= 3.7) score += 6;
+  else if (gpa >= 3.3) score += 3;
   return Math.max(0, Math.min(100, Math.round(score)));
 }
 
@@ -114,13 +136,16 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     jobId = body.job_id ?? null;
-    const env = parseEnv(body.environment);
     if (!jobId) throw new Error("job_id is required");
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     // Mark running
-    const { data: job, error: jobErr } = await admin.from("discover_jobs")
-      .update({ status: "running" }).eq("id", jobId).select().maybeSingle();
+    const { data: job, error: jobErr } = await admin
+      .from("discover_jobs")
+      .update({ status: "running" })
+      .eq("id", jobId)
+      .select()
+      .maybeSingle();
     if (jobErr) throw jobErr;
     if (!job) throw new Error(`Discover job ${jobId} not found`);
     const userId = job.user_id;
@@ -130,59 +155,65 @@ Deno.serve(async (req) => {
     if (pErr) throw pErr;
     if (!profile) throw new Error("Please complete onboarding before running discovery.");
 
-    // Enforce tier limits BEFORE spending an AI call (env-scoped)
-    profile = await ensureUsageWindow(admin, profile, env);
-    const paid = isPaid(profile, env);
-    const view = envView(profile, env);
+    // Enforce tier limits BEFORE spending an AI call
+    profile = await ensureUsageWindow(admin, profile);
+    const paid = isPaid(profile);
     const runsLimit = paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs;
-    if ((view.discoverUsed ?? 0) >= runsLimit) {
+    if ((profile.discover_runs_used ?? 0) >= runsLimit) {
       const code = paid ? "discover_limit_reached_paid" : "discover_limit_reached";
       const msg = paid
         ? `You've reached ${PAID_LIMITS.discover_runs} discover runs for this billing period.`
         : `You've used all ${FREE_LIMITS.discover_runs} free discover runs. Upgrade to Pro for ${PAID_LIMITS.discover_runs}/month.`;
-      await admin.from("discover_jobs").update({ status: "failed", error: code, completed_at: new Date().toISOString() }).eq("id", jobId);
+      await admin
+        .from("discover_jobs")
+        .update({ status: "failed", error: code, completed_at: new Date().toISOString() })
+        .eq("id", jobId);
       return new Response(JSON.stringify({ ok: false, code, reason: "discover_limit_reached", error: msg }), {
-        status: 403, headers: { ...CORS_HEADERS, "content-type": "application/json" },
+        status: 403,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
       });
     }
 
     // Load existing entries to exclude
-    const { data: existing } = await admin.from("user_entries")
+    const { data: existing } = await admin
+      .from("user_entries")
       .select("university:universities(name), program:programs(name)")
       .eq("user_id", userId);
-    const excluded = (existing ?? [])
-      .map((e: any) => `${e.university?.name ?? "?"} — ${e.program?.name ?? "?"}`)
-      .join("; ") || "(none yet)";
+    const excluded =
+      (existing ?? []).map((e: any) => `${e.university?.name ?? "?"} — ${e.program?.name ?? "?"}`).join("; ") ||
+      "(none yet)";
 
     const ts = (profile.test_scores ?? {}) as Record<string, string>;
-    const testStr = ["GRE","GMAT","IELTS","TOEFL"].map((t) => {
-      const v = ts[t.toLowerCase()];
-      return v ? `${t}: ${v}` : `${t}: not taken`;
-    }).join(", ");
+    const testStr = ["GRE", "GMAT", "IELTS", "TOEFL"]
+      .map((t) => {
+        const v = ts[t.toLowerCase()];
+        return v ? `${t}: ${v}` : `${t}: not taken`;
+      })
+      .join(", ");
 
     const major = profile.target_major ?? "graduate";
     const countries: string[] = (profile.target_countries ?? []).filter(Boolean);
 
     const COUNTRY_SITE_FILTERS: Record<string, string[]> = {
       "united states": ["site:.edu"],
-      "usa": ["site:.edu"],
-      "us": ["site:.edu"],
+      usa: ["site:.edu"],
+      us: ["site:.edu"],
       "united kingdom": ["site:.ac.uk"],
-      "uk": ["site:.ac.uk"],
-      "england": ["site:.ac.uk"],
-      "scotland": ["site:.ac.uk"],
-      "australia": ["site:.edu.au"],
-      "canada": ["site:.ca"],
-      "germany": ["site:.de"],
-      "netherlands": ["site:.nl"],
-      "france": ["site:.fr"],
-      "singapore": ["site:.edu.sg"],
-      "ireland": ["site:.ie"],
+      uk: ["site:.ac.uk"],
+      england: ["site:.ac.uk"],
+      scotland: ["site:.ac.uk"],
+      australia: ["site:.edu.au"],
+      canada: ["site:.ca"],
+      germany: ["site:.de"],
+      netherlands: ["site:.nl"],
+      france: ["site:.fr"],
+      singapore: ["site:.edu.sg"],
+      ireland: ["site:.ie"],
       "hong kong": ["site:.edu.hk"],
-      "switzerland": ["site:.ch"],
-      "sweden": ["site:.se"],
-      "italy": ["site:.it"],
-      "spain": ["site:.es"],
+      switzerland: ["site:.ch"],
+      sweden: ["site:.se"],
+      italy: ["site:.it"],
+      spain: ["site:.es"],
       "new zealand": ["site:.ac.nz"],
     };
 
@@ -200,7 +231,8 @@ Deno.serve(async (req) => {
     }
     const searchBatches = await Promise.all(searchQueries.map((query) => firecrawlSearch(query, { limit: 8 })));
     const seenUrls = new Set<string>();
-    const liveResults = searchBatches.flat()
+    const liveResults = searchBatches
+      .flat()
       .filter((result) => result.url && isUsefulProgramResult(result.url))
       .map((result) => ({ ...result, url: normalizeUrl(result.url) }))
       .filter((result) => {
@@ -211,7 +243,8 @@ Deno.serve(async (req) => {
       .slice(0, 24);
     const liveContext = concatSnippets(liveResults);
 
-    const system = "You are a graduate admissions research assistant specializing in master's degree programs. Use only the live web search results provided by the user as evidence. You only recommend master's level programs — never PhD, doctoral, or bachelor's programs. If a program is not present in the live search results with an official-looking program URL, exclude it entirely rather than guessing.";
+    const system =
+      "You are a graduate admissions research assistant specializing in master's degree programs. Use only the live web search results provided by the user as evidence. You only recommend master's level programs — never PhD, doctoral, or bachelor's programs. If a program is not present in the live search results with an official-looking program URL, exclude it entirely rather than guessing.";
 
     const user = `Student profile:
 - Target degree: Master's only
@@ -230,7 +263,7 @@ Already shown to this user (exclude these): ${excluded}.
 Live web search results to use as evidence:
 ${liveContext || "(No live search results were available. Return an empty array.)"}
 
-Find up to 5 master's programs that best match this profile. Every result must be a master's degree (MSc, MA, MEng, MPA, MPH, MS, MEd, LLM, or equivalent) — not a PhD, not a bachelor's. Only include programs that appear in the live web search results above. Use the official program or university URL from those results as website_url.
+Find up to 5 master's programs that best match this profile. Every result must be a master's degree — not a PhD, not a bachelor's. Only include programs that appear in the live web search results above. Use the official program or university URL from those results as website_url.
 
 HARD FILTER — Do NOT include any program whose university is located outside these countries: ${countries.length ? countries.join(", ") : "any"}. Do NOT include programs whose name/department is unrelated to "${major}". Discard rather than guess.
 
@@ -263,10 +296,28 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       .map((c) => c.toLowerCase().trim())
       .filter(Boolean);
     const targetMajorLc = (profile.target_major ?? "").toLowerCase().trim();
-    const stop = new Set(["and","of","the","in","for","a","an","to","science","sciences","studies","study","program","master","masters","ms","msc","ma","degree"]);
-    const majorTokens = targetMajorLc
-      .split(/[^a-z0-9]+/)
-      .filter((t) => t.length >= 3 && !stop.has(t));
+    const stop = new Set([
+      "and",
+      "of",
+      "the",
+      "in",
+      "for",
+      "a",
+      "an",
+      "to",
+      "science",
+      "sciences",
+      "studies",
+      "study",
+      "program",
+      "master",
+      "masters",
+      "ms",
+      "msc",
+      "ma",
+      "degree",
+    ]);
+    const majorTokens = targetMajorLc.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !stop.has(t));
 
     function matchesTargetCountry(country: string | null | undefined): boolean {
       if (!targetCountriesLc.length) return true; // user has no preference
@@ -289,7 +340,10 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
         const okMajor = matchesTargetMajor(p.program_name, p.department);
         if (!okCountry || !okMajor) {
           console.log("discard program (country/major mismatch)", {
-            program: p.program_name, country: p.university_country, okCountry, okMajor,
+            program: p.program_name,
+            country: p.university_country,
+            okCountry,
+            okMajor,
           });
           return false;
         }
@@ -312,36 +366,58 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
 
     for (const p of resolvedPrograms) {
       // Upsert university (by case-insensitive name + country)
-      const { data: existingUni } = await admin.from("universities")
-        .select("*").ilike("name", p.university_name).ilike("country", p.university_country ?? "").maybeSingle();
+      const { data: existingUni } = await admin
+        .from("universities")
+        .select("*")
+        .ilike("name", p.university_name)
+        .ilike("country", p.university_country ?? "")
+        .maybeSingle();
       let uniId = existingUni?.id;
       if (!uniId) {
-        const { data: newUni, error: uErr } = await admin.from("universities").insert({
-          name: p.university_name,
-          country: p.university_country,
-          city: p.university_city,
-          qs_ranking: p.qs_ranking,
-          website_url: p.website_url,
-        }).select().single();
-        if (uErr) { console.error("uni insert", uErr); continue; }
+        const { data: newUni, error: uErr } = await admin
+          .from("universities")
+          .insert({
+            name: p.university_name,
+            country: p.university_country,
+            city: p.university_city,
+            qs_ranking: p.qs_ranking,
+            website_url: p.website_url,
+          })
+          .select()
+          .single();
+        if (uErr) {
+          console.error("uni insert", uErr);
+          continue;
+        }
         uniId = newUni.id;
       }
 
-      const { data: existingProg } = await admin.from("programs")
-        .select("*").eq("university_id", uniId).ilike("name", p.program_name).maybeSingle();
+      const { data: existingProg } = await admin
+        .from("programs")
+        .select("*")
+        .eq("university_id", uniId)
+        .ilike("name", p.program_name)
+        .maybeSingle();
       let progId = existingProg?.id;
       if (!progId) {
-        const { data: newProg, error: pErr2 } = await admin.from("programs").insert({
-          university_id: uniId,
-          name: p.program_name,
-          degree_level: "masters",
-          degree_type: p.degree_type ?? null,
-          duration_months: p.duration_months ?? null,
-          department: p.department,
-          is_stem: p.is_stem,
-          program_url: p.program_url ?? null,
-        }).select().single();
-        if (pErr2) { console.error("prog insert", pErr2); continue; }
+        const { data: newProg, error: pErr2 } = await admin
+          .from("programs")
+          .insert({
+            university_id: uniId,
+            name: p.program_name,
+            degree_level: "masters",
+            degree_type: p.degree_type ?? null,
+            duration_months: p.duration_months ?? null,
+            department: p.department,
+            is_stem: p.is_stem,
+            program_url: p.program_url ?? null,
+          })
+          .select()
+          .single();
+        if (pErr2) {
+          console.error("prog insert", pErr2);
+          continue;
+        }
         progId = newProg.id;
       } else if (!existingProg?.program_url && p.program_url) {
         await admin.from("programs").update({ program_url: p.program_url }).eq("id", progId);
@@ -363,13 +439,11 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     const doneUpdate: Record<string, unknown> = { status: "done", completed_at: new Date().toISOString() };
     if (validatedPrograms.length === 0) doneUpdate.error = "no_matches_for_targets";
     await admin.from("discover_jobs").update(doneUpdate).eq("id", jobId);
-    // Always increment discover_runs_used (both tiers are metered; env-scoped)
-    {
-      const c = envColumns(env);
-      const update: Record<string, unknown> = {};
-      update[c.discoverUsed] = (view.discoverUsed ?? 0) + 1;
-      await admin.from("profiles").update(update).eq("id", userId);
-    }
+    // Always increment discover_runs_used (both tiers are metered)
+    await admin
+      .from("profiles")
+      .update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 })
+      .eq("id", userId);
     return new Response(JSON.stringify({ ok: true, count: validatedPrograms.length }), {
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
@@ -382,7 +456,10 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
         : /401|invalid x-api-key|anthropic/i.test(msg)
           ? "AI research failed — please retry."
           : msg;
-      await admin.from("discover_jobs").update({ status: "failed", error: friendly, completed_at: new Date().toISOString() }).eq("id", jobId);
+      await admin
+        .from("discover_jobs")
+        .update({ status: "failed", error: friendly, completed_at: new Date().toISOString() })
+        .eq("id", jobId);
     }
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
       status: 500,
