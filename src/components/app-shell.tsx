@@ -69,8 +69,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-background">
       <header className="border-b border-border/60 bg-surface-elevated/70 backdrop-blur sticky top-0 z-30">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
-          <Link to="/dashboard" className="text-xl font-display font-semibold tracking-tight text-primary">
-            Admitly
+          <Link to="/dashboard" className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-[15px] text-accent">🧭</span>
+            <span className="text-lg font-display font-black tracking-tight text-primary">The Grad Scout</span>
           </Link>
           <nav className="flex items-center gap-1">
             {navItem("/dashboard", "Dashboard", LayoutDashboard)}
