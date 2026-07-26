@@ -1,24 +1,37 @@
 ## Problem
 
-Discovery runs finish "successfully" but insert zero programs. Edge function logs show every candidate discarded with `okCountry: false` — programs from the UK and Australia are returned even though the user's `target_countries` is `["United States"]`.
+Every Discovery run fails silently because Firecrawl returns `402 Insufficient credits` on every search. Because the code catches the error and returns an empty list, the job completes as `done` with `no_matches_for_targets`, the UI shows "Discovery complete – 0 programs", and the user's `sandbox_discover_runs_used` counter still increments.
 
-Root cause: `discover-universities` fires four Firecrawl queries in parallel — one generic plus hardcoded `site:.edu`, `site:.ac.uk`, and `site:.edu.au` — regardless of the user's target countries. The UK/AU results dominate the live-context pool, so Gemini picks non-US programs, which are then correctly rejected by the final country validator, leaving nothing to insert.
+## Fixes
 
-## Fix (only `supabase/functions/discover-universities/index.ts`)
+### 1. Top up Firecrawl (you)
+Add credits at firecrawl.dev/pricing on the account whose key is stored as `FIRECRAWL_API_KEY`. No code needed for this step.
 
-1. **Country-aware search queries.** Build the Firecrawl query list from the user's `target_countries` instead of hardcoding TLDs:
-   - Map each target country to its site filter(s): US → `site:.edu`, UK → `site:.ac.uk`, Australia → `site:.edu.au`, Canada → `site:.ca`, Germany → `site:.de`, Netherlands → `site:.nl`, France → `site:.fr`, Singapore → `site:.edu.sg`, Ireland → `site:.ie`, Hong Kong → `site:.edu.hk`, etc. Unknown countries fall back to a generic `"<major>" "<country>" master's admissions` query.
-   - Always include one generic query per country: `master's <target_major> <country> admissions official tuition`.
-   - Drop the mixed-TLD fan-out so UK/AU pages don't contaminate a US-only search.
+### 2. Stop masking search-provider failures (code)
+In `supabase/functions/discover-universities/index.ts`:
+- Detect `402` (or any non-2xx) from Firecrawl inside the shared search helper and propagate a typed error (`search_provider_out_of_credits` / `search_provider_error`) instead of returning `[]`.
+- In the job runner, catch that typed error and:
+  - Set `discover_jobs.status = 'failed'`, `error = 'search_provider_out_of_credits'`.
+  - Refund the run: decrement `sandbox_discover_runs_used` / `discover_runs_used` for the environment used.
+  - Do not overwrite it with `no_matches_for_targets`.
 
-2. **Country-scoped live context.** After Firecrawl, tag each result with the country it was searched for and prefer results from country-matched queries when trimming to the top ~24, so Gemini sees mostly on-target evidence.
+### 3. Surface the real reason in the UI
+In the dashboard discover flow (`src/routes/_authenticated/dashboard.tsx` and the toast handler that reads job status):
+- When `error === 'search_provider_out_of_credits'`, show a destructive toast: "Search service is temporarily unavailable. Your run wasn't counted — please try again in a few minutes." (No mention of Firecrawl to end users.)
+- Keep the existing `no_matches_for_targets` copy for the genuine zero-result case.
 
-3. **Prompt reinforcement.** In the user prompt, restate the target countries as a hard filter ("Do not include programs outside these countries") and repeat the country list right before the JSON schema. No new fields.
+### 4. Refund the 3 counted runs from today (one-time)
+Reset `sandbox_discover_runs_used` back to `0` for your test account (`62496503-8ce8-490f-af71-56c9a5b4fa2b`) so you can retest immediately after topping up.
 
-4. **Better failure signal.** When the validator discards everything, mark the job `done` with a soft `error: "no_matches_for_targets"` (kept as-is elsewhere) so the existing Low Results banner can explain the outcome instead of the current silent zero-insert.
+## How to test in preview after top-up
 
-No schema, RLS, UI, or other function changes.
+1. Go to `/dashboard` → click **Discover**.
+2. Expect toast "Discovery complete" with N > 0 programs, or, if Firecrawl still 402s, the new destructive toast and no counter increment.
+3. Confirm counter: open Settings → check "Discover runs used" stays flat on failure and increments only on success.
+4. Force-fail path (optional, later): temporarily set `FIRECRAWL_API_KEY` to an invalid value in a dev branch and verify the failure toast + counter refund; then restore.
 
-## Files touched
+## Technical notes
 
-- `supabase/functions/discover-universities/index.ts`
+- Files touched: `supabase/functions/discover-universities/index.ts`, `supabase/functions/_shared/firecrawl.ts` (error propagation), `src/routes/_authenticated/dashboard.tsx` (toast branching). One-off SQL update to reset the counter.
+- Counter refund uses the same env-scoped column helper introduced earlier (`envScopedSub`) so live vs sandbox stays isolated.
+- No schema change required — `discover_jobs.status` and `error` columns already exist.
