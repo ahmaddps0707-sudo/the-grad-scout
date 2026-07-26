@@ -89,7 +89,7 @@ export function SafariA4Hint() {
             top: pos.top,
             left: pos.left,
             zIndex: 9999,
-            background: "#1A1A2E",
+            background: "#15172A",
             color: "#fff",
             fontSize: "12px",
             lineHeight: 1.4,
@@ -111,8 +111,8 @@ export function SafariA4Hint() {
               borderLeft: "5px solid transparent",
               borderRight: "5px solid transparent",
               ...(pos.placement === "top"
-                ? { top: "100%", borderTop: "5px solid #1A1A2E" }
-                : { bottom: "100%", borderBottom: "5px solid #1A1A2E" }),
+                ? { top: "100%", borderTop: "5px solid #15172A" }
+                : { bottom: "100%", borderBottom: "5px solid #15172A" }),
             }}
           />
         </span>,
