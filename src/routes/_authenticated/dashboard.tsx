@@ -130,7 +130,12 @@ function DashboardPage() {
         clearInterval(interval);
         setDiscovering(false);
         setActiveJobId(null);
-        toast.error(data.error ?? "Discovery failed");
+        const err = data.error ?? "Discovery failed";
+        if (err === "search_provider_out_of_credits" || err === "search_provider_error") {
+          toast.error("Search service is temporarily unavailable. Your run wasn't counted — please try again in a few minutes.");
+        } else {
+          toast.error(err);
+        }
       }
     }, 1800);
     return () => clearInterval(interval);
