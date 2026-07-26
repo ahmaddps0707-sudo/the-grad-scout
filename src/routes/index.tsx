@@ -50,9 +50,9 @@ const features = [
 ];
 
 const steps = [
-  { num: "01", title: "Tell us your goals", desc: "Complete a short form — your field, target countries, GPA, test scores, and budget. Takes under 5 minutes." },
-  { num: "02", title: "We research your matches", desc: "The Grad Scout finds and scores master's programs that fit your profile, pulling live admissions data, class profiles, and career outcomes for each one." },
-  { num: "03", title: "Track, connect, and apply", desc: "Manage your shortlist, reach out to alumni, build your resume, and track every application through to your final decision." },
+  { num: "1", title: "Tell us your goals", desc: "Complete a short form — your field, target countries, GPA, test scores, and budget. Takes under 5 minutes." },
+  { num: "2", title: "We research your matches", desc: "The Grad Scout finds and scores master's programs that fit your profile, pulling live admissions data, class profiles, and career outcomes for each one." },
+  { num: "3", title: "Track, connect, and apply", desc: "Manage your shortlist, reach out to alumni, build your resume, and track every application through to your final decision." },
 ];
 
 const serif = { fontFamily: "'Playfair Display', serif" as const };
