@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
+import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid, envColumns, envView, parseEnv } from "../_shared/limits.ts";
 import { concatSnippets, firecrawlSearch, normalizeUrl } from "../_shared/firecrawl.ts";
 
 interface DiscoveredProgram {
@@ -114,6 +114,7 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     jobId = body.job_id ?? null;
+    const env = parseEnv(body.environment);
     if (!jobId) throw new Error("job_id is required");
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
@@ -129,11 +130,12 @@ Deno.serve(async (req) => {
     if (pErr) throw pErr;
     if (!profile) throw new Error("Please complete onboarding before running discovery.");
 
-    // Enforce tier limits BEFORE spending an AI call
-    profile = await ensureUsageWindow(admin, profile);
-    const paid = isPaid(profile);
+    // Enforce tier limits BEFORE spending an AI call (env-scoped)
+    profile = await ensureUsageWindow(admin, profile, env);
+    const paid = isPaid(profile, env);
+    const view = envView(profile, env);
     const runsLimit = paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs;
-    if ((profile.discover_runs_used ?? 0) >= runsLimit) {
+    if ((view.discoverUsed ?? 0) >= runsLimit) {
       const code = paid ? "discover_limit_reached_paid" : "discover_limit_reached";
       const msg = paid
         ? `You've reached ${PAID_LIMITS.discover_runs} discover runs for this billing period.`
@@ -361,8 +363,13 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     const doneUpdate: Record<string, unknown> = { status: "done", completed_at: new Date().toISOString() };
     if (validatedPrograms.length === 0) doneUpdate.error = "no_matches_for_targets";
     await admin.from("discover_jobs").update(doneUpdate).eq("id", jobId);
-    // Always increment discover_runs_used (both tiers are metered)
-    await admin.from("profiles").update({ discover_runs_used: (profile.discover_runs_used ?? 0) + 1 }).eq("id", userId);
+    // Always increment discover_runs_used (both tiers are metered; env-scoped)
+    {
+      const c = envColumns(env);
+      const update: Record<string, unknown> = {};
+      update[c.discoverUsed] = (view.discoverUsed ?? 0) + 1;
+      await admin.from("profiles").update(update).eq("id", userId);
+    }
     return new Response(JSON.stringify({ ok: true, count: validatedPrograms.length }), {
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
