@@ -119,13 +119,15 @@ Deno.serve(async (req) => {
 
     // Mark running
     const { data: job, error: jobErr } = await admin.from("discover_jobs")
-      .update({ status: "running" }).eq("id", jobId).select().single();
-    if (jobErr || !job) throw jobErr ?? new Error("job not found");
+      .update({ status: "running" }).eq("id", jobId).select().maybeSingle();
+    if (jobErr) throw jobErr;
+    if (!job) throw new Error(`Discover job ${jobId} not found`);
     const userId = job.user_id;
 
     // Load profile
-    let { data: profile, error: pErr } = await admin.from("profiles").select("*").eq("id", userId).single();
-    if (pErr || !profile) throw pErr ?? new Error("profile missing");
+    let { data: profile, error: pErr } = await admin.from("profiles").select("*").eq("id", userId).maybeSingle();
+    if (pErr) throw pErr;
+    if (!profile) throw new Error("Please complete onboarding before running discovery.");
 
     // Enforce tier limits BEFORE spending an AI call
     profile = await ensureUsageWindow(admin, profile);
