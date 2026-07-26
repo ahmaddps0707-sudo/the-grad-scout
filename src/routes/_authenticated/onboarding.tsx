@@ -119,7 +119,7 @@ function OnboardingPage() {
       const { data: job, error: jobErr } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();
       if (jobErr) throw jobErr;
       // Fire and forget — dashboard will poll
-      supabase.functions.invoke("discover-universities", { body: { job_id: job.id } }).catch((e) => console.error(e));
+      supabase.functions.invoke("discover-universities", { body: { job_id: job.id, environment: (() => { try { return getStripeEnvironment(); } catch { return "sandbox"; } })() } }).catch((e) => console.error(e));
       navigate({ to: "/dashboard", search: { job: job.id } as never });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not complete onboarding");

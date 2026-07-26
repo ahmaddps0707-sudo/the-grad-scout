@@ -153,7 +153,7 @@ function DashboardPage() {
     if (error) return toast.error(error.message);
     setActiveJobId(job.id);
     setDiscovering(true);
-    supabase.functions.invoke("discover-universities", { body: { job_id: job.id } }).catch((e) => console.error(e));
+    supabase.functions.invoke("discover-universities", { body: { job_id: job.id, environment: env }, }).catch((e) => console.error(e));
   };
 
   const filtered = useMemo(() => {
