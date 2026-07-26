@@ -20,7 +20,6 @@ import { Route as AuthenticatedContactsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedForumIndexRouteImport } from './routes/_authenticated/forum.index'
 import { Route as AuthenticatedUniversityIdRouteImport } from './routes/_authenticated/university.$id'
 import { Route as AuthenticatedForumPostIdRouteImport } from './routes/_authenticated/forum.$postId'
-import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -78,12 +77,6 @@ const AuthenticatedForumPostIdRoute =
     path: '/forum/$postId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const ApiPublicPaymentsWebhookRoute =
-  ApiPublicPaymentsWebhookRouteImport.update({
-    id: '/api/public/payments/webhook',
-    path: '/api/public/payments/webhook',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -96,7 +89,6 @@ export interface FileRoutesByFullPath {
   '/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
   '/forum/': typeof AuthenticatedForumIndexRoute
-  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -109,7 +101,6 @@ export interface FileRoutesByTo {
   '/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/university/$id': typeof AuthenticatedUniversityIdRoute
   '/forum': typeof AuthenticatedForumIndexRoute
-  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -124,7 +115,6 @@ export interface FileRoutesById {
   '/_authenticated/forum/$postId': typeof AuthenticatedForumPostIdRoute
   '/_authenticated/university/$id': typeof AuthenticatedUniversityIdRoute
   '/_authenticated/forum/': typeof AuthenticatedForumIndexRoute
-  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -139,7 +129,6 @@ export interface FileRouteTypes {
     | '/forum/$postId'
     | '/university/$id'
     | '/forum/'
-    | '/api/public/payments/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -152,7 +141,6 @@ export interface FileRouteTypes {
     | '/forum/$postId'
     | '/university/$id'
     | '/forum'
-    | '/api/public/payments/webhook'
   id:
     | '__root__'
     | '/'
@@ -166,14 +154,12 @@ export interface FileRouteTypes {
     | '/_authenticated/forum/$postId'
     | '/_authenticated/university/$id'
     | '/_authenticated/forum/'
-    | '/api/public/payments/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
-  ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -255,13 +241,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedForumPostIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/api/public/payments/webhook': {
-      id: '/api/public/payments/webhook'
-      path: '/api/public/payments/webhook'
-      fullPath: '/api/public/payments/webhook'
-      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -294,7 +273,6 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
-  ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
