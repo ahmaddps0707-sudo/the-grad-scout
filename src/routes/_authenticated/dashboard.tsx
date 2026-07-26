@@ -27,7 +27,7 @@ interface EntryFull extends EntryRow {
 }
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — Admitly" }] }),
+  head: () => ({ meta: [{ title: "Dashboard — The Grad Scout" }] }),
   validateSearch: (search: Record<string, unknown>) => {
     const quick = (search.quick as string) ?? "all";
     const status = (search.status as string) ?? "all";
@@ -290,7 +290,7 @@ function EmptyState({ onDiscover }: { onDiscover: () => void }) {
   return (
     <div className="rounded-2xl border border-dashed border-border bg-surface p-12 text-center">
       <h2 className="font-display text-xl">No programs yet</h2>
-      <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">Add a university manually or let Admitly research five matches based on your profile.</p>
+      <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">Add a university manually or let The Grad Scout research five matches based on your profile.</p>
       <Button onClick={onDiscover} className="mt-6 gap-2"><Sparkles className="h-4 w-4" /> Research matches</Button>
     </div>
   );

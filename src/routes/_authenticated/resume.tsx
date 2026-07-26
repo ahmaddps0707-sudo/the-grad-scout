@@ -17,7 +17,7 @@ import { ResumePreview } from "@/components/resume/preview";
 import { SafariA4Hint } from "@/components/resume/safari-a4-hint";
 
 export const Route = createFileRoute("/_authenticated/resume")({
-  head: () => ({ meta: [{ title: "Resume Builder — Admitly" }, { name: "description", content: "Upload, edit, and tailor your resume for master's applications with AI assistance." }] }),
+  head: () => ({ meta: [{ title: "Resume Builder — The Grad Scout" }, { name: "description", content: "Upload, edit, and tailor your resume for master's applications with AI assistance." }] }),
   component: GatedResumePage,
 });
 

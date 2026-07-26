@@ -26,7 +26,7 @@ type City = Database["public"]["Tables"]["program_city_info"]["Row"];
 type Career = Database["public"]["Tables"]["program_career_stats"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/university/$id")({
-  head: () => ({ meta: [{ title: "Program — Admitly" }] }),
+  head: () => ({ meta: [{ title: "Program — The Grad Scout" }] }),
   component: DetailPage,
 });
 
