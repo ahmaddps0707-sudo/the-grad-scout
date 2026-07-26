@@ -57,7 +57,7 @@ export function UpgradeModal({
       const result = await createCheckoutSession({
         data: {
           priceId: "pro_monthly",
-          returnUrl: `${window.location.origin}/settings?checkout=success`,
+          returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
           environment: getStripeEnvironment(),
           trialDays: 7,
           promoCode: promoCode.trim() || undefined,

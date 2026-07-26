@@ -16,6 +16,8 @@ import { scoreColorClass } from "@/lib/scoring";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal, type UpgradeReason } from "@/components/upgrade-modal";
 import type { Database } from "@/integrations/supabase/types";
+import { getStripeEnvironment } from "@/lib/stripe";
+import { envScopedSub } from "@/lib/subscription";
 
 type EntryRow = Database["public"]["Tables"]["user_entries"]["Row"];
 type Uni = Database["public"]["Tables"]["universities"]["Row"];
@@ -66,8 +68,12 @@ function DashboardPage() {
   const load = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { data: prof } = await supabase.from("profiles").select("subscription_tier,subscription_status,discover_runs_used").eq("id", u.user.id).single();
-    if (prof) setTier({ tier: (prof as any).subscription_tier, status: (prof as any).subscription_status, discover_runs_used: (prof as any).discover_runs_used ?? 0 });
+    const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
+    const { data: prof } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+    if (prof) {
+      const view = envScopedSub(prof, env);
+      setTier({ tier: view.tier, status: view.status as any, discover_runs_used: view.discover_runs_used });
+    }
     const { data, error } = await supabase
       .from("user_entries")
       .select("*, university:universities(*), program:programs(*)")
@@ -147,7 +153,8 @@ function DashboardPage() {
     if (error) return toast.error(error.message);
     setActiveJobId(job.id);
     setDiscovering(true);
-    supabase.functions.invoke("discover-universities", { body: { job_id: job.id } }).catch((e) => console.error(e));
+    const runEnv = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
+    supabase.functions.invoke("discover-universities", { body: { job_id: job.id, environment: runEnv } }).catch((e) => console.error(e));
   };
 
   const filtered = useMemo(() => {

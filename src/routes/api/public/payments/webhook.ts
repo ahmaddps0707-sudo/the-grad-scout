@@ -2,6 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+import { subColumns } from "@/lib/subscription";
+
+// Kept in sync with FREE_LIMITS.discover_runs in src/lib/limits.ts.
+// Duplicated as a literal so this route file has no client-tree imports.
+const FREE_DISCOVER_LIMIT = 3;
 
 let _supabase: ReturnType<typeof createClient<Database>> | null = null;
 function getSupabase() {
@@ -18,83 +23,90 @@ function isoFromUnix(seconds: number | null | undefined): string | null {
   return seconds ? new Date(seconds * 1000).toISOString() : null;
 }
 
-async function upsertSubscriptionOnProfile(subscription: any) {
+async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
   const userId = subscription.metadata?.userId;
   if (!userId) {
     console.error("[webhook] No userId in subscription metadata", subscription.id);
     return;
   }
+  const cols = subColumns(env);
   const item = subscription.items?.data?.[0];
   const periodStart = item?.current_period_start ?? subscription.current_period_start;
   const periodEnd = item?.current_period_end ?? subscription.current_period_end;
 
-  // Business logic: paid/active tier maps to 'paid'; anything else -> 'free' on the app side,
-  // but keep subscription_status as-is so UI can show trialing / past_due / cancelled banners.
   const status = subscription.status as string;
   const grants = status === "active" || status === "trialing" || status === "past_due";
   const tier = grants ? "paid" : "free";
-
-  // If cancelled but still within period, keep access until period end.
   const activeUntilPeriodEnd = status === "canceled" && periodEnd && periodEnd * 1000 > Date.now();
   const finalTier = activeUntilPeriodEnd ? "paid" : tier;
   const finalStatus = activeUntilPeriodEnd ? "canceled" : status;
 
-  // Detect a period rollover (renewal): if the stored period_end has advanced,
-  // zero the per-period usage counters so paid users get their fresh allotment.
   const supa = getSupabase();
   const { data: existing } = await supa
     .from("profiles")
-    .select("subscription_current_period_end")
+    .select(cols.periodEnd)
     .eq("id", userId)
     .maybeSingle();
-  const prevEnd = existing?.subscription_current_period_end
-    ? new Date(existing.subscription_current_period_end as string).getTime()
-    : 0;
+  const prevEndRaw = (existing as any)?.[cols.periodEnd];
+  const prevEnd = prevEndRaw ? new Date(prevEndRaw as string).getTime() : 0;
   const newEnd = periodEnd ? periodEnd * 1000 : 0;
   const isRenewal = newEnd > 0 && prevEnd > 0 && newEnd > prevEnd;
 
-  const update: Database["public"]["Tables"]["profiles"]["Update"] = {
-      subscription_tier: finalTier,
-      subscription_status: finalStatus,
-      stripe_customer_id: subscription.customer,
-      stripe_subscription_id: subscription.id,
-      subscription_start_date: isoFromUnix(subscription.start_date ?? periodStart),
-      subscription_current_period_end: isoFromUnix(periodEnd),
-      cancel_at_period_end: subscription.cancel_at_period_end ?? false,
-      trial_end_date: isoFromUnix(subscription.trial_end),
-      usage_reset_at: isoFromUnix(periodEnd) ?? new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+  const update: Record<string, unknown> = {
+    [cols.tier]: finalTier,
+    [cols.status]: finalStatus,
+    [cols.customerId]: subscription.customer,
+    [cols.subscriptionId]: subscription.id,
+    [cols.startDate]: isoFromUnix(subscription.start_date ?? periodStart),
+    [cols.periodEnd]: isoFromUnix(periodEnd),
+    [cols.cancelAtEnd]: subscription.cancel_at_period_end ?? false,
+    [cols.trialEnd]: isoFromUnix(subscription.trial_end),
+    [cols.resetAt]: isoFromUnix(periodEnd) ?? new Date().toISOString(),
+    // Any paid subscription burns the one-time trial for this env, so a
+    // cancel + re-subscribe cannot re-trigger the 7-day trial.
+    [cols.trialUsed]: true,
+    updated_at: new Date().toISOString(),
   };
   if (isRenewal) {
-    update.discover_runs_used = 0;
-    update.ai_bullets_used = 0;
+    update[cols.discoverUsed] = 0;
+    update[cols.aiUsed] = 0;
   }
-  await supa.from("profiles").update(update).eq("id", userId);
+  await supa.from("profiles").update(update as Database["public"]["Tables"]["profiles"]["Update"]).eq("id", userId);
 }
 
-async function handleSubscriptionDeleted(subscription: any) {
+async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
   const userId = subscription.metadata?.userId;
   if (!userId) return;
-  await getSupabase()
+  const cols = subColumns(env);
+  const supa = getSupabase();
+  // Cap the metered counter at the free limit so a downgraded user isn't
+  // instantly locked out of Discover with a stale paid-tier count.
+  const { data: cur } = await supa
     .from("profiles")
-    .update({
-      subscription_tier: "free",
-      subscription_status: "canceled",
-      cancel_at_period_end: false,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId);
+    .select(cols.discoverUsed)
+    .eq("id", userId)
+    .maybeSingle();
+  const currentUsed = Number((cur as any)?.[cols.discoverUsed] ?? 0);
+  const cappedUsed = Math.min(currentUsed, FREE_DISCOVER_LIMIT);
+  const update: Record<string, unknown> = {
+    [cols.tier]: "free",
+    [cols.status]: "canceled",
+    [cols.cancelAtEnd]: false,
+    [cols.discoverUsed]: cappedUsed,
+    updated_at: new Date().toISOString(),
+  };
+  await supa.from("profiles").update(update as Database["public"]["Tables"]["profiles"]["Update"]).eq("id", userId);
 }
 
-async function handleInvoicePaid(invoice: any) {
-  // Prefer subscription.metadata.userId; fallback to customer.metadata.userId
+async function handleInvoicePaid(invoice: any, env: StripeEnv) {
+  const cols = subColumns(env);
   let userId: string | undefined = invoice.subscription_details?.metadata?.userId
     ?? invoice.metadata?.userId;
   if (!userId && invoice.customer) {
     const { data } = await getSupabase()
       .from("profiles")
       .select("id")
-      .eq("stripe_customer_id", invoice.customer as string)
+      .eq(cols.customerId, invoice.customer as string)
       .maybeSingle();
     userId = (data?.id as string | undefined) ?? undefined;
   }
@@ -113,21 +125,16 @@ async function handleInvoicePaid(invoice: any) {
     },
     { onConflict: "stripe_invoice_id" },
   );
-
-  // Mark payment method attached
-  await getSupabase()
-    .from("profiles")
-    .update({ payment_method_attached: true })
-    .eq("id", userId);
 }
 
-async function handleInvoicePaymentFailed(invoice: any) {
+async function handleInvoicePaymentFailed(invoice: any, env: StripeEnv) {
   const userId = invoice.subscription_details?.metadata?.userId
     ?? invoice.metadata?.userId;
   if (!userId) return;
+  const cols = subColumns(env);
   await getSupabase()
     .from("profiles")
-    .update({ subscription_status: "past_due", updated_at: new Date().toISOString() })
+    .update({ [cols.status]: "past_due", updated_at: new Date().toISOString() } as Database["public"]["Tables"]["profiles"]["Update"])
     .eq("id", userId);
 }
 
@@ -136,17 +143,17 @@ async function handleWebhook(req: Request, env: StripeEnv) {
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated":
-      await upsertSubscriptionOnProfile(event.data.object);
+      await upsertSubscriptionOnProfile(event.data.object, env);
       break;
     case "customer.subscription.deleted":
-      await handleSubscriptionDeleted(event.data.object);
+      await handleSubscriptionDeleted(event.data.object, env);
       break;
     case "invoice.paid":
     case "invoice.payment_succeeded":
-      await handleInvoicePaid(event.data.object);
+      await handleInvoicePaid(event.data.object, env);
       break;
     case "invoice.payment_failed":
-      await handleInvoicePaymentFailed(event.data.object);
+      await handleInvoicePaymentFailed(event.data.object, env);
       break;
     default:
       console.log("[webhook] Unhandled:", event.type);

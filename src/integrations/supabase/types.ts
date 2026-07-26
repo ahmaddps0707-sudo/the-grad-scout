@@ -378,6 +378,18 @@ export type Database = {
           last_visited_forum_at: string | null
           onboarding_complete: boolean
           payment_method_attached: boolean
+          sandbox_ai_bullets_used: number
+          sandbox_cancel_at_period_end: boolean
+          sandbox_discover_runs_used: number
+          sandbox_stripe_customer_id: string | null
+          sandbox_stripe_subscription_id: string | null
+          sandbox_subscription_current_period_end: string | null
+          sandbox_subscription_start_date: string | null
+          sandbox_subscription_status: string | null
+          sandbox_subscription_tier: string
+          sandbox_trial_end_date: string | null
+          sandbox_trial_used: boolean
+          sandbox_usage_reset_at: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_current_period_end: string | null
@@ -391,6 +403,7 @@ export type Database = {
           target_tier: Database["public"]["Enums"]["tier_pref"] | null
           test_scores: Json | null
           trial_end_date: string | null
+          trial_used: boolean
           updated_at: string
           usage_reset_at: string
           work_exp_years: number | null
@@ -412,6 +425,18 @@ export type Database = {
           last_visited_forum_at?: string | null
           onboarding_complete?: boolean
           payment_method_attached?: boolean
+          sandbox_ai_bullets_used?: number
+          sandbox_cancel_at_period_end?: boolean
+          sandbox_discover_runs_used?: number
+          sandbox_stripe_customer_id?: string | null
+          sandbox_stripe_subscription_id?: string | null
+          sandbox_subscription_current_period_end?: string | null
+          sandbox_subscription_start_date?: string | null
+          sandbox_subscription_status?: string | null
+          sandbox_subscription_tier?: string
+          sandbox_trial_end_date?: string | null
+          sandbox_trial_used?: boolean
+          sandbox_usage_reset_at?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
@@ -425,6 +450,7 @@ export type Database = {
           target_tier?: Database["public"]["Enums"]["tier_pref"] | null
           test_scores?: Json | null
           trial_end_date?: string | null
+          trial_used?: boolean
           updated_at?: string
           usage_reset_at?: string
           work_exp_years?: number | null
@@ -446,6 +472,18 @@ export type Database = {
           last_visited_forum_at?: string | null
           onboarding_complete?: boolean
           payment_method_attached?: boolean
+          sandbox_ai_bullets_used?: number
+          sandbox_cancel_at_period_end?: boolean
+          sandbox_discover_runs_used?: number
+          sandbox_stripe_customer_id?: string | null
+          sandbox_stripe_subscription_id?: string | null
+          sandbox_subscription_current_period_end?: string | null
+          sandbox_subscription_start_date?: string | null
+          sandbox_subscription_status?: string | null
+          sandbox_subscription_tier?: string
+          sandbox_trial_end_date?: string | null
+          sandbox_trial_used?: boolean
+          sandbox_usage_reset_at?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
@@ -459,6 +497,7 @@ export type Database = {
           target_tier?: Database["public"]["Enums"]["tier_pref"] | null
           test_scores?: Json | null
           trial_end_date?: string | null
+          trial_used?: boolean
           updated_at?: string
           usage_reset_at?: string
           work_exp_years?: number | null

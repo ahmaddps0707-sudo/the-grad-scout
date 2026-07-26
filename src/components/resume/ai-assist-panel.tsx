@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Sparkles, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { UpgradeModal } from "@/components/upgrade-modal";
+import { getStripeEnvironment } from "@/lib/stripe";
 
 export function AIAssistPanel({
   open, onOpenChange, section, currentText, resumeId, onUse,
@@ -26,8 +27,9 @@ export function AIAssistPanel({
     setLoading(true);
     setError(null);
     try {
+      const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
       const { data, error } = await supabase.functions.invoke("resume-ai-assist", {
-        body: { resume_id: resumeId, section, raw_input: currentText },
+        body: { resume_id: resumeId, section, raw_input: currentText, environment: env },
       });
       // 402 responses arrive as either an error with context or a data payload with `code`
       const code = (data as any)?.code ?? (error as any)?.context?.body?.code;
@@ -53,8 +55,9 @@ export function AIAssistPanel({
   const accept = async (text: string) => {
     onUse(text);
     // Increment ai_bullets_used and log accepted suggestion server-side.
+    const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
     const { data, error } = await supabase.functions.invoke("resume-ai-accept", {
-      body: { resume_id: resumeId, section, accepted_suggestion: text },
+      body: { resume_id: resumeId, section, accepted_suggestion: text, environment: env },
     });
     const code = (data as any)?.code ?? (error as any)?.context?.body?.code;
     if (code === "ai_bullets_limit_reached" || code === "PAID_ONLY") {

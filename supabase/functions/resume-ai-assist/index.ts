@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { CORS_HEADERS, callLovableAI, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { PAID_LIMITS, ensureUsageWindow, isPaid } from "../_shared/limits.ts";
+import { PAID_LIMITS, ensureUsageWindow, isPaid, envView, parseEnv } from "../_shared/limits.ts";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -18,20 +18,21 @@ Deno.serve(async (req) => {
     const user = userData?.user;
     if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } });
 
-    const { resume_id, section, raw_input } = await req.json();
+    const { resume_id, section, raw_input, environment } = await req.json();
+    const env = parseEnv(environment);
     if (!resume_id || !section) throw new Error("resume_id and section required");
     const input = String(raw_input ?? "").trim();
 
     // Resume builder is a paid-only feature. Free users must upgrade.
     let { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).single();
     if (!profile) throw new Error("profile missing");
-    profile = await ensureUsageWindow(admin, profile);
-    if (!isPaid(profile)) {
+    profile = await ensureUsageWindow(admin, profile, env);
+    if (!isPaid(profile, env)) {
       return new Response(JSON.stringify({ code: "PAID_ONLY", reason: "paid_only", error: "Resume builder is a Pro feature. Upgrade for AI writing assistance." }), {
         status: 403, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });
     }
-    if ((profile.ai_bullets_used ?? 0) >= PAID_LIMITS.ai_bullets) {
+    if ((envView(profile, env).aiUsed ?? 0) >= PAID_LIMITS.ai_bullets) {
       return new Response(JSON.stringify({ code: "ai_bullets_limit_reached", reason: "ai_bullets_limit_reached", error: `You've reached ${PAID_LIMITS.ai_bullets} AI bullet acceptances for this billing period.` }), {
         status: 403, headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
       });

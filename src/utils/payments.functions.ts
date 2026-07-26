@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
+import { subColumns } from "@/lib/subscription";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -64,6 +65,17 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
 
       const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
 
+      // Env-scoped trial gating: only offer the 7-day trial when this user
+      // has never had a paid subscription in this environment.
+      const cols = subColumns(data.environment);
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select(cols.trialUsed)
+        .eq("id", userId)
+        .maybeSingle();
+      const trialUsed = !!(prof as any)?.[cols.trialUsed];
+      const effectiveTrialDays = trialUsed ? 0 : (data.trialDays ?? 0);
+
       // Resolve + validate promo code (expiry, cap, per-user single-use)
       let discounts: { coupon: string }[] | undefined;
       let redeemedPromoId: string | undefined;
@@ -107,7 +119,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         ...(isRecurring && {
           subscription_data: {
             metadata: { userId, ...(redeemedPromoId && { promoCodeId: redeemedPromoId }) },
-            ...(data.trialDays && data.trialDays > 0 && { trial_period_days: data.trialDays }),
+            ...(effectiveTrialDays > 0 && { trial_period_days: effectiveTrialDays }),
             // Stack discount with the trial so it applies to the first paid invoice.
             ...(discounts && { discounts }),
           },
@@ -143,15 +155,17 @@ export const createPortalSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<PortalSessionResult> => {
     try {
       const { supabase, userId } = context;
+      const cols = subColumns(data.environment);
       const { data: prof } = await supabase
         .from("profiles")
-        .select("stripe_customer_id")
+        .select(cols.customerId)
         .eq("id", userId)
         .maybeSingle();
-      if (!prof?.stripe_customer_id) return { error: "No billing account found" };
+      const customerId = (prof as any)?.[cols.customerId] as string | null | undefined;
+      if (!customerId) return { error: "No billing account found" };
       const stripe = createStripeClient(data.environment);
       const portal = await stripe.billingPortal.sessions.create({
-        customer: prof.stripe_customer_id,
+        customer: customerId,
         ...(data.returnUrl && { return_url: data.returnUrl }),
       });
       return { url: portal.url };
