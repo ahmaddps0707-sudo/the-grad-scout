@@ -79,10 +79,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Admitly — Find your master's program" },
+      { title: "The Grad Scout — Find your master's program" },
       { name: "description", content: "Research, score, and track international master's programs. Built for students making high-stakes decisions." },
-      { name: "author", content: "Admitly" },
-      { property: "og:title", content: "Admitly — Find your master's program" },
+      { name: "author", content: "The Grad Scout" },
+      { property: "og:title", content: "The Grad Scout — Find your master's program" },
       { property: "og:description", content: "Research, score, and track international master's programs." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -90,7 +90,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" },
       {
         rel: "stylesheet",
         href: appCss,
