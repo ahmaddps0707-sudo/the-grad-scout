@@ -312,7 +312,7 @@ function GradScoutLanding() {
                   <span style={{ fontSize: 14, color: "rgba(255,255,255,0.8)", lineHeight: 1.5 }}>{x}</span>
                 </div>
               ))}
-              <a href="/auth" onClick={goAuth} className="admitly-btn-amber" style={{ display: "block", textAlign: "center", marginTop: 28, fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 10, padding: "14px", textDecoration: "none" }}>Start 7-day free trial →</a>
+              <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ display: "block", textAlign: "center", marginTop: 28, fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 10, padding: "14px", textDecoration: "none" }}>Start 7-day free trial →</a>
               <p style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "rgba(255,255,255,0.35)" }}>No credit card required during trial</p>
             </div>
           </div>
@@ -335,7 +335,7 @@ function GradScoutLanding() {
                   <span style={{ fontSize: 14, fontWeight: 600, color: NAV, flex: 1, lineHeight: 1.4 }}>{f.q}</span>
                   <span style={{ fontSize: 22, color: BLUE, fontWeight: 300, flexShrink: 0, lineHeight: 1, transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform 0.2s ease", display: "block" }}>+</span>
                 </button>
-                <div className="admitly-faq-body" style={{ maxHeight: openFaq === i ? 500 : 0, padding: openFaq === i ? "0 24px 22px" : "0 24px" }}>
+                <div className="gs-faq-body" style={{ maxHeight: openFaq === i ? 500 : 0, padding: openFaq === i ? "0 24px 22px" : "0 24px" }}>
                   <p style={{ fontSize: 14, color: MUTED, lineHeight: 1.85 }}>{f.a}</p>
                 </div>
               </div>
@@ -374,7 +374,7 @@ function GradScoutLanding() {
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Message</label>
                 <textarea rows={4} placeholder="Tell us what's on your mind..." required maxLength={2000} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8", resize: "vertical" }} />
               </div>
-              <button type="submit" disabled={submitting} className="admitly-btn-amber" style={{ width: "100%", padding: "14px", background: AMBER, color: WHITE, fontWeight: 700, fontSize: 15, border: "none", borderRadius: 10, cursor: submitting ? "not-allowed" : "pointer", fontFamily: "Inter, sans-serif", opacity: submitting ? 0.7 : 1 }}>
+              <button type="submit" disabled={submitting} className="gs-btn-amber" style={{ width: "100%", padding: "14px", background: AMBER, color: WHITE, fontWeight: 700, fontSize: 15, border: "none", borderRadius: 10, cursor: submitting ? "not-allowed" : "pointer", fontFamily: "Inter, sans-serif", opacity: submitting ? 0.7 : 1 }}>
                 {submitting ? "Sending..." : "Send message →"}
               </button>
             </form>
@@ -387,8 +387,8 @@ function GradScoutLanding() {
         <div style={{ maxWidth: 1060, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 40, marginBottom: 48 }}>
             <div>
-              <span style={{ ...serif, fontSize: 22, fontWeight: 900, color: WHITE }}>admitly</span>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 10, maxWidth: 230, lineHeight: 1.75 }}>
+              <Wordmark dark />
+              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 12, maxWidth: 230, lineHeight: 1.75 }}>
                 The research and tracking platform built for international master's applicants.
               </p>
             </div>
@@ -407,7 +407,8 @@ function GradScoutLanding() {
             </div>
           </div>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2025 Admitly. All rights reserved.</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2025 The Grad Scout. All rights reserved.</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>Built for the students who made the brave choice to apply abroad.</p>
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>Built for the students who made the brave choice to apply abroad.</p>
           </div>
         </div>
