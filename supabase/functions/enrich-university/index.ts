@@ -140,26 +140,53 @@ async function gatherLiveSources(
   websiteUrl?: string | null,
 ): Promise<{ docs: FirecrawlDocument[]; mainDoc: FirecrawlDocument | null; officialHost: string | null }> {
   let officialHost = hostname(websiteUrl);
+  const opsBudget = { count: 0, hit: false };
+  const canSpend = (n = 1) => {
+    if (opsBudget.count + n > MAX_TOTAL_FIRECRAWL_OPS) {
+      if (!opsBudget.hit) {
+        opsBudget.hit = true;
+        console.warn(`enrich-university: MAX_TOTAL_FIRECRAWL_OPS (${MAX_TOTAL_FIRECRAWL_OPS}) reached, halting further Firecrawl calls`);
+      }
+      return false;
+    }
+    opsBudget.count += n;
+    return true;
+  };
+  const scrape = async (url: string, o?: Parameters<typeof firecrawlScrape>[1]) => {
+    if (!canSpend(1)) return null;
+    return firecrawlScrape(url, o);
+  };
+  const scrapeMany = async (urls: string[], limit: number, o?: Parameters<typeof scrapeUniqueUrls>[2]) => {
+    const budget = Math.max(0, Math.min(limit, urls.length, MAX_TOTAL_FIRECRAWL_OPS - opsBudget.count));
+    if (budget <= 0) { canSpend(1); return []; }
+    opsBudget.count += budget;
+    return scrapeUniqueUrls(urls, budget, o);
+  };
+  const search = async (q: string, o?: Parameters<typeof firecrawlSearch>[1]) => {
+    if (!canSpend(1)) return [];
+    return firecrawlSearch(q, o);
+  };
 
   // ---------- STEP 1: main program page ----------
   let mainDoc: FirecrawlDocument | null = null;
   if (websiteUrl) {
-    mainDoc = await firecrawlScrape(websiteUrl, { includeLinks: true, maxMarkdownChars: 14000 });
+    mainDoc = await scrape(websiteUrl, { includeLinks: true, maxMarkdownChars: 14000 });
   }
   if (!mainDoc) {
     const seedQuery = officialHost
       ? `site:${officialHost} ${programName} master's program`
       : `${universityName} ${programName} master's program official site`;
-    const seeds = await firecrawlSearch(seedQuery, { limit: 5 });
+    const seeds = await search(seedQuery, { limit: 3 });
     const ranked = seeds.sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName));
     for (const s of ranked) {
-      mainDoc = await firecrawlScrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
+      mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
       if (mainDoc) break;
     }
   }
   if (mainDoc && !officialHost) officialHost = hostname(mainDoc.url);
   const docs: FirecrawlDocument[] = [];
   const covered = new Set<SubPageCategory>();
+  const catDocs = new Map<SubPageCategory, FirecrawlDocument>();
   if (mainDoc) {
     (mainDoc as any)._category = "overview";
     docs.push(mainDoc);
@@ -186,11 +213,12 @@ async function gatherLiveSources(
     }
   }
 
-  // Pick the first link per category to avoid over-scraping.
+  // Pick a single link per category to avoid over-scraping. A second link is
+  // only added later in the gap-fill pass when the first came back thin.
   const perCat = new Map<SubPageCategory, string[]>();
   for (const item of linkPool) {
     const arr = perCat.get(item.category) ?? [];
-    if (arr.length < 2) arr.push(item.url);
+    if (arr.length < 1) arr.push(item.url);
     perCat.set(item.category, arr);
   }
   const subPageUrls: Array<{ url: string; category: SubPageCategory }> = [];
@@ -198,9 +226,9 @@ async function gatherLiveSources(
     for (const url of urls) subPageUrls.push({ url, category: cat });
   }
 
-  const step2Docs = await scrapeUniqueUrls(
+  const step2Docs = await scrapeMany(
     subPageUrls.map((x) => x.url),
-    18,
+    Math.min(subPageUrls.length, TARGET_CATEGORIES.length),
     { concurrency: 6, maxMarkdownChars: 10000 },
   );
   const urlToCat = new Map(subPageUrls.map((x) => [normalizeUrl(x.url), x.category]));
@@ -212,12 +240,19 @@ async function gatherLiveSources(
     if (cat) {
       (d as any)._category = cat;
       covered.add(cat);
+      catDocs.set(cat, d);
     }
     docs.push(d);
   }
 
-  // ---------- STEP 3: fill missing categories via targeted search + rankings ----------
-  const missing = TARGET_CATEGORIES.filter((c) => !covered.has(c));
+  // ---------- STEP 3: fill missing / thin categories via targeted search + rankings ----------
+  // A category needs gap-fill if not covered, or if the single page we got is
+  // clearly thin (< 500 markdown chars).
+  const needsFill = TARGET_CATEGORIES.filter((c) => {
+    if (!covered.has(c)) return true;
+    const d = catDocs.get(c);
+    return !!d && (d.markdown?.length ?? 0) < 500;
+  });
   const catQueries: Record<SubPageCategory, string> = {
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
@@ -231,25 +266,44 @@ async function gatherLiveSources(
     international: `${programName} international students STEM OPT visa`,
     faculty: `${programName} faculty research`,
   };
-  const gapQueries: string[] = missing.map((cat) => {
+  const gapQueries: string[] = needsFill.map((cat) => {
     const base = catQueries[cat];
     return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
   });
   gapQueries.push(`${universityName} ${programName} QS ranking US News ranking`);
 
-  const gapBatches = await Promise.all(gapQueries.map((q) => firecrawlSearch(q, { limit: 5 })));
+  const gapBatches = await Promise.all(
+    gapQueries.map((q) => search(q, { limit: 3, scrapeOptions: { formats: ["markdown"] } })),
+  );
   const gapUrls: string[] = [];
   for (const results of gapBatches) {
     const top = results
       .filter((r) => isSameOrSubDomain(r.url, officialHost) || /qs|usnews|topuniversities|ranking/i.test(r.url))
       .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName))
-      .slice(0, 2);
+      .slice(0, 1);
     for (const t of top) {
       const norm = normalizeUrl(t.url);
-      if (!seenUrls.has(norm)) gapUrls.push(norm);
+      if (seenUrls.has(norm)) continue;
+      // Reuse: if search already returned markdown, construct the doc directly
+      // instead of paying for a second scrape.
+      if (t.markdown && t.markdown.trim().length > 200) {
+        seenUrls.add(norm);
+        const doc: FirecrawlDocument = {
+          url: norm,
+          title: t.title ?? "",
+          description: t.description ?? "",
+          markdown: t.markdown.slice(0, 9000),
+          statusCode: t.statusCode ?? null,
+          links: [],
+        };
+        (doc as any)._category = categorizeUrl(norm) ?? "overview";
+        docs.push(doc);
+      } else {
+        gapUrls.push(norm);
+      }
     }
   }
-  const step3Docs = await scrapeUniqueUrls(gapUrls, 10, { concurrency: 5, maxMarkdownChars: 9000 });
+  const step3Docs = await scrapeMany(gapUrls, Math.min(gapUrls.length, 6), { concurrency: 5, maxMarkdownChars: 9000 });
   for (const d of step3Docs) {
     const key = normalizeUrl(d.url);
     if (seenUrls.has(key)) continue;
