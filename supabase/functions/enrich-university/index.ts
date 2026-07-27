@@ -339,26 +339,45 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const admin = createClient(supabaseUrl, serviceKey);
 
+  const requestId = crypto.randomUUID();
+  const startedMs = Date.now();
+  let lockedProgramId: string | null = null;
+
   try {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
+    console.log(`enrich-university: START req=${requestId} program_id=${program_id}`);
+
     // Guard against duplicate concurrent enrichment (e.g. background enrichment
     // for a freshly-discovered program racing a manual open of the detail page).
     const { data: existing } = await admin
       .from("programs")
-      .select("last_verified_at")
+      .select("last_verified_at, enrichment_started_at")
       .eq("id", program_id)
       .maybeSingle();
     if (existing?.last_verified_at) {
       const ageMs = Date.now() - new Date(existing.last_verified_at).getTime();
       if (ageMs >= 0 && ageMs < 5 * 60 * 1000) {
+        console.log(`enrich-university: SKIP recently_enriched req=${requestId} program_id=${program_id}`);
         return new Response(JSON.stringify({ ok: true, skipped: "recently_enriched" }), {
           headers: { ...CORS_HEADERS, "content-type": "application/json" },
         });
       }
     }
+    if (existing?.enrichment_started_at) {
+      const lockAgeMs = Date.now() - new Date(existing.enrichment_started_at).getTime();
+      if (lockAgeMs >= 0 && lockAgeMs < 3 * 60 * 1000) {
+        console.log(`enrich-university: SKIP enrichment_in_progress req=${requestId} program_id=${program_id} lock_age_ms=${lockAgeMs}`);
+        return new Response(JSON.stringify({ ok: true, skipped: "enrichment_in_progress" }), {
+          headers: { ...CORS_HEADERS, "content-type": "application/json" },
+        });
+      }
+    }
+    // Acquire lock.
+    await admin.from("programs").update({ enrichment_started_at: new Date().toISOString() }).eq("id", program_id);
+    lockedProgramId = program_id;
 
     const gathered = await gatherLiveSources(university_name, program_name, website_url);
     const docs = gathered.docs;
@@ -605,5 +624,14 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       status: 500,
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
+  } finally {
+    if (lockedProgramId) {
+      try {
+        await admin.from("programs").update({ enrichment_started_at: null }).eq("id", lockedProgramId);
+      } catch (e) {
+        console.warn(`enrich-university: failed to clear lock req=${requestId}`, (e as Error).message);
+      }
+    }
+    console.log(`enrich-university: END req=${requestId} elapsed_ms=${Date.now() - startedMs}`);
   }
 });
