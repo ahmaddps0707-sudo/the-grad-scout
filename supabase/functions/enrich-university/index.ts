@@ -48,90 +48,14 @@ function sourceContext(docs: FirecrawlDocument[], perDocCap = 8000, totalCap = 9
 
 const TARGET_CATEGORIES: SubPageCategory[] = [
   "admissions",
-  "deadlines",
-  "requirements",
   "tuition",
   "funding",
   "class_profile",
   "career",
-  "curriculum",
-  "international",
 ];
 
-const DEADLINE_URL_KEYWORDS = [
-  "deadline",
-  "deadlines",
-  "apply",
-  "application",
-  "how-to-apply",
-  "admissions",
-  "apply-now",
-  "dates",
-  "important-dates",
-  "rounds",
-  "timeline",
-];
-
-/**
- * Dedicated deadline-page discovery. Runs in parallel with the main enrichment
- * gather. Returns scraped markdown of up to 3 deadline-oriented pages plus a
- * concatenated context string.
- */
-async function gatherDeadlineSources(
-  universityName: string,
-  programName: string,
-  mainDoc: FirecrawlDocument | null,
-  officialHost: string | null,
-): Promise<{ docs: FirecrawlDocument[]; context: string }> {
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-
-  if (mainDoc?.links?.length) {
-    for (const raw of mainDoc.links) {
-      let abs = raw;
-      try { abs = new URL(raw, mainDoc.url).toString(); } catch { continue; }
-      const norm = normalizeUrl(abs);
-      if (!norm || seen.has(norm)) continue;
-      if (!isSameOrSubDomain(norm, officialHost)) continue;
-      const lower = norm.toLowerCase();
-      if (DEADLINE_URL_KEYWORDS.some((kw) => lower.includes(kw))) {
-        seen.add(norm);
-        candidates.push(norm);
-      }
-    }
-  }
-
-  let deadlineDocs: FirecrawlDocument[] = [];
-  if (candidates.length > 0) {
-    deadlineDocs = await scrapeUniqueUrls(candidates, 3, { concurrency: 3, maxMarkdownChars: 12000 });
-  } else {
-    const year = new Date().getFullYear();
-    const queries = [
-      `${universityName} ${programName} application deadline ${year} ${year + 1} rounds`,
-      `${universityName} ${programName} when to apply deadline dates rounds`,
-    ];
-    if (officialHost) queries.push(`site:${officialHost} ${programName} deadline`);
-    const batches = await Promise.all(queries.map((q) => firecrawlSearch(q, { limit: 5 })));
-    const urls: string[] = [];
-    for (const results of batches) {
-      for (const r of results) {
-        const norm = normalizeUrl(r.url);
-        if (!seen.has(norm) && (isSameOrSubDomain(norm, officialHost) || !officialHost)) {
-          seen.add(norm);
-          urls.push(norm);
-          if (urls.length >= 5) break;
-        }
-      }
-      if (urls.length >= 5) break;
-    }
-    deadlineDocs = await scrapeUniqueUrls(urls, 3, { concurrency: 3, maxMarkdownChars: 12000 });
-  }
-
-  const context = deadlineDocs
-    .map((d, i) => `SOURCE ${i + 1}\nURL: ${d.url}\nTitle: ${d.title ?? ""}\nContent:\n${d.markdown.replace(/\s+/g, " ").slice(0, 12000)}`)
-    .join("\n\n---\n\n");
-  return { docs: deadlineDocs, context };
-}
+// Hard ceiling on Firecrawl operations (scrapes + searches) per enrichment run.
+const MAX_TOTAL_FIRECRAWL_OPS = 12;
 
 async function extractDeadlines(opts: {
   apiKey: string;
