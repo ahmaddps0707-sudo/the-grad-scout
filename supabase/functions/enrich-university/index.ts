@@ -261,15 +261,10 @@ async function gatherLiveSources(
   const catQueries: Record<SubPageCategory, string> = {
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
-    deadlines: `${programName} application deadlines dates`,
-    requirements: `${programName} admission requirements prerequisites`,
     tuition: `${programName} tuition fees cost of attendance`,
     funding: `${programName} funding scholarships assistantship financial aid`,
     class_profile: `${programName} class profile student statistics`,
     career: `${programName} career outcomes placement salary employers`,
-    curriculum: `${programName} curriculum courses program structure`,
-    international: `${programName} international students STEM OPT visa`,
-    faculty: `${programName} faculty research`,
   };
   const gapQueries: string[] = needsFill.map((cat) => {
     const base = catQueries[cat];
@@ -320,7 +315,11 @@ async function gatherLiveSources(
   // Prioritize: official host first, then category diversity.
   const officialDocs = docs.filter((d) => officialHost && d.url.toLowerCase().includes(officialHost.toLowerCase()));
   const otherDocs = docs.filter((d) => !officialHost || !d.url.toLowerCase().includes(officialHost.toLowerCase()));
-  return { docs: [...officialDocs, ...otherDocs].slice(0, 20), mainDoc, officialHost };
+  const finalDocs = [...officialDocs, ...otherDocs].slice(0, 20);
+  console.log(
+    `enrich-university: gatherLiveSources done — firecrawl_ops=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}, docs=${finalDocs.length}`,
+  );
+  return { docs: finalDocs, mainDoc, officialHost };
 }
 
 function validUrlOrNull(url: unknown, validSources: Set<string>): string | null {
