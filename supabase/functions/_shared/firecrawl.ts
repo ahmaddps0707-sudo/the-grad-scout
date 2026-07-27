@@ -15,6 +15,29 @@ export interface FirecrawlDocument extends FirecrawlResult {
 
 const FIRECRAWL_API_V2 = "https://api.firecrawl.dev/v2";
 
+function parseRetryAfterMs(body: string, headers: Headers): number {
+  const h = headers.get("retry-after");
+  if (h) {
+    const n = Number(h);
+    if (!isNaN(n)) return Math.min(15000, Math.max(500, n * 1000));
+  }
+  const m = body.match(/retry after (\d+)s/i);
+  if (m) return Math.min(15000, Math.max(500, Number(m[1]) * 1000));
+  return 2000;
+}
+
+async function firecrawlFetch(path: string, init: RequestInit, maxRetries = 2): Promise<Response> {
+  let attempt = 0;
+  while (true) {
+    const res = await fetch(`${FIRECRAWL_API_V2}${path}`, init);
+    if (res.status !== 429 || attempt >= maxRetries) return res;
+    const body = await res.clone().text().catch(() => "");
+    const wait = parseRetryAfterMs(body, res.headers);
+    await new Promise((r) => setTimeout(r, wait));
+    attempt++;
+  }
+}
+
 export class FirecrawlProviderError extends Error {
   code: "search_provider_out_of_credits" | "search_provider_error";
   status: number;
@@ -71,7 +94,7 @@ export async function firecrawlSearch(
   if (!headers) return [];
   const body: any = { query, limit: opts.limit ?? 10 };
   if (opts.scrapeOptions) body.scrapeOptions = opts.scrapeOptions;
-  const res = await fetch(`${FIRECRAWL_API_V2}/search`, {
+  const res = await firecrawlFetch(`/search`, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
@@ -121,7 +144,7 @@ export async function firecrawlScrape(
   try {
     const formats: any[] = ["markdown"];
     if (opts.includeLinks) formats.push("links");
-    const res = await fetch(`${FIRECRAWL_API_V2}/scrape`, {
+    const res = await firecrawlFetch(`/scrape`, {
       method: "POST",
       headers,
       body: JSON.stringify({
