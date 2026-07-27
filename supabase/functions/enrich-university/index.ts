@@ -266,11 +266,14 @@ async function gatherLiveSources(
     class_profile: `${programName} class profile student statistics`,
     career: `${programName} career outcomes placement salary employers`,
   };
-  const gapQueries: string[] = needsFill.map((cat) => {
-    const base = catQueries[cat] ?? `${programName} ${cat}`;
-    return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
-  });
-  gapQueries.push(`${universityName} ${programName} QS ranking US News ranking`);
+  const gapQueries: string[] = Array.from(
+    new Set(
+      needsFill.map((cat) => {
+        const base = catQueries[cat] ?? `${programName} ${cat}`;
+        return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
+      }),
+    ),
+  );
 
   const gapBatches = await Promise.all(
     gapQueries.map((q) => search(q, { limit: 3, scrapeOptions: { formats: ["markdown"] } })),
@@ -278,7 +281,7 @@ async function gatherLiveSources(
   const gapUrls: string[] = [];
   for (const results of gapBatches) {
     const top = results
-      .filter((r) => isSameOrSubDomain(r.url, officialHost) || /qs|usnews|topuniversities|ranking/i.test(r.url))
+      .filter((r) => isSameOrSubDomain(r.url, officialHost))
       .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName))
       .slice(0, 1);
     for (const t of top) {
