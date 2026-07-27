@@ -48,90 +48,14 @@ function sourceContext(docs: FirecrawlDocument[], perDocCap = 8000, totalCap = 9
 
 const TARGET_CATEGORIES: SubPageCategory[] = [
   "admissions",
-  "deadlines",
-  "requirements",
   "tuition",
   "funding",
   "class_profile",
   "career",
-  "curriculum",
-  "international",
 ];
 
-const DEADLINE_URL_KEYWORDS = [
-  "deadline",
-  "deadlines",
-  "apply",
-  "application",
-  "how-to-apply",
-  "admissions",
-  "apply-now",
-  "dates",
-  "important-dates",
-  "rounds",
-  "timeline",
-];
-
-/**
- * Dedicated deadline-page discovery. Runs in parallel with the main enrichment
- * gather. Returns scraped markdown of up to 3 deadline-oriented pages plus a
- * concatenated context string.
- */
-async function gatherDeadlineSources(
-  universityName: string,
-  programName: string,
-  mainDoc: FirecrawlDocument | null,
-  officialHost: string | null,
-): Promise<{ docs: FirecrawlDocument[]; context: string }> {
-  const candidates: string[] = [];
-  const seen = new Set<string>();
-
-  if (mainDoc?.links?.length) {
-    for (const raw of mainDoc.links) {
-      let abs = raw;
-      try { abs = new URL(raw, mainDoc.url).toString(); } catch { continue; }
-      const norm = normalizeUrl(abs);
-      if (!norm || seen.has(norm)) continue;
-      if (!isSameOrSubDomain(norm, officialHost)) continue;
-      const lower = norm.toLowerCase();
-      if (DEADLINE_URL_KEYWORDS.some((kw) => lower.includes(kw))) {
-        seen.add(norm);
-        candidates.push(norm);
-      }
-    }
-  }
-
-  let deadlineDocs: FirecrawlDocument[] = [];
-  if (candidates.length > 0) {
-    deadlineDocs = await scrapeUniqueUrls(candidates, 3, { concurrency: 3, maxMarkdownChars: 12000 });
-  } else {
-    const year = new Date().getFullYear();
-    const queries = [
-      `${universityName} ${programName} application deadline ${year} ${year + 1} rounds`,
-      `${universityName} ${programName} when to apply deadline dates rounds`,
-    ];
-    if (officialHost) queries.push(`site:${officialHost} ${programName} deadline`);
-    const batches = await Promise.all(queries.map((q) => firecrawlSearch(q, { limit: 5 })));
-    const urls: string[] = [];
-    for (const results of batches) {
-      for (const r of results) {
-        const norm = normalizeUrl(r.url);
-        if (!seen.has(norm) && (isSameOrSubDomain(norm, officialHost) || !officialHost)) {
-          seen.add(norm);
-          urls.push(norm);
-          if (urls.length >= 5) break;
-        }
-      }
-      if (urls.length >= 5) break;
-    }
-    deadlineDocs = await scrapeUniqueUrls(urls, 3, { concurrency: 3, maxMarkdownChars: 12000 });
-  }
-
-  const context = deadlineDocs
-    .map((d, i) => `SOURCE ${i + 1}\nURL: ${d.url}\nTitle: ${d.title ?? ""}\nContent:\n${d.markdown.replace(/\s+/g, " ").slice(0, 12000)}`)
-    .join("\n\n---\n\n");
-  return { docs: deadlineDocs, context };
-}
+// Hard ceiling on Firecrawl operations (scrapes + searches) per enrichment run.
+const MAX_TOTAL_FIRECRAWL_OPS = 12;
 
 async function extractDeadlines(opts: {
   apiKey: string;
@@ -216,26 +140,53 @@ async function gatherLiveSources(
   websiteUrl?: string | null,
 ): Promise<{ docs: FirecrawlDocument[]; mainDoc: FirecrawlDocument | null; officialHost: string | null }> {
   let officialHost = hostname(websiteUrl);
+  const opsBudget = { count: 0, hit: false };
+  const canSpend = (n = 1) => {
+    if (opsBudget.count + n > MAX_TOTAL_FIRECRAWL_OPS) {
+      if (!opsBudget.hit) {
+        opsBudget.hit = true;
+        console.warn(`enrich-university: MAX_TOTAL_FIRECRAWL_OPS (${MAX_TOTAL_FIRECRAWL_OPS}) reached, halting further Firecrawl calls`);
+      }
+      return false;
+    }
+    opsBudget.count += n;
+    return true;
+  };
+  const scrape = async (url: string, o?: Parameters<typeof firecrawlScrape>[1]) => {
+    if (!canSpend(1)) return null;
+    return firecrawlScrape(url, o);
+  };
+  const scrapeMany = async (urls: string[], limit: number, o?: Parameters<typeof scrapeUniqueUrls>[2]) => {
+    const budget = Math.max(0, Math.min(limit, urls.length, MAX_TOTAL_FIRECRAWL_OPS - opsBudget.count));
+    if (budget <= 0) { canSpend(1); return []; }
+    opsBudget.count += budget;
+    return scrapeUniqueUrls(urls, budget, o);
+  };
+  const search = async (q: string, o?: Parameters<typeof firecrawlSearch>[1]) => {
+    if (!canSpend(1)) return [];
+    return firecrawlSearch(q, o);
+  };
 
   // ---------- STEP 1: main program page ----------
   let mainDoc: FirecrawlDocument | null = null;
   if (websiteUrl) {
-    mainDoc = await firecrawlScrape(websiteUrl, { includeLinks: true, maxMarkdownChars: 14000 });
+    mainDoc = await scrape(websiteUrl, { includeLinks: true, maxMarkdownChars: 14000 });
   }
   if (!mainDoc) {
     const seedQuery = officialHost
       ? `site:${officialHost} ${programName} master's program`
       : `${universityName} ${programName} master's program official site`;
-    const seeds = await firecrawlSearch(seedQuery, { limit: 5 });
+    const seeds = await search(seedQuery, { limit: 3 });
     const ranked = seeds.sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName));
     for (const s of ranked) {
-      mainDoc = await firecrawlScrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
+      mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
       if (mainDoc) break;
     }
   }
   if (mainDoc && !officialHost) officialHost = hostname(mainDoc.url);
   const docs: FirecrawlDocument[] = [];
   const covered = new Set<SubPageCategory>();
+  const catDocs = new Map<SubPageCategory, FirecrawlDocument>();
   if (mainDoc) {
     (mainDoc as any)._category = "overview";
     docs.push(mainDoc);
@@ -262,11 +213,12 @@ async function gatherLiveSources(
     }
   }
 
-  // Pick the first link per category to avoid over-scraping.
+  // Pick a single link per category to avoid over-scraping. A second link is
+  // only added later in the gap-fill pass when the first came back thin.
   const perCat = new Map<SubPageCategory, string[]>();
   for (const item of linkPool) {
     const arr = perCat.get(item.category) ?? [];
-    if (arr.length < 2) arr.push(item.url);
+    if (arr.length < 1) arr.push(item.url);
     perCat.set(item.category, arr);
   }
   const subPageUrls: Array<{ url: string; category: SubPageCategory }> = [];
@@ -274,9 +226,9 @@ async function gatherLiveSources(
     for (const url of urls) subPageUrls.push({ url, category: cat });
   }
 
-  const step2Docs = await scrapeUniqueUrls(
+  const step2Docs = await scrapeMany(
     subPageUrls.map((x) => x.url),
-    18,
+    Math.min(subPageUrls.length, TARGET_CATEGORIES.length),
     { concurrency: 6, maxMarkdownChars: 10000 },
   );
   const urlToCat = new Map(subPageUrls.map((x) => [normalizeUrl(x.url), x.category]));
@@ -288,12 +240,19 @@ async function gatherLiveSources(
     if (cat) {
       (d as any)._category = cat;
       covered.add(cat);
+      catDocs.set(cat, d);
     }
     docs.push(d);
   }
 
-  // ---------- STEP 3: fill missing categories via targeted search + rankings ----------
-  const missing = TARGET_CATEGORIES.filter((c) => !covered.has(c));
+  // ---------- STEP 3: fill missing / thin categories via targeted search + rankings ----------
+  // A category needs gap-fill if not covered, or if the single page we got is
+  // clearly thin (< 500 markdown chars).
+  const needsFill = TARGET_CATEGORIES.filter((c) => {
+    if (!covered.has(c)) return true;
+    const d = catDocs.get(c);
+    return !!d && (d.markdown?.length ?? 0) < 500;
+  });
   const catQueries: Record<SubPageCategory, string> = {
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
@@ -307,25 +266,44 @@ async function gatherLiveSources(
     international: `${programName} international students STEM OPT visa`,
     faculty: `${programName} faculty research`,
   };
-  const gapQueries: string[] = missing.map((cat) => {
+  const gapQueries: string[] = needsFill.map((cat) => {
     const base = catQueries[cat];
     return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
   });
   gapQueries.push(`${universityName} ${programName} QS ranking US News ranking`);
 
-  const gapBatches = await Promise.all(gapQueries.map((q) => firecrawlSearch(q, { limit: 5 })));
+  const gapBatches = await Promise.all(
+    gapQueries.map((q) => search(q, { limit: 3, scrapeOptions: { formats: ["markdown"] } })),
+  );
   const gapUrls: string[] = [];
   for (const results of gapBatches) {
     const top = results
       .filter((r) => isSameOrSubDomain(r.url, officialHost) || /qs|usnews|topuniversities|ranking/i.test(r.url))
       .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName))
-      .slice(0, 2);
+      .slice(0, 1);
     for (const t of top) {
       const norm = normalizeUrl(t.url);
-      if (!seenUrls.has(norm)) gapUrls.push(norm);
+      if (seenUrls.has(norm)) continue;
+      // Reuse: if search already returned markdown, construct the doc directly
+      // instead of paying for a second scrape.
+      if (t.markdown && t.markdown.trim().length > 200) {
+        seenUrls.add(norm);
+        const doc: FirecrawlDocument = {
+          url: norm,
+          title: t.title ?? "",
+          description: t.description ?? "",
+          markdown: t.markdown.slice(0, 9000),
+          statusCode: t.statusCode ?? null,
+          links: [],
+        };
+        (doc as any)._category = categorizeUrl(norm) ?? "overview";
+        docs.push(doc);
+      } else {
+        gapUrls.push(norm);
+      }
     }
   }
-  const step3Docs = await scrapeUniqueUrls(gapUrls, 10, { concurrency: 5, maxMarkdownChars: 9000 });
+  const step3Docs = await scrapeMany(gapUrls, Math.min(gapUrls.length, 6), { concurrency: 5, maxMarkdownChars: 9000 });
   for (const d of step3Docs) {
     const key = normalizeUrl(d.url);
     if (seenUrls.has(key)) continue;
@@ -359,31 +337,28 @@ Deno.serve(async (req) => {
     const { program_id, university_name, program_name, website_url } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
+    // Guard against duplicate concurrent enrichment (e.g. background enrichment
+    // for a freshly-discovered program racing a manual open of the detail page).
+    const { data: existing } = await admin
+      .from("programs")
+      .select("last_verified_at")
+      .eq("id", program_id)
+      .maybeSingle();
+    if (existing?.last_verified_at) {
+      const ageMs = Date.now() - new Date(existing.last_verified_at).getTime();
+      if (ageMs >= 0 && ageMs < 5 * 60 * 1000) {
+        return new Response(JSON.stringify({ ok: true, skipped: "recently_enriched" }), {
+          headers: { ...CORS_HEADERS, "content-type": "application/json" },
+        });
+      }
+    }
+
     const gathered = await gatherLiveSources(university_name, program_name, website_url);
     const docs = gathered.docs;
     if (docs.length === 0) {
       throw new Error("No live university sources could be found or scraped. Please retry later.");
     }
     const validSources = new Set(docs.map((doc) => normalizeUrl(doc.url)));
-
-    // Kick off dedicated deadline discovery + extraction in parallel with the main enrichment call.
-    const deadlinePromise = (async () => {
-      const { docs: deadlineDocs, context: deadlineContext } = await gatherDeadlineSources(
-        university_name,
-        program_name,
-        gathered.mainDoc,
-        gathered.officialHost,
-      );
-      const fallbackContext = deadlineDocs.length === 0 ? sourceContext(docs, 6000, 40000) : "";
-      return extractDeadlines({
-        apiKey,
-        universityName: university_name,
-        programName: program_name,
-        targetIntake: null,
-        deadlineContext,
-        fallbackContext,
-      });
-    })();
 
     const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.\n\nFor test requirements, look for these label variations and map them to the correct field:\nGRE labels: GRE, GRE Score, GRE Requirement, Graduate Record Examination, GRE General Test, GRE Waiver, GRE Optional, GRE Required\nGMAT labels: GMAT, GMAT Score, GMAT Requirement, Graduate Management Admission Test, GMAT Waiver, GMAT Optional, GMAT Required, GMAT Focus\nAlso look for combined statements like:\n- 'GRE/GMAT optional' → set both to 'optional'\n- 'GRE or GMAT required' → set both to 'required'\n- 'GMAT required, GRE not accepted' → gmat: required, gre: not_required\n- 'Test scores not required' → set both to 'not_required'\n- 'GRE waived for applicants with X' → gre: 'waived', put condition in gre_gmat_notes\n- 'No GRE/GMAT required' → both: 'not_required'\n- 'GRE optional, GMAT not accepted' → gre: optional, gmat: not_required\nFor gre_gmat_notes: capture any important conditions such as waiver criteria, minimum score requirements, or exceptions (e.g. 'GRE waived for applicants with 2+ years work experience', 'GMAT required for applicants without a quantitative undergraduate background').\nIf test requirement information is completely absent from all scraped content, return null for both fields — do not guess.";
 
@@ -481,15 +456,33 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
 
-    // Await dedicated deadline extraction and merge.
-    const deadlineResult = await deadlinePromise;
-
     const ov = data.overview ?? {};
     const ad = data.admissions ?? {};
     const cp = data.class_profile ?? {};
     const tf = data.tuition_and_funding ?? {};
     const ci = data.city ?? {};
     const co = data.career_outcomes ?? {};
+
+    // Fallback-only deadline extraction: only run when the main pass found
+    // nothing. Reuses already-scraped docs — zero additional Firecrawl calls.
+    const mainDeadlinesArr = Array.isArray(ad.deadlines) ? ad.deadlines : [];
+    const mainDeadlineType = ad.deadline_type ?? "tbd";
+    let deadlineResult = {
+      deadline_type: mainDeadlineType as "fixed" | "rolling" | "tbd",
+      deadlines: mainDeadlinesArr,
+      raw_deadline_text: "",
+    };
+    if (mainDeadlinesArr.length === 0 && mainDeadlineType === "tbd") {
+      deadlineResult = await extractDeadlines({
+        apiKey,
+        universityName: university_name,
+        programName: program_name,
+        targetIntake: null,
+        deadlineContext: "",
+        fallbackContext: sourceContext(docs, 6000, 40000),
+      });
+    }
+
     const verifiedSources = Array.isArray(data.sources)
       ? data.sources.map((url: unknown) => validUrlOrNull(url, validSources)).filter((url: string | null): url is string => !!url)
       : [];
@@ -503,12 +496,8 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       last_verified_at: new Date().toISOString(),
     }).eq("id", program_id);
 
-    // Merge: dedicated deadline call wins when it found anything; otherwise fall back to main call.
-    const mainDeadlines = Array.isArray(ad.deadlines) ? ad.deadlines : [];
-    const finalDeadlines = deadlineResult.deadlines.length > 0 ? deadlineResult.deadlines : mainDeadlines;
-    const finalDeadlineType = deadlineResult.deadlines.length > 0
-      ? deadlineResult.deadline_type
-      : (ad.deadline_type ?? deadlineResult.deadline_type);
+    const finalDeadlines = deadlineResult.deadlines;
+    const finalDeadlineType = deadlineResult.deadline_type;
 
     await admin.from("program_admissions").upsert({
       program_id,

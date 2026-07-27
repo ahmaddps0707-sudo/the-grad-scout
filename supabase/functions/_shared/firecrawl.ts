@@ -3,6 +3,8 @@ export interface FirecrawlResult {
   url: string;
   title?: string;
   description?: string;
+  markdown?: string;
+  statusCode?: number | null;
 }
 
 export interface FirecrawlDocument extends FirecrawlResult {
@@ -63,14 +65,16 @@ function isDeadStatus(status?: number | null): boolean {
 
 export async function firecrawlSearch(
   query: string,
-  opts: { limit?: number } = {},
+  opts: { limit?: number; scrapeOptions?: { formats?: string[] } } = {},
 ): Promise<FirecrawlResult[]> {
   const headers = firecrawlHeaders();
   if (!headers) return [];
+  const body: any = { query, limit: opts.limit ?? 10 };
+  if (opts.scrapeOptions) body.scrapeOptions = opts.scrapeOptions;
   const res = await fetch(`${FIRECRAWL_API_V2}/search`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ query, limit: opts.limit ?? 10 }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
@@ -96,6 +100,8 @@ export async function firecrawlSearch(
         url: String(r?.url ?? ""),
         title: r?.title ?? r?.metadata?.title ?? "",
         description: r?.description ?? r?.snippet ?? r?.metadata?.description ?? "",
+        markdown: typeof r?.markdown === "string" ? r.markdown : undefined,
+        statusCode: Number(r?.metadata?.statusCode ?? 0) || null,
       }))
       .filter((r: FirecrawlResult) => r.url);
   } catch (e) {
@@ -210,15 +216,12 @@ export type SubPageCategory =
   | "overview";
 
 const CATEGORY_PATTERNS: Array<{ cat: SubPageCategory; re: RegExp }> = [
-  { cat: "admissions", re: /(admission|apply|application|how-to-apply)/i },
-  { cat: "deadlines", re: /(deadline|dates|timeline|calendar)/i },
-  { cat: "requirements", re: /(requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i },
+  { cat: "admissions", re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i },
   { cat: "tuition", re: /(tuition|cost|fees?|price|expenses|cost-of-attendance)/i },
   { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
-  { cat: "class_profile", re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class)/i },
+  { cat: "class_profile", re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|international|visa|i-20|stem|opt|cpt)/i },
   { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
   { cat: "curriculum", re: /(curriculum|courses?|course-list|program-structure|electives|specializations?|tracks?|concentration)/i },
-  { cat: "international", re: /(international|visa|i-20|stem|opt|cpt)/i },
   { cat: "faculty", re: /(faculty|professors?|research|people)/i },
 ];
 
