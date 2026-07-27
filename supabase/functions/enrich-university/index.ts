@@ -164,7 +164,12 @@ async function gatherLiveSources(
   };
   const search = async (q: string, o?: Parameters<typeof firecrawlSearch>[1]) => {
     if (!canSpend(1)) return [];
-    return firecrawlSearch(q, o);
+    try {
+      return await firecrawlSearch(q, o);
+    } catch (e) {
+      console.warn("firecrawl search soft-fail", (e as Error).message);
+      return [];
+    }
   };
 
   // ---------- STEP 1: main program page ----------
