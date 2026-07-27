@@ -913,6 +913,7 @@ export type Database = {
           degree_type: string | null
           department: string | null
           duration_months: number | null
+          enrichment_started_at: string | null
           id: string
           is_stem: boolean | null
           last_verified_at: string | null
@@ -931,6 +932,7 @@ export type Database = {
           degree_type?: string | null
           department?: string | null
           duration_months?: number | null
+          enrichment_started_at?: string | null
           id?: string
           is_stem?: boolean | null
           last_verified_at?: string | null
@@ -949,6 +951,7 @@ export type Database = {
           degree_type?: string | null
           department?: string | null
           duration_months?: number | null
+          enrichment_started_at?: string | null
           id?: string
           is_stem?: boolean | null
           last_verified_at?: string | null
