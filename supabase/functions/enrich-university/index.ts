@@ -418,7 +418,7 @@ Deno.serve(async (req) => {
     // for a freshly-discovered program racing a manual open of the detail page).
     const { data: existing } = await admin
       .from("programs")
-      .select("last_verified_at, enrichment_started_at, program_url, website_url")
+      .select("last_verified_at, enrichment_started_at, program_url")
       .eq("id", program_id)
       .maybeSingle();
     if (existing?.last_verified_at) {
@@ -446,8 +446,7 @@ Deno.serve(async (req) => {
     // Prefer the specific program URL resolved during discovery; fall back to
     // the university website URL from the request payload or the row.
     const storedProgramUrl = (existing as any)?.program_url ?? null;
-    const storedWebsiteUrl = (existing as any)?.website_url ?? null;
-    const effectiveWebsiteUrl = website_url ?? storedWebsiteUrl ?? null;
+    const effectiveWebsiteUrl = website_url ?? null;
     const gathered = await gatherLiveSources(
       university_name,
       program_name,
