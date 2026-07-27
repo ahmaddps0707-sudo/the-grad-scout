@@ -409,7 +409,7 @@ Deno.serve(async (req) => {
 
   try {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-    const { program_id, university_name, program_name, website_url } = await req.json();
+    const { program_id, university_name, program_name } = await req.json();
     if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
 
     console.log(`enrich-university: START req=${requestId} program_id=${program_id}`);
@@ -446,11 +446,10 @@ Deno.serve(async (req) => {
     // Prefer the specific program URL resolved during discovery; fall back to
     // the university website URL from the request payload or the row.
     const storedProgramUrl = (existing as any)?.program_url ?? null;
-    const effectiveWebsiteUrl = website_url ?? null;
     const gathered = await gatherLiveSources(
       university_name,
       program_name,
-      effectiveWebsiteUrl,
+      null,
       storedProgramUrl,
     );
     const docs = gathered.docs;
@@ -464,7 +463,6 @@ Deno.serve(async (req) => {
     const user = `Research this master's program using ONLY the live scraped source content below:
 University: ${university_name}
 Program: ${program_name}
-Official website: ${website_url ?? "unknown"}
 
 LIVE SOURCES:
 ${sourceContext(docs)}

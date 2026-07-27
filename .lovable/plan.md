@@ -1,33 +1,39 @@
-## Goal
-Use your personal Firecrawl API key directly (bypass the connector gateway) so discovery/enrichment work immediately.
+## Remove `website_url` homepage fallback from `enrich-university`
 
-## Steps
+Drop the request-body `website_url` entirely. `storedProgramUrl` (from `programs.program_url`) becomes the only authoritative start URL; if it's missing, `gatherLiveSources` falls through to blind discovery search (existing behavior).
 
-1. **Collect the key securely**
-   - Prompt you via `add_secret` to paste `FIRECRAWL_API_KEY` (fc-… format). Stored as a Supabase Edge Function secret; never committed to code.
+### Changes — `supabase/functions/enrich-university/index.ts`
 
-2. **Switch `supabase/functions/_shared/firecrawl.ts` to direct-API mode**
-   - Remove gateway URL + `X-Connection-Api-Key` / `LOVABLE_API_KEY` headers.
-   - Call `https://api.firecrawl.dev/v2/{search,scrape,map}` with `Authorization: Bearer ${FIRECRAWL_API_KEY}`.
-   - Keep existing `FirecrawlProviderError` behavior (throw on 401/402/403/429/5xx) so refund logic in `discover-universities` still works.
-   - Read the key from `Deno.env.get("FIRECRAWL_API_KEY")`; throw a clear error if missing.
+1. **L412** — stop destructuring `website_url`:
+   ```ts
+   const { program_id, university_name, program_name } = await req.json();
+   ```
 
-3. **Redeploy affected Edge Functions** so they pick up the new secret + code:
-   - `discover-universities`
-   - `enrich-university`
-   - `find-program-contacts` (any other caller of the shared helper)
+2. **L449–455** — remove `effectiveWebsiteUrl`; pass `null` as `websiteUrl` to `gatherLiveSources`:
+   ```ts
+   const storedProgramUrl = (existing as any)?.program_url ?? null;
+   const gathered = await gatherLiveSources(
+     university_name,
+     program_name,
+     null,
+     storedProgramUrl,
+   );
+   ```
 
-4. **Verify**
-   - Trigger Discovery from the dashboard with your test account.
-   - Confirm real programs are added and `discover_runs_used` increments only on success.
-   - On any Firecrawl error, confirm the specific toast fires and the run is refunded.
+3. **L467** — remove the `Official website:` line from the prompt (it now always resolves to `"unknown"`):
+   ```ts
+   const user = `Research this master's program using ONLY the live scraped source content below:
+   University: ${university_name}
+   Program: ${program_name}
+   
+   LIVE SOURCES:
+   ...
+   ```
 
-## Testing in preview
-- Go to `/dashboard` → click **Discover**.
-- Expect programs to populate within ~30–60s.
-- Open a university → click **Update Data** to test enrichment path.
-- If Firecrawl returns 402 again, you'll see the "temporarily unavailable" toast and no run consumed.
+4. Leave `gatherLiveSources`'s `websiteUrl` parameter in place — it's still valid as an optional argument, just always called with `null`. `primaryUrl = programUrl || websiteUrl` then reduces to `programUrl`, and the `!mainDoc` blind-discovery branch (L226–236) handles the missing-URL case.
 
-## Notes
-- Connector-gateway Firecrawl link stays as-is (unused) — no cleanup needed.
-- If later you get gateway access, we can flip back by restoring the two headers and gateway URL.
+### Callers — no code change required
+`src/routes/_authenticated/university.$id.tsx` L75, L111, L128 pass `website_url` in the invoke body. Removing it from the handler makes those fields inert; they can stay or be cleaned up later. Not touching them per "precise fix only".
+
+### Verification
+After the edit, `rg website_url supabase/functions/enrich-university/index.ts` should return zero matches.
