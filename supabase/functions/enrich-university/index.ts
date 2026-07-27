@@ -456,15 +456,33 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
     }
 
-    // Await dedicated deadline extraction and merge.
-    const deadlineResult = await deadlinePromise;
-
     const ov = data.overview ?? {};
     const ad = data.admissions ?? {};
     const cp = data.class_profile ?? {};
     const tf = data.tuition_and_funding ?? {};
     const ci = data.city ?? {};
     const co = data.career_outcomes ?? {};
+
+    // Fallback-only deadline extraction: only run when the main pass found
+    // nothing. Reuses already-scraped docs — zero additional Firecrawl calls.
+    const mainDeadlinesArr = Array.isArray(ad.deadlines) ? ad.deadlines : [];
+    const mainDeadlineType = ad.deadline_type ?? "tbd";
+    let deadlineResult = {
+      deadline_type: mainDeadlineType as "fixed" | "rolling" | "tbd",
+      deadlines: mainDeadlinesArr,
+      raw_deadline_text: "",
+    };
+    if (mainDeadlinesArr.length === 0 && mainDeadlineType === "tbd") {
+      deadlineResult = await extractDeadlines({
+        apiKey,
+        universityName: university_name,
+        programName: program_name,
+        targetIntake: null,
+        deadlineContext: "",
+        fallbackContext: sourceContext(docs, 6000, 40000),
+      });
+    }
+
     const verifiedSources = Array.isArray(data.sources)
       ? data.sources.map((url: unknown) => validUrlOrNull(url, validSources)).filter((url: string | null): url is string => !!url)
       : [];
@@ -478,12 +496,8 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       last_verified_at: new Date().toISOString(),
     }).eq("id", program_id);
 
-    // Merge: dedicated deadline call wins when it found anything; otherwise fall back to main call.
-    const mainDeadlines = Array.isArray(ad.deadlines) ? ad.deadlines : [];
-    const finalDeadlines = deadlineResult.deadlines.length > 0 ? deadlineResult.deadlines : mainDeadlines;
-    const finalDeadlineType = deadlineResult.deadlines.length > 0
-      ? deadlineResult.deadline_type
-      : (ad.deadline_type ?? deadlineResult.deadline_type);
+    const finalDeadlines = deadlineResult.deadlines;
+    const finalDeadlineType = deadlineResult.deadline_type;
 
     await admin.from("program_admissions").upsert({
       program_id,
