@@ -66,6 +66,7 @@ export function normalizeUrl(url: string): string {
     const u = new URL(url.trim());
     u.hash = "";
     u.search = "";
+    u.hostname = u.hostname.toLowerCase().replace(/^www\./, "");
     if (u.pathname !== "/") u.pathname = u.pathname.replace(/\/+$/, "");
     return u.toString();
   } catch (_e) {
