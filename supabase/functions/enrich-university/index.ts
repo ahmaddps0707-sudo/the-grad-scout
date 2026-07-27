@@ -258,7 +258,7 @@ async function gatherLiveSources(
     const d = catDocs.get(c);
     return !!d && (d.markdown?.length ?? 0) < 500;
   });
-  const catQueries: Record<SubPageCategory, string> = {
+  const catQueries: Partial<Record<SubPageCategory, string>> = {
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
     tuition: `${programName} tuition fees cost of attendance`,
@@ -267,7 +267,7 @@ async function gatherLiveSources(
     career: `${programName} career outcomes placement salary employers`,
   };
   const gapQueries: string[] = needsFill.map((cat) => {
-    const base = catQueries[cat];
+    const base = catQueries[cat] ?? `${programName} ${cat}`;
     return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
   });
   gapQueries.push(`${universityName} ${programName} QS ranking US News ranking`);
