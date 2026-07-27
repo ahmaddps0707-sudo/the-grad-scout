@@ -27,14 +27,48 @@ function resultScore(result: FirecrawlResult, officialHost: string | null, progr
   const programTokens = programName.toLowerCase().split(/\W+/).filter((t) => t.length > 3);
   let score = 0;
   if (officialHost && result.url.toLowerCase().includes(officialHost.toLowerCase())) score += 40;
+  try {
+    const urlPath = new URL(result.url).pathname.toLowerCase();
+    const pathMatchCount = programTokens.filter((t) => urlPath.includes(t)).length;
+    score += pathMatchCount * 15;
+    if (/\/undergraduate\/|\/undergrad\//i.test(urlPath)) score -= 60;
+  } catch { /* skip path scoring on malformed URL */ }
   for (const token of programTokens) if (haystack.includes(token)) score += 4;
   if (/admission|apply|deadline|requirement/.test(haystack)) score += 8;
   if (/tuition|fee|funding|scholarship|assistantship|cost/.test(haystack)) score += 8;
   if (/career|employment|outcome|salary|placement|employer/.test(haystack)) score += 8;
   if (/class-profile|profile|statistics|stem|international/.test(haystack)) score += 6;
-  if (/ranking|rankings|qs|usnews|u\.s\. news/.test(haystack)) score += 4;
   if (/linkedin\.com|facebook\.com|instagram\.com|youtube\.com|reddit\.com|quora\.com/i.test(result.url)) score -= 100;
   return score;
+}
+
+function isWrongProgramPage(url: string, programName: string): boolean {
+  const lower = url.toLowerCase();
+  if (/\/undergraduate\/|\/undergrad\/|\/bachelor/i.test(lower)) return true;
+  const otherProgramMarkers = /\/mba\/|\/phd\/|\/doctoral\/|\/executive-mba\//i;
+  const programTokens = programName.toLowerCase().split(/\W+/).filter((t) => t.length > 3);
+  const urlMatchesProgram = programTokens.some((t) => lower.includes(t));
+  if (otherProgramMarkers.test(lower) && !urlMatchesProgram) return true;
+  return false;
+}
+
+function derivePathPrefix(url: string): string | null {
+  try {
+    const p = new URL(url).pathname;
+    if (!p || p === "/") return null;
+    const segs = p.split("/").filter(Boolean);
+    if (segs.length === 0) return null;
+    // Drop last segment if it looks like a leaf page (has an extension or a
+    // known leaf keyword) so the prefix scopes to the program directory.
+    const last = segs[segs.length - 1];
+    const isLeaf = /\.[a-z0-9]{2,5}$/i.test(last) ||
+      /^(admissions?|apply|application|tuition|fees?|funding|scholarships?|curriculum|courses?|career|careers|outcomes?|class-profile|profile|deadlines?|requirements?|overview|index)$/i.test(last);
+    const kept = isLeaf ? segs.slice(0, -1) : segs;
+    if (kept.length === 0) return null;
+    return "/" + kept.join("/") + "/";
+  } catch {
+    return null;
+  }
 }
 
 function sourceContext(docs: FirecrawlDocument[], perDocCap = 8000, totalCap = 90000): string {
@@ -138,8 +172,20 @@ async function gatherLiveSources(
   universityName: string,
   programName: string,
   websiteUrl?: string | null,
+  programUrl?: string | null,
 ): Promise<{ docs: FirecrawlDocument[]; mainDoc: FirecrawlDocument | null; officialHost: string | null }> {
-  let officialHost = hostname(websiteUrl);
+  // Prefer the more specific program_url when available.
+  const primaryUrl = programUrl && programUrl.trim() ? programUrl : (websiteUrl ?? null);
+  let officialHost = hostname(primaryUrl);
+  const programPathPrefix = primaryUrl ? derivePathPrefix(primaryUrl) : null;
+  console.log(
+    `enrich-university: gatherLiveSources start — primary_url=${primaryUrl ?? "none"} path_prefix=${programPathPrefix ?? "none"} used_program_url=${!!(programUrl && programUrl.trim())}`,
+  );
+  const catCount = TARGET_CATEGORIES.length;
+  const uniqCatCount = new Set(TARGET_CATEGORIES).size;
+  if (catCount !== uniqCatCount) {
+    console.warn(`enrich-university: TARGET_CATEGORIES has duplicates (${catCount} vs ${uniqCatCount})`);
+  }
   const opsBudget = { count: 0, hit: false };
   const canSpend = (n = 1) => {
     if (opsBudget.count + n > MAX_TOTAL_FIRECRAWL_OPS) {
@@ -174,10 +220,11 @@ async function gatherLiveSources(
 
   // ---------- STEP 1: main program page ----------
   let mainDoc: FirecrawlDocument | null = null;
-  if (websiteUrl) {
-    mainDoc = await scrape(websiteUrl, { includeLinks: true, maxMarkdownChars: 14000 });
+  if (primaryUrl) {
+    mainDoc = await scrape(primaryUrl, { includeLinks: true, maxMarkdownChars: 14000 });
   }
   if (!mainDoc) {
+    console.log(`enrich-university: falling back to blind discovery — no stored program_url produced a scrape`);
     const seedQuery = officialHost
       ? `site:${officialHost} ${programName} master's program`
       : `${universityName} ${programName} master's program official site`;
@@ -187,6 +234,8 @@ async function gatherLiveSources(
       mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
       if (mainDoc) break;
     }
+  } else {
+    console.log(`enrich-university: used stored program URL as authoritative start (${primaryUrl})`);
   }
   if (mainDoc && !officialHost) officialHost = hostname(mainDoc.url);
   const docs: FirecrawlDocument[] = [];
@@ -212,6 +261,10 @@ async function gatherLiveSources(
       const norm = normalizeUrl(abs);
       if (!norm || seenUrls.has(norm)) continue;
       if (!isSameOrSubDomain(norm, officialHost)) continue;
+      if (isWrongProgramPage(norm, programName)) {
+        console.log(`enrich-university: reject link (wrong program/level) ${norm}`);
+        continue;
+      }
       const cat = categorizeUrl(norm);
       if (!cat) continue;
       linkPool.push({ url: norm, category: cat });
@@ -261,8 +314,8 @@ async function gatherLiveSources(
   const catQueries: Partial<Record<SubPageCategory, string>> = {
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
-    tuition: `${programName} tuition fees cost of attendance`,
-    funding: `${programName} funding scholarships assistantship financial aid`,
+    tuition: `${programName} tuition fees cost per credit`,
+    funding: `${programName} scholarships assistantship financial aid stipend`,
     class_profile: `${programName} class profile student statistics`,
     career: `${programName} career outcomes placement salary employers`,
   };
@@ -270,7 +323,11 @@ async function gatherLiveSources(
     new Set(
       needsFill.map((cat) => {
         const base = catQueries[cat] ?? `${programName} ${cat}`;
-        return officialHost ? `site:${officialHost} ${base}` : `${universityName} ${base}`;
+        if (officialHost) {
+          const scope = programPathPrefix ? `${officialHost}${programPathPrefix}` : officialHost;
+          return `site:${scope} ${base}`;
+        }
+        return `${universityName} ${base}`;
       }),
     ),
   );
@@ -282,8 +339,15 @@ async function gatherLiveSources(
   for (const results of gapBatches) {
     const top = results
       .filter((r) => isSameOrSubDomain(r.url, officialHost))
+      .filter((r) => {
+        if (isWrongProgramPage(r.url, programName)) {
+          console.log(`enrich-university: reject gap result (wrong program/level) ${r.url}`);
+          return false;
+        }
+        return true;
+      })
       .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName))
-      .slice(0, 1);
+      .slice(0, 2);
     for (const t of top) {
       const norm = normalizeUrl(t.url);
       if (seenUrls.has(norm)) continue;
@@ -354,7 +418,7 @@ Deno.serve(async (req) => {
     // for a freshly-discovered program racing a manual open of the detail page).
     const { data: existing } = await admin
       .from("programs")
-      .select("last_verified_at, enrichment_started_at")
+      .select("last_verified_at, enrichment_started_at, program_url, website_url")
       .eq("id", program_id)
       .maybeSingle();
     if (existing?.last_verified_at) {
@@ -379,7 +443,17 @@ Deno.serve(async (req) => {
     await admin.from("programs").update({ enrichment_started_at: new Date().toISOString() }).eq("id", program_id);
     lockedProgramId = program_id;
 
-    const gathered = await gatherLiveSources(university_name, program_name, website_url);
+    // Prefer the specific program URL resolved during discovery; fall back to
+    // the university website URL from the request payload or the row.
+    const storedProgramUrl = (existing as any)?.program_url ?? null;
+    const storedWebsiteUrl = (existing as any)?.website_url ?? null;
+    const effectiveWebsiteUrl = website_url ?? storedWebsiteUrl ?? null;
+    const gathered = await gatherLiveSources(
+      university_name,
+      program_name,
+      effectiveWebsiteUrl,
+      storedProgramUrl,
+    );
     const docs = gathered.docs;
     if (docs.length === 0) {
       throw new Error("No live university sources could be found or scraped. Please retry later.");
