@@ -68,11 +68,7 @@ Deno.serve(async (req) => {
         const { data: userRes } = await admin.auth.getUser(token);
         const uid = userRes?.user?.id;
         if (uid) {
-          const { data: prof } = await admin
-            .from("profiles")
-            .select("country_of_origin")
-            .eq("id", uid)
-            .maybeSingle();
+          const { data: prof } = await admin.from("profiles").select("country_of_origin").eq("id", uid).maybeSingle();
           if (prof?.country_of_origin) userCountry = prof.country_of_origin;
         }
       }
@@ -99,10 +95,10 @@ Deno.serve(async (req) => {
 
     // Firecrawl search for public LinkedIn snippets (never scrape linkedin URLs)
     const [r1, r2, r3] = await Promise.all([
-      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} masters student`, { limit: 10 }),
-      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} alumni`, { limit: 10 }),
+      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} masters student`, { limit: 1 }),
+      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} alumni`, { limit: 1 }),
       userCountry
-        ? firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} ${userCountry}`, { limit: 10 })
+        ? firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} ${userCountry}`, { limit: 1 })
         : Promise.resolve([]),
     ]);
     const snippets = concatSnippets([...r1, ...r2, ...r3].filter((r) => /linkedin\.com\/in\//i.test(r.url)));
