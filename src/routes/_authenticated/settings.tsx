@@ -69,6 +69,7 @@ function SettingsPage() {
   const paid = isPaidTier({ tier: sub.tier, status: sub.status as any });
   const discoverUsed = sub.discover_runs_used;
   const aiUsed = sub.ai_bullets_used;
+  const updateDataUsed = sub.update_data_used;
   const resetAt = sub.usage_reset_at ? new Date(sub.usage_reset_at) : null;
   const status = sub.status;
   const trialEnd = sub.trial_end_date ? new Date(sub.trial_end_date) : null;
