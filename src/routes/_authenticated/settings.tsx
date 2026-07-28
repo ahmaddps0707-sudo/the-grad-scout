@@ -5,7 +5,6 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Lock } from "lucide-react";
@@ -28,6 +27,15 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 const COUNTRIES = ["United States","United Kingdom","Canada","Germany","Netherlands","Australia","France","Switzerland","Singapore","Sweden","Ireland","Spain","Italy","Hong Kong","Japan"];
+const TIER_OPTIONS: [string, string][] = [
+  ["top_50", "Top 50"],
+  ["top_100", "Top 100"],
+  ["top_200", "Top 200"],
+  ["rank_201_500", "201-500"],
+  ["rank_500_plus", "500+"],
+];
+const INTAKE_OPTIONS = ["Fall 2026", "Spring 2027", "Summer 2027", "Fall 2027", "Spring 2028"];
+const OTHER_INTAKE = "__other__";
 
 function SettingsPage() {
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -84,22 +92,21 @@ function SettingsPage() {
   };
 
   const update = (patch: Partial<ProfileRow>) => setProfile((p) => p ? { ...p, ...patch } : p);
-  const toggleCountry = (c: string) => {
-    const arr = profile.target_countries ?? [];
-    update({ target_countries: arr.includes(c) ? arr.filter((x) => x !== c) : [...arr, c] });
-  };
+
+  const tierValid = TIER_OPTIONS.some(([v]) => v === profile.target_tier);
+  const intakeValid = INTAKE_OPTIONS.includes(profile.target_intake ?? "");
 
   const save = async () => {
+    if (!tierValid) { toast.error("Please pick a university tier before saving."); return; }
+    if (!intakeValid) { toast.error("Please pick a target intake before saving."); return; }
     setSaving(true);
     const { error } = await supabase.from("profiles").update({
       full_name: profile.full_name,
       country_of_origin: (profile as any).country_of_origin ?? null,
       target_major: profile.target_major,
-      target_countries: profile.target_countries,
+      target_country: profile.target_country,
       target_tier: profile.target_tier,
       funding_preference: profile.funding_preference,
-      budget_ceiling: profile.budget_ceiling,
-      budget_currency: profile.budget_currency,
       gpa: profile.gpa,
       test_scores: profile.test_scores,
       work_exp_years: profile.work_exp_years,
@@ -142,31 +149,31 @@ function SettingsPage() {
               </div>
             </div>
             <div className="col-span-2">
-              <Label>Desired major</Label>
-              <Input value={profile.target_major ?? ""} onChange={(e) => update({ target_major: e.target.value })} className="mt-1.5" />
+              <Label>Desired major or field of study</Label>
+              <Input
+                value={profile.target_major ?? ""}
+                maxLength={100}
+                placeholder="e.g. Business Analytics, Computer Science, Public Policy"
+                onChange={(e) => update({ target_major: e.target.value })}
+                className="mt-1.5"
+              />
             </div>
             <div className="col-span-2">
-              <Label>Target countries</Label>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                {COUNTRIES.map((c) => (
-                  <label key={c} className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer ${profile.target_countries?.includes(c) ? "border-primary bg-secondary" : "border-border"}`}>
-                    <Checkbox checked={profile.target_countries?.includes(c) ?? false} onCheckedChange={() => toggleCountry(c)} />
-                    <span className="text-sm">{c}</span>
-                  </label>
-                ))}
-              </div>
+              <Label>Target country</Label>
+              <Select value={profile.target_country ?? ""} onValueChange={(v) => update({ target_country: v })}>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a country" /></SelectTrigger>
+                <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
             <div>
               <Label>Tier</Label>
-              <Select value={profile.target_tier ?? "no_preference"} onValueChange={(v) => update({ target_tier: v as ProfileRow["target_tier"] })}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <Select value={tierValid ? (profile.target_tier as string) : ""} onValueChange={(v) => update({ target_tier: v as ProfileRow["target_tier"] })}>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a tier" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="top_10">Top 10</SelectItem>
-                  <SelectItem value="top_50">Top 50</SelectItem>
-                  <SelectItem value="top_100">Top 100</SelectItem>
-                  <SelectItem value="no_preference">No preference</SelectItem>
+                  {TIER_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {!tierValid && <p className="mt-1 text-xs text-destructive">Please pick a tier — your saved preference is no longer available.</p>}
             </div>
             <div>
               <Label>Funding</Label>
@@ -177,17 +184,6 @@ function SettingsPage() {
                   <SelectItem value="partial_ok">Partial OK</SelectItem>
                   <SelectItem value="self_funded_ok">Self-funded OK</SelectItem>
                 </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Budget ceiling</Label>
-              <Input type="number" value={profile.budget_ceiling ?? ""} onChange={(e) => update({ budget_ceiling: e.target.value ? Number(e.target.value) : null })} className="mt-1.5" />
-            </div>
-            <div>
-              <Label>Currency</Label>
-              <Select value={profile.budget_currency ?? "USD"} onValueChange={(v) => update({ budget_currency: v })}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                <SelectContent>{["USD","EUR","GBP","CAD","AUD","CHF","SGD"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
               </Select>
             </div>
             <div>
@@ -206,7 +202,21 @@ function SettingsPage() {
             ))}
             <div className="col-span-2">
               <Label>Target intake</Label>
-              <Input value={profile.target_intake ?? ""} onChange={(e) => update({ target_intake: e.target.value })} className="mt-1.5" />
+              <Select
+                value={intakeValid ? (profile.target_intake as string) : OTHER_INTAKE}
+                onValueChange={(v) => { if (v !== OTHER_INTAKE) update({ target_intake: v }); }}
+              >
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select an intake" /></SelectTrigger>
+                <SelectContent>
+                  {INTAKE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {!intakeValid && (
+                    <SelectItem value={OTHER_INTAKE}>
+                      {profile.target_intake ? `${profile.target_intake} — Other (please update)` : "Other (please update)"}
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {!intakeValid && <p className="mt-1 text-xs text-destructive">Please pick one of the listed intakes before saving.</p>}
             </div>
           </div>
           <div className="flex justify-end">
