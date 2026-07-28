@@ -85,12 +85,17 @@ function derivePathPrefix(url: string): string | null {
 function sourceContext(docs: FirecrawlDocument[], perDocCap = 8000, totalCap = 90000): string {
   const out = docs
     .map((doc, index) => {
-      const body = doc.markdown.replace(/\s+/g, " ").slice(0, perDocCap);
+      const rawBody = doc.markdown.replace(/\s+/g, " ");
+      const wasTruncated = rawBody.length > perDocCap;
+      const body = rawBody.slice(0, perDocCap) + (wasTruncated ? " [TRUNCATED]" : "");
       const cat = (doc as any)._category ? ` [${(doc as any)._category}]` : "";
-      return `SOURCE ${index + 1}${cat}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
+      const truncFlag = doc.truncated ? " [SOURCE ALREADY TRUNCATED AT SCRAPE]" : "";
+      return `SOURCE ${index + 1}${cat}${truncFlag}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
     })
     .join("\n\n---\n\n");
-  return out.slice(0, totalCap);
+  const finalTruncated = out.length > totalCap;
+  const finalOut = out.slice(0, totalCap);
+  return finalTruncated ? finalOut + "\n\n[CONTEXT TRUNCATED AT TOTAL CAP]" : finalOut;
 }
 
 const TARGET_CATEGORIES: SubPageCategory[] = ["admissions", "tuition", "funding", "class_profile", "career"];
