@@ -11,6 +11,7 @@ export interface FirecrawlDocument extends FirecrawlResult {
   markdown: string;
   statusCode?: number | null;
   links?: string[];
+  truncated?: boolean;
 }
 
 const FIRECRAWL_API_V2 = "https://api.firecrawl.dev/v2";
