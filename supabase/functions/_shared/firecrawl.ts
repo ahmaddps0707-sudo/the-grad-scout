@@ -30,7 +30,22 @@ function parseRetryAfterMs(body: string, headers: Headers): number {
 async function firecrawlFetch(path: string, init: RequestInit, maxRetries = 2): Promise<Response> {
   let attempt = 0;
   while (true) {
-    const res = await fetch(`${FIRECRAWL_API_V2}${path}`, init);
+    // Per-request wall-clock timeout so a single hung upstream call cannot
+    // consume the edge function's 150s idle budget.
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 25000);
+    let res: Response;
+    try {
+      res = await fetch(`${FIRECRAWL_API_V2}${path}`, { ...init, signal: ac.signal });
+    } catch (e) {
+      clearTimeout(timer);
+      if ((e as Error)?.name === "AbortError") {
+        console.warn(`firecrawl ${path} timed out after 25s`);
+        return new Response("timeout", { status: 504 });
+      }
+      throw e;
+    }
+    clearTimeout(timer);
     if (res.status !== 429 || attempt >= maxRetries) return res;
     const body = await res.clone().text().catch(() => "");
     const wait = parseRetryAfterMs(body, res.headers);
