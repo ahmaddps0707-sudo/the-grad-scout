@@ -14,6 +14,7 @@ export type SubView = {
   subscription_start_date: string | null;
   discover_runs_used: number;
   ai_bullets_used: number;
+  update_data_used: number;
   usage_reset_at: string | null;
   trial_used: boolean;
 };
@@ -32,6 +33,7 @@ export function envScopedSub(profile: any, env: StripeEnv): SubView {
       subscription_start_date: p.sandbox_subscription_start_date ?? null,
       discover_runs_used: p.sandbox_discover_runs_used ?? 0,
       ai_bullets_used: p.sandbox_ai_bullets_used ?? 0,
+      update_data_used: p.sandbox_update_data_used ?? 0,
       usage_reset_at: p.sandbox_usage_reset_at ?? null,
       trial_used: !!p.sandbox_trial_used,
     };
@@ -47,6 +49,7 @@ export function envScopedSub(profile: any, env: StripeEnv): SubView {
     subscription_start_date: p.subscription_start_date ?? null,
     discover_runs_used: p.discover_runs_used ?? 0,
     ai_bullets_used: p.ai_bullets_used ?? 0,
+    update_data_used: p.update_data_used ?? 0,
     usage_reset_at: p.usage_reset_at ?? null,
     trial_used: !!p.trial_used,
   };
@@ -67,6 +70,7 @@ export function subColumns(env: StripeEnv) {
     startDate: s ? "sandbox_subscription_start_date" : "subscription_start_date",
     discoverUsed: s ? "sandbox_discover_runs_used" : "discover_runs_used",
     aiUsed: s ? "sandbox_ai_bullets_used" : "ai_bullets_used",
+    updateDataUsed: s ? "sandbox_update_data_used" : "update_data_used",
     resetAt: s ? "sandbox_usage_reset_at" : "usage_reset_at",
     trialUsed: s ? "sandbox_trial_used" : "trial_used",
   };
