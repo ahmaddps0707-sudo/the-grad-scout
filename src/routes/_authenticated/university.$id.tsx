@@ -12,6 +12,8 @@ import { scoreColorClass } from "@/lib/scoring";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 import { OutreachTab } from "@/components/outreach-tab";
+import { UpgradeModal } from "@/components/upgrade-modal";
+import { getStripeEnvironment } from "@/lib/stripe";
 import { NewPostDialog } from "@/components/forum/new-post-dialog";
 import { timeAgo } from "@/lib/forum-utils";
 import { Heart, MessageSquare } from "lucide-react";
@@ -33,6 +35,7 @@ export const Route = createFileRoute("/_authenticated/university/$id")({
 function DetailPage() {
   const { id } = Route.useParams();
   const router = useRouter();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [entry, setEntry] = useState<(EntryRow & { university: Uni; program: Prog | null }) | null>(null);
   const [adm, setAdm] = useState<Adm | null>(null);
   const [cp, setCp] = useState<Cp | null>(null);
@@ -126,6 +129,7 @@ function DetailPage() {
     setAdm(null); setCp(null); setFd(null); setCity(null); setCareer(null);
     setEnriching(true);
     try {
+      const runEnv = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
       const { error } = await supabase.functions.invoke("enrich-university", {
         body: {
           program_id: entry.program.id,
@@ -133,9 +137,25 @@ function DetailPage() {
           program_name: entry.program.name,
           website_url: entry.university.website_url ?? "",
           force: true,
+          environment: runEnv,
         },
       });
-      if (error) throw error;
+      if (error) {
+        let payload: any = null;
+        try { payload = await (error as any).context?.json?.(); } catch { /* not a JSON body */ }
+        if (payload?.code === "update_data_limit_reached") {
+          setUpgradeOpen(true);
+          return;
+        }
+        if (payload?.code === "update_data_limit_reached_paid") {
+          const resets = payload.resets_at ? new Date(payload.resets_at).toLocaleDateString() : null;
+          toast.error(
+            `You've used all 10 data updates for this billing period${resets ? ` — resets on ${resets}` : ""}.`,
+          );
+          return;
+        }
+        throw error;
+      }
       await load();
       toast.success("Information updated successfully");
     } catch (e) {
@@ -391,6 +411,7 @@ function DetailPage() {
           </div>
         )}
       </div>
+      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </AppShell>
   );
 }

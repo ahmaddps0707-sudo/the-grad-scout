@@ -51,6 +51,8 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
   const prevEnd = prevEndRaw ? new Date(prevEndRaw as string).getTime() : 0;
   const newEnd = periodEnd ? periodEnd * 1000 : 0;
   const isRenewal = newEnd > 0 && prevEnd > 0 && newEnd > prevEnd;
+  // A brand-new paid subscription starts the user's first Pro billing period.
+  const isNewUpgrade = prevEnd === 0;
 
   const update: Record<string, unknown> = {
     [cols.tier]: finalTier,
@@ -67,9 +69,10 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
     [cols.trialUsed]: true,
     updated_at: new Date().toISOString(),
   };
-  if (isRenewal) {
+  if (isRenewal || isNewUpgrade) {
     update[cols.discoverUsed] = 0;
     update[cols.aiUsed] = 0;
+    update[cols.updateDataUsed] = 0;
   }
   await supa.from("profiles").update(update as Database["public"]["Tables"]["profiles"]["Update"]).eq("id", userId);
 }
@@ -125,6 +128,37 @@ async function handleInvoicePaid(invoice: any, env: StripeEnv) {
     },
     { onConflict: "stripe_invoice_id" },
   );
+
+  // A paid invoice marks the start of a billing period — zero the metered
+  // counters for this environment.
+  await getSupabase()
+    .from("profiles")
+    .update({
+      [cols.discoverUsed]: 0,
+      [cols.aiUsed]: 0,
+      [cols.updateDataUsed]: 0,
+      updated_at: new Date().toISOString(),
+    } as Database["public"]["Tables"]["profiles"]["Update"])
+    .eq("id", userId);
+}
+
+async function handleCheckoutSessionCompleted(session: any, env: StripeEnv) {
+  const userId = session.metadata?.userId;
+  if (!userId) {
+    console.error("[webhook] No userId in checkout session metadata", session.id);
+    return;
+  }
+  const cols = subColumns(env);
+  // Initial upgrade: always reset usage counters regardless of free-plan usage.
+  await getSupabase()
+    .from("profiles")
+    .update({
+      [cols.discoverUsed]: 0,
+      [cols.aiUsed]: 0,
+      [cols.updateDataUsed]: 0,
+      updated_at: new Date().toISOString(),
+    } as Database["public"]["Tables"]["profiles"]["Update"])
+    .eq("id", userId);
 }
 
 async function handleInvoicePaymentFailed(invoice: any, env: StripeEnv) {
@@ -147,6 +181,9 @@ async function handleWebhook(req: Request, env: StripeEnv) {
       break;
     case "customer.subscription.deleted":
       await handleSubscriptionDeleted(event.data.object, env);
+      break;
+    case "checkout.session.completed":
+      await handleCheckoutSessionCompleted(event.data.object, env);
       break;
     case "invoice.paid":
     case "invoice.payment_succeeded":

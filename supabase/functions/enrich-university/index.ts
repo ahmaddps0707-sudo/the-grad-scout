@@ -2,6 +2,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
 import {
+  FREE_LIMITS,
+  PAID_LIMITS,
+  ensureUsageWindow,
+  envColumns,
+  envView,
+  isPaid,
+  parseEnv,
+} from "../_shared/limits.ts";
+import {
   categorizeUrl,
   firecrawlScrape,
   firecrawlSearch,
@@ -432,14 +441,50 @@ Deno.serve(async (req) => {
   const requestId = crypto.randomUUID();
   const startedMs = Date.now();
   let lockedProgramId: string | null = null;
+  let meteredUserId: string | null = null;
+  let meteredColumn: string | null = null;
+  let meteredNextValue = 0;
 
   try {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-    const { program_id, university_name, program_name } = await req.json();
+    const { program_id, university_name, program_name, force, environment } = await req.json();
     if (!program_id || !university_name || !program_name)
       throw new Error("program_id, university_name, program_name required");
 
     console.log(`enrich-university: START req=${requestId} program_id=${program_id}`);
+
+    // Manual "Update Data" runs are metered per tier.
+    if (force) {
+      const env = parseEnv(environment);
+      const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+      const { data: userData } = await admin.auth.getUser(token);
+      const user = userData?.user;
+      if (!user) {
+        return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...CORS_HEADERS, "content-type": "application/json" },
+        });
+      }
+      let { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      if (!profile) throw new Error("profile missing");
+      profile = await ensureUsageWindow(admin, profile, env);
+      const paid = isPaid(profile, env);
+      const view = envView(profile, env);
+      const runsLimit = paid ? PAID_LIMITS.update_data_runs : FREE_LIMITS.update_data_runs;
+      if ((view.updateDataUsed ?? 0) >= runsLimit) {
+        const code = paid ? "update_data_limit_reached_paid" : "update_data_limit_reached";
+        const msg = paid
+          ? `You've used all ${PAID_LIMITS.update_data_runs} data updates for this billing period.`
+          : "Data updates are a Pro feature.";
+        return new Response(
+          JSON.stringify({ ok: false, code, reason: "update_data_limit_reached", error: msg, resets_at: view.resetAt }),
+          { status: 403, headers: { ...CORS_HEADERS, "content-type": "application/json" } },
+        );
+      }
+      meteredUserId = user.id;
+      meteredColumn = envColumns(env).updateDataUsed;
+      meteredNextValue = (view.updateDataUsed ?? 0) + 1;
+    }
 
     // Cheap pre-check for recently_enriched (does not need atomicity — the
     // atomic conditional UPDATE below handles concurrent lock acquisition).
@@ -733,6 +778,13 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
     await admin.from("program_research_sources").delete().eq("program_id", program_id);
     for (const url of Array.from(new Set(fallbackSources))) {
       await admin.from("program_research_sources").insert({ program_id, url });
+    }
+
+    if (meteredUserId && meteredColumn) {
+      await admin
+        .from("profiles")
+        .update({ [meteredColumn]: meteredNextValue })
+        .eq("id", meteredUserId);
     }
 
     return new Response(

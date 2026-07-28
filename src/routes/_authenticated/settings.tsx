@@ -69,6 +69,7 @@ function SettingsPage() {
   const paid = isPaidTier({ tier: sub.tier, status: sub.status as any });
   const discoverUsed = sub.discover_runs_used;
   const aiUsed = sub.ai_bullets_used;
+  const updateDataUsed = sub.update_data_used;
   const resetAt = sub.usage_reset_at ? new Date(sub.usage_reset_at) : null;
   const status = sub.status;
   const trialEnd = sub.trial_end_date ? new Date(sub.trial_end_date) : null;
@@ -270,6 +271,15 @@ function SettingsPage() {
                   <span className="tabular-nums">{Math.min(aiUsed, PAID_LIMITS.ai_bullets)} / {PAID_LIMITS.ai_bullets}</span>
                 </div>
                 <Progress value={Math.min(100, (aiUsed / PAID_LIMITS.ai_bullets) * 100)} />
+              </div>
+            )}
+            {paid && (
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-muted-foreground">Data updates this billing period</span>
+                  <span className="tabular-nums">{Math.min(updateDataUsed, PAID_LIMITS.update_data_runs)} of {PAID_LIMITS.update_data_runs} used</span>
+                </div>
+                <Progress value={Math.min(100, (updateDataUsed / PAID_LIMITS.update_data_runs) * 100)} />
               </div>
             )}
             {paid && resetAt && (
