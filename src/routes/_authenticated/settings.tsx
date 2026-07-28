@@ -272,6 +272,15 @@ function SettingsPage() {
                 <Progress value={Math.min(100, (aiUsed / PAID_LIMITS.ai_bullets) * 100)} />
               </div>
             )}
+            {paid && (
+              <div>
+                <div className="flex items-center justify-between text-sm mb-1.5">
+                  <span className="text-muted-foreground">Data updates this billing period</span>
+                  <span className="tabular-nums">{Math.min(updateDataUsed, PAID_LIMITS.update_data_runs)} of {PAID_LIMITS.update_data_runs} used</span>
+                </div>
+                <Progress value={Math.min(100, (updateDataUsed / PAID_LIMITS.update_data_runs) * 100)} />
+              </div>
+            )}
             {paid && resetAt && (
               <p className="text-xs text-muted-foreground">Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.</p>
             )}
