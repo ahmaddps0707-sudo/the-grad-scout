@@ -26,7 +26,23 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
-const COUNTRIES = ["United States","United Kingdom","Canada","Germany","Netherlands","Australia","France","Switzerland","Singapore","Sweden","Ireland","Spain","Italy","Hong Kong","Japan"];
+const COUNTRIES = [
+  "United States",
+  "United Kingdom",
+  "Canada",
+  "Germany",
+  "Netherlands",
+  "Australia",
+  "France",
+  "Switzerland",
+  "Singapore",
+  "Sweden",
+  "Ireland",
+  "Spain",
+  "Italy",
+  "Hong Kong",
+  "Japan",
+];
 const TIER_OPTIONS: [string, string][] = [
   ["top_50", "Top 50"],
   ["top_100", "Top 100"],
@@ -62,9 +78,20 @@ function SettingsPage() {
     })();
   }, []);
 
-  if (!profile) return <AppShell><div className="mx-auto max-w-3xl p-8">Loading…</div></AppShell>;
+  if (!profile)
+    return (
+      <AppShell>
+        <div className="mx-auto max-w-3xl p-8">Loading…</div>
+      </AppShell>
+    );
 
-  const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
+  const env = (() => {
+    try {
+      return getStripeEnvironment();
+    } catch {
+      return "sandbox" as const;
+    }
+  })();
   const sub = envScopedSub(profile, env);
   const paid = isPaidTier({ tier: sub.tier, status: sub.status as any });
   const discoverUsed = sub.discover_runs_used;
@@ -92,29 +119,39 @@ function SettingsPage() {
     }
   };
 
-  const update = (patch: Partial<ProfileRow>) => setProfile((p) => p ? { ...p, ...patch } : p);
+  const update = (patch: Partial<ProfileRow>) => setProfile((p) => (p ? { ...p, ...patch } : p));
 
   const tierValid = TIER_OPTIONS.some(([v]) => v === profile.target_tier);
   const intakeValid = INTAKE_OPTIONS.includes(profile.target_intake ?? "");
 
   const save = async () => {
-    if (!tierValid) { toast.error("Please pick a university tier before saving."); return; }
-    if (!intakeValid) { toast.error("Please pick a target intake before saving."); return; }
+    if (!tierValid) {
+      toast.error("Please pick a university tier before saving.");
+      return;
+    }
+    if (!intakeValid) {
+      toast.error("Please pick a target intake before saving.");
+      return;
+    }
     setSaving(true);
-    const { error } = await supabase.from("profiles").update({
-      full_name: profile.full_name,
-      country_of_origin: (profile as any).country_of_origin ?? null,
-      target_major: profile.target_major,
-      target_country: profile.target_country,
-      target_tier: profile.target_tier,
-      funding_preference: profile.funding_preference,
-      gpa: profile.gpa,
-      test_scores: profile.test_scores,
-      work_exp_years: profile.work_exp_years,
-      target_intake: profile.target_intake,
-    }).eq("id", profile.id);
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: profile.full_name,
+        country_of_origin: (profile as any).country_of_origin ?? null,
+        target_major: profile.target_major,
+        target_country: profile.target_country,
+        target_tier: profile.target_tier,
+        funding_preference: profile.funding_preference,
+        gpa: profile.gpa,
+        test_scores: profile.test_scores,
+        work_exp_years: profile.work_exp_years,
+        target_intake: profile.target_intake,
+      })
+      .eq("id", profile.id);
     setSaving(false);
-    if (error) toast.error(error.message); else toast.success("Saved");
+    if (error) toast.error(error.message);
+    else toast.success("Saved");
   };
 
   const ts = (profile.test_scores ?? {}) as Record<string, string>;
@@ -132,16 +169,24 @@ function SettingsPage() {
               <Label>Email address</Label>
               <div className="mt-1.5 flex items-center justify-between gap-2 rounded-md border border-border bg-background/40 px-3 py-2">
                 <span className="text-sm text-foreground">{email || "—"}</span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground"><Lock className="h-3 w-3" /> Cannot be changed</span>
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Lock className="h-3 w-3" /> Cannot be changed
+                </span>
               </div>
             </div>
             <div className="col-span-2">
               <Label>Full name</Label>
-              <Input value={profile.full_name ?? ""} onChange={(e) => update({ full_name: e.target.value })} className="mt-1.5" />
+              <Input
+                value={profile.full_name ?? ""}
+                onChange={(e) => update({ full_name: e.target.value })}
+                className="mt-1.5"
+              />
             </div>
             <div className="col-span-2">
               <Label>Where are you from?</Label>
-              <p className="text-xs text-muted-foreground mt-1">We use this to prioritize alumni from your country in the Outreach section.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                We use this to prioritize alumni from your country in the Outreach section.
+              </p>
               <div className="mt-1.5">
                 <CountrySelect
                   value={(profile as any).country_of_origin ?? null}
@@ -162,24 +207,50 @@ function SettingsPage() {
             <div className="col-span-2">
               <Label>Target country</Label>
               <Select value={profile.target_country ?? ""} onValueChange={(v) => update({ target_country: v })}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a country" /></SelectTrigger>
-                <SelectContent>{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select a country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             </div>
             <div>
               <Label>Tier</Label>
-              <Select value={tierValid ? (profile.target_tier as string) : ""} onValueChange={(v) => update({ target_tier: v as ProfileRow["target_tier"] })}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select a tier" /></SelectTrigger>
+              <Select
+                value={tierValid ? (profile.target_tier as string) : ""}
+                onValueChange={(v) => update({ target_tier: v as ProfileRow["target_tier"] })}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select a tier" />
+                </SelectTrigger>
                 <SelectContent>
-                  {TIER_OPTIONS.map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}
+                  {TIER_OPTIONS.map(([v, l]) => (
+                    <SelectItem key={v} value={v}>
+                      {l}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {!tierValid && <p className="mt-1 text-xs text-destructive">Please pick a tier — your saved preference is no longer available.</p>}
+              {!tierValid && (
+                <p className="mt-1 text-xs text-destructive">
+                  Please pick a tier — your saved preference is no longer available.
+                </p>
+              )}
             </div>
             <div>
               <Label>Funding</Label>
-              <Select value={profile.funding_preference ?? "partial_ok"} onValueChange={(v) => update({ funding_preference: v as ProfileRow["funding_preference"] })}>
-                <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+              <Select
+                value={profile.funding_preference ?? "partial_ok"}
+                onValueChange={(v) => update({ funding_preference: v as ProfileRow["funding_preference"] })}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="fully_funded">Fully funded only</SelectItem>
                   <SelectItem value="partial_ok">Partial OK</SelectItem>
@@ -189,39 +260,69 @@ function SettingsPage() {
             </div>
             <div>
               <Label>GPA</Label>
-              <Input type="number" step="0.01" value={profile.gpa ?? ""} onChange={(e) => update({ gpa: e.target.value ? Number(e.target.value) : null })} className="mt-1.5" />
+              <Input
+                type="number"
+                step="0.01"
+                value={profile.gpa ?? ""}
+                onChange={(e) => update({ gpa: e.target.value ? Number(e.target.value) : null })}
+                className="mt-1.5"
+              />
             </div>
             <div>
               <Label>Work experience (years)</Label>
-              <Input type="number" step="0.5" value={profile.work_exp_years ?? ""} onChange={(e) => update({ work_exp_years: e.target.value ? Number(e.target.value) : null })} className="mt-1.5" />
+              <Input
+                type="number"
+                step="0.5"
+                value={profile.work_exp_years ?? ""}
+                onChange={(e) => update({ work_exp_years: e.target.value ? Number(e.target.value) : null })}
+                className="mt-1.5"
+              />
             </div>
-            {(["gre","gmat","ielts","toefl"] as const).map((t) => (
+            {(["gre", "gmat", "ielts", "toefl"] as const).map((t) => (
               <div key={t}>
                 <Label className="uppercase">{t}</Label>
-                <Input value={ts[t] ?? ""} onChange={(e) => update({ test_scores: { ...ts, [t]: e.target.value } })} className="mt-1.5" />
+                <Input
+                  value={ts[t] ?? ""}
+                  onChange={(e) => update({ test_scores: { ...ts, [t]: e.target.value } })}
+                  className="mt-1.5"
+                />
               </div>
             ))}
             <div className="col-span-2">
               <Label>Target intake</Label>
               <Select
                 value={intakeValid ? (profile.target_intake as string) : OTHER_INTAKE}
-                onValueChange={(v) => { if (v !== OTHER_INTAKE) update({ target_intake: v }); }}
+                onValueChange={(v) => {
+                  if (v !== OTHER_INTAKE) update({ target_intake: v });
+                }}
               >
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Select an intake" /></SelectTrigger>
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue placeholder="Select an intake" />
+                </SelectTrigger>
                 <SelectContent>
-                  {INTAKE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {INTAKE_OPTIONS.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
                   {!intakeValid && (
                     <SelectItem value={OTHER_INTAKE}>
-                      {profile.target_intake ? `${profile.target_intake} — Other (please update)` : "Other (please update)"}
+                      {profile.target_intake
+                        ? `${profile.target_intake} — Other (please update)`
+                        : "Other (please update)"}
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
-              {!intakeValid && <p className="mt-1 text-xs text-destructive">Please pick one of the listed intakes before saving.</p>}
+              {!intakeValid && (
+                <p className="mt-1 text-xs text-destructive">Please pick one of the listed intakes before saving.</p>
+              )}
             </div>
           </div>
           <div className="flex justify-end">
-            <Button onClick={save} disabled={saving}>{saving ? "Saving…" : "Save changes"}</Button>
+            <Button onClick={save} disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </Button>
           </div>
         </section>
 
@@ -234,7 +335,11 @@ function SettingsPage() {
                 {isTrialing && <Badge variant="secondary">Trial</Badge>}
                 {status === "past_due" && <Badge variant="destructive">Past due</Badge>}
                 {cancelAtEnd && <Badge variant="secondary">Cancels at period end</Badge>}
-                {!paid && <span className="text-sm text-muted-foreground">{FREE_LIMITS.discover_runs} lifetime discover runs</span>}
+                {!paid && (
+                  <span className="text-sm text-muted-foreground">
+                    {FREE_LIMITS.discover_runs} lifetime discover runs
+                  </span>
+                )}
               </div>
               {isTrialing && trialEnd && (
                 <p className="mt-2 text-sm text-muted-foreground">Trial ends {trialEnd.toLocaleDateString()}.</p>
@@ -245,11 +350,16 @@ function SettingsPage() {
                 </p>
               )}
               {!paid && (
-                <p className="mt-3 text-sm text-muted-foreground max-w-md">Upgrade to Grad Scout Pro for 20 program discovers, unlimited AI resume assistance, and priority research runs.</p>
+                <p className="mt-3 text-sm text-muted-foreground max-w-md">
+                  Upgrade to Grad Scout Pro for 20 program discovers, 50 AI resume assistance, and priority research
+                  runs.
+                </p>
               )}
             </div>
             {!paid ? (
-              <Button onClick={() => setUpgradeOpen(true)} className="gap-2">Upgrade to Pro</Button>
+              <Button onClick={() => setUpgradeOpen(true)} className="gap-2">
+                Upgrade to Pro
+              </Button>
             ) : (
               <Button variant="outline" onClick={openPortal} disabled={portalLoading}>
                 {portalLoading ? "Opening…" : "Manage billing"}
@@ -259,16 +369,28 @@ function SettingsPage() {
           <div className="mt-6 space-y-4">
             <div>
               <div className="flex items-center justify-between text-sm mb-1.5">
-                <span className="text-muted-foreground">{paid ? "Discover runs this billing period" : "Discover runs (lifetime on Free)"}</span>
-                <span className="tabular-nums">{Math.min(discoverUsed, paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)} / {paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs}</span>
+                <span className="text-muted-foreground">
+                  {paid ? "Discover runs this billing period" : "Discover runs (lifetime on Free)"}
+                </span>
+                <span className="tabular-nums">
+                  {Math.min(discoverUsed, paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)} /{" "}
+                  {paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs}
+                </span>
               </div>
-              <Progress value={Math.min(100, (discoverUsed / (paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)) * 100)} />
+              <Progress
+                value={Math.min(
+                  100,
+                  (discoverUsed / (paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)) * 100,
+                )}
+              />
             </div>
             {paid && (
               <div>
                 <div className="flex items-center justify-between text-sm mb-1.5">
                   <span className="text-muted-foreground">AI resume bullets accepted this billing period</span>
-                  <span className="tabular-nums">{Math.min(aiUsed, PAID_LIMITS.ai_bullets)} / {PAID_LIMITS.ai_bullets}</span>
+                  <span className="tabular-nums">
+                    {Math.min(aiUsed, PAID_LIMITS.ai_bullets)} / {PAID_LIMITS.ai_bullets}
+                  </span>
                 </div>
                 <Progress value={Math.min(100, (aiUsed / PAID_LIMITS.ai_bullets) * 100)} />
               </div>
@@ -277,13 +399,17 @@ function SettingsPage() {
               <div>
                 <div className="flex items-center justify-between text-sm mb-1.5">
                   <span className="text-muted-foreground">Data updates this billing period</span>
-                  <span className="tabular-nums">{Math.min(updateDataUsed, PAID_LIMITS.update_data_runs)} of {PAID_LIMITS.update_data_runs} used</span>
+                  <span className="tabular-nums">
+                    {Math.min(updateDataUsed, PAID_LIMITS.update_data_runs)} of {PAID_LIMITS.update_data_runs} used
+                  </span>
                 </div>
                 <Progress value={Math.min(100, (updateDataUsed / PAID_LIMITS.update_data_runs) * 100)} />
               </div>
             )}
             {paid && resetAt && (
-              <p className="text-xs text-muted-foreground">Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.</p>
+              <p className="text-xs text-muted-foreground">
+                Resets on {resetAt.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}.
+              </p>
             )}
           </div>
           {payments.length > 0 && (
@@ -291,17 +417,28 @@ function SettingsPage() {
               <h3 className="font-display text-lg mb-3">Payment history</h3>
               <div className="space-y-2">
                 {payments.map((pay) => (
-                  <div key={pay.id} className="flex items-center justify-between text-sm py-2 border-b border-border last:border-b-0">
+                  <div
+                    key={pay.id}
+                    className="flex items-center justify-between text-sm py-2 border-b border-border last:border-b-0"
+                  >
                     <div>
                       <div className="tabular-nums">
-                        {(pay.amount_cents / 100).toLocaleString(undefined, { style: "currency", currency: (pay.currency ?? "usd").toUpperCase() })}
+                        {(pay.amount_cents / 100).toLocaleString(undefined, {
+                          style: "currency",
+                          currency: (pay.currency ?? "usd").toUpperCase(),
+                        })}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {pay.paid_at ? new Date(pay.paid_at).toLocaleDateString() : "—"} · {pay.status}
                       </div>
                     </div>
                     {pay.hosted_invoice_url && (
-                      <a href={pay.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                      <a
+                        href={pay.hosted_invoice_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline"
+                      >
                         View invoice
                       </a>
                     )}
