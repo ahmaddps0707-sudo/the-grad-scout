@@ -11,6 +11,7 @@ export function envColumns(env: StripeEnv) {
     periodEnd: s ? "sandbox_subscription_current_period_end" : "subscription_current_period_end",
     discoverUsed: s ? "sandbox_discover_runs_used" : "discover_runs_used",
     aiUsed: s ? "sandbox_ai_bullets_used" : "ai_bullets_used",
+    updateDataUsed: s ? "sandbox_update_data_used" : "update_data_used",
     resetAt: s ? "sandbox_usage_reset_at" : "usage_reset_at",
   };
 }
@@ -24,6 +25,7 @@ export function envView(profile: any, env: StripeEnv) {
     periodEnd: profile?.[c.periodEnd] ?? null,
     discoverUsed: profile?.[c.discoverUsed] ?? 0,
     aiUsed: profile?.[c.aiUsed] ?? 0,
+    updateDataUsed: profile?.[c.updateDataUsed] ?? 0,
     resetAt: profile?.[c.resetAt] ?? null,
   };
 }
@@ -31,12 +33,14 @@ export function envView(profile: any, env: StripeEnv) {
 // Free discover runs are LIFETIME (never reset).
 export const FREE_LIMITS = {
   discover_runs: 3,
+  update_data_runs: 0,
 };
 
 // Paid users get per-billing-period allotments.
 export const PAID_LIMITS = {
   discover_runs: 20,
   ai_bullets: 50,
+  update_data_runs: 10,
 };
 
 /**
@@ -56,6 +60,7 @@ export async function ensureUsageWindow(admin: any, profile: any, env: StripeEnv
     const update: Record<string, unknown> = {};
     update[c.discoverUsed] = 0;
     update[c.aiUsed] = 0;
+    update[c.updateDataUsed] = 0;
     update[c.resetAt] = next.toISOString();
     const { data, error } = await admin
       .from("profiles").update(update).eq("id", profile.id).select().single();
