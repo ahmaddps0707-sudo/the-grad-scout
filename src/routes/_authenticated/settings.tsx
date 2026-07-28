@@ -398,9 +398,9 @@ function SettingsPage() {
             {paid && (
               <div>
                 <div className="flex items-center justify-between text-sm mb-1.5">
-                  <span className="text-muted-foreground">Data updates this billing period</span>
+                  <span className="text-muted-foreground">Update Data runs this billing period</span>
                   <span className="tabular-nums">
-                    {Math.min(updateDataUsed, PAID_LIMITS.update_data_runs)} of {PAID_LIMITS.update_data_runs} used
+                    {Math.min(updateDataUsed, PAID_LIMITS.update_data_runs)} / {PAID_LIMITS.update_data_runs}
                   </span>
                 </div>
                 <Progress value={Math.min(100, (updateDataUsed / PAID_LIMITS.update_data_runs) * 100)} />
