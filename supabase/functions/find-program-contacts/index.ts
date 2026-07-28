@@ -96,7 +96,6 @@ Deno.serve(async (req) => {
     // Firecrawl search for public LinkedIn snippets (never scrape linkedin URLs)
     const [r1, r2, r3] = await Promise.all([
       firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} masters student`, { limit: 1 }),
-      firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} alumni`, { limit: 1 }),
       userCountry
         ? firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} ${userCountry}`, { limit: 1 })
         : Promise.resolve([]),
