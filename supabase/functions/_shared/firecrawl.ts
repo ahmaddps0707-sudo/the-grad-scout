@@ -176,13 +176,18 @@ export async function firecrawlScrape(
     const links = rawLinks
       .map((l: any) => (typeof l === "string" ? l : l?.url ?? l?.href ?? ""))
       .filter((l: string) => !!l);
+    const cap = opts.maxMarkdownChars ?? 12000;
+    const wasTruncated = markdown.length > cap;
+    const slicedMarkdown = markdown.slice(0, cap) +
+      (wasTruncated ? "\n\n[CONTENT TRUNCATED — additional content existed beyond this point]" : "");
     return {
       url: sourceURL,
       title: metadata?.title ?? payload?.title ?? "",
       description: metadata?.description ?? payload?.description ?? "",
-      markdown: markdown.slice(0, opts.maxMarkdownChars ?? 12000),
+      markdown: slicedMarkdown,
       statusCode,
       links,
+      truncated: wasTruncated,
     };
   } catch (e) {
     console.error("firecrawl scrape error", normalized, e);
