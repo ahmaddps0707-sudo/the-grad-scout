@@ -411,6 +411,7 @@ function DetailPage() {
           </div>
         )}
       </div>
+      <UpgradeModal open={upgradeOpen} onOpenChange={setUpgradeOpen} />
     </AppShell>
   );
 }
