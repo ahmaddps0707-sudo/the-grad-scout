@@ -494,6 +494,12 @@ Deno.serve(async (req) => {
     }
     const validSources = new Set(docs.map((doc) => normalizeUrl(doc.url)));
 
+    const assembledContext = sourceContext(docs);
+    const truncatedDocCount = docs.filter((d) => d.truncated).length;
+    console.log(
+      `enrich-university: context assembled req=${requestId} — ${docs.length} docs, ${truncatedDocCount} truncated at scrape layer, final context length ${assembledContext.length}/90000`,
+    );
+
     const system =
       "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.\n\nFor test requirements, look for these label variations and map them to the correct field:\nGRE labels: GRE, GRE Score, GRE Requirement, Graduate Record Examination, GRE General Test, GRE Waiver, GRE Optional, GRE Required\nGMAT labels: GMAT, GMAT Score, GMAT Requirement, Graduate Management Admission Test, GMAT Waiver, GMAT Optional, GMAT Required, GMAT Focus\nAlso look for combined statements like:\n- 'GRE/GMAT optional' → set both to 'optional'\n- 'GRE or GMAT required' → set both to 'required'\n- 'GMAT required, GRE not accepted' → gmat: required, gre: not_required\n- 'Test scores not required' → set both to 'not_required'\n- 'GRE waived for applicants with X' → gre: 'waived', put condition in gre_gmat_notes\n- 'No GRE/GMAT required' → both: 'not_required'\n- 'GRE optional, GMAT not accepted' → gre: optional, gmat: not_required\nFor gre_gmat_notes: capture any important conditions such as waiver criteria, minimum score requirements, or exceptions (e.g. 'GRE waived for applicants with 2+ years work experience', 'GMAT required for applicants without a quantitative undergraduate background').\nIf test requirement information is completely absent from all scraped content, return null for both fields — do not guess.";
 
@@ -502,7 +508,7 @@ University: ${university_name}
 Program: ${program_name}
 
 LIVE SOURCES:
-${sourceContext(docs)}
+${assembledContext}
 
 Return ONLY the following JSON, no other text, no markdown fences. Use null for any scalar field that is not clearly verified in the sources. Use [] for arrays with no verified items. The "sources" array must contain only exact URLs from the LIVE SOURCES above that directly support the extracted data.
 {
