@@ -150,11 +150,14 @@ function OnboardingPage() {
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">We default to Master's degrees for now. Pick the field you want to study.</p>
               <div>
-                <Label>Desired major / field of study</Label>
-                <Select value={form.target_major} onValueChange={(v) => update({ target_major: v })}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pick a field" /></SelectTrigger>
-                  <SelectContent>{MAJORS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Desired major or field of study</Label>
+                <Input
+                  value={form.target_major}
+                  maxLength={100}
+                  onChange={(e) => update({ target_major: e.target.value })}
+                  placeholder="e.g. Business Analytics, Computer Science, Public Policy"
+                  className="mt-1.5"
+                />
               </div>
               <div>
                 <Label>Where are you from?</Label>
@@ -168,11 +171,11 @@ function OnboardingPage() {
 
           {step === 1 && (
             <div className="space-y-3">
-              <Label>Desired countries (multi-select)</Label>
+              <Label>Target country</Label>
               <div className="grid grid-cols-2 gap-2">
                 {COUNTRIES.map((c) => (
-                  <label key={c} className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${form.target_countries.includes(c) ? "border-primary bg-secondary" : "border-border hover:bg-secondary/60"}`}>
-                    <Checkbox checked={form.target_countries.includes(c)} onCheckedChange={() => toggleCountry(c)} />
+                  <label key={c} className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${form.target_country === c ? "border-primary bg-secondary" : "border-border hover:bg-secondary/60"}`}>
+                    <RadioGroupItemLike checked={form.target_country === c} onSelect={() => update({ target_country: c })} />
                     <span className="text-sm">{c}</span>
                   </label>
                 ))}
@@ -184,8 +187,8 @@ function OnboardingPage() {
             <div className="space-y-6">
               <div>
                 <Label>Target university tier</Label>
-                <RadioGroup value={form.target_tier} onValueChange={(v) => update({ target_tier: v as typeof form.target_tier })} className="mt-2">
-                  {[["top_10","Top 10"],["top_50","Top 50"],["top_100","Top 100"],["no_preference","No preference"]].map(([v,l]) => (
+                <RadioGroup value={form.target_tier} onValueChange={(v) => update({ target_tier: v })} className="mt-2">
+                  {TIER_OPTIONS.map(([v,l]) => (
                     <label key={v} className="flex items-center gap-3 rounded-md border border-border px-3 py-2 cursor-pointer">
                       <RadioGroupItem value={v} id={v} /><span className="text-sm">{l}</span>
                     </label>
@@ -206,22 +209,6 @@ function OnboardingPage() {
           )}
 
           {step === 3 && (
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <Label>Budget ceiling (annual, all-in)</Label>
-                <Input type="number" value={form.budget_ceiling} onChange={(e) => update({ budget_ceiling: e.target.value })} placeholder="e.g. 60000" className="mt-1.5" />
-              </div>
-              <div>
-                <Label>Currency</Label>
-                <Select value={form.budget_currency} onValueChange={(v) => update({ budget_currency: v })}>
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent>{["USD","EUR","GBP","CAD","AUD","CHF","SGD"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
             <div>
               <Label>Current GPA (on a 4.0 scale)</Label>
               <Input type="number" step="0.01" value={form.gpa} onChange={(e) => update({ gpa: e.target.value })} placeholder="3.6" className="mt-1.5 max-w-xs" />
@@ -229,7 +216,7 @@ function OnboardingPage() {
             </div>
           )}
 
-          {step === 5 && (
+          {step === 4 && (
             <div className="grid grid-cols-2 gap-3">
               {(["gre","gmat","ielts","toefl"] as const).map((t) => (
                 <div key={t}>
@@ -241,20 +228,20 @@ function OnboardingPage() {
             </div>
           )}
 
-          {step === 6 && (
+          {step === 5 && (
             <div>
               <Label>Years of work experience</Label>
               <Input type="number" step="0.5" value={form.work_exp_years} onChange={(e) => update({ work_exp_years: e.target.value })} placeholder="2" className="mt-1.5 max-w-xs" />
             </div>
           )}
 
-          {step === 7 && (
+          {step === 6 && (
             <div>
               <Label>Target intake</Label>
               <Select value={form.target_intake} onValueChange={(v) => update({ target_intake: v })}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["Fall 2026","Spring 2027","Fall 2027","Spring 2028","Fall 2028"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {INTAKE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -269,7 +256,11 @@ function OnboardingPage() {
               {step < STEPS.length - 1 ? (
                 <Button
                   onClick={() => setStep((s) => s + 1)}
-                  disabled={step === 0 && (!form.target_major || !form.country_of_origin)}
+                  disabled={
+                    (step === 0 && (!form.target_major.trim() || !form.country_of_origin)) ||
+                    (step === 1 && !form.target_country) ||
+                    (step === 2 && !form.target_tier)
+                  }
                 >
                   Continue
                 </Button>
