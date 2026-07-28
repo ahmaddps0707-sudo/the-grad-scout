@@ -21,9 +21,16 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 });
 
 const COUNTRIES = ["United States","United Kingdom","Canada","Germany","Netherlands","Australia","France","Switzerland","Singapore","Sweden","Ireland","Spain","Italy","Hong Kong","Japan"];
-const MAJORS = ["Computer Science","Data Science","Business Analytics","MBA","Mechanical Engineering","Electrical Engineering","Public Policy","Economics","Finance","Marketing","Civil Engineering","Biotechnology","Public Health","Architecture","Design"];
+export const TIER_OPTIONS: [string, string][] = [
+  ["top_50", "Top 50"],
+  ["top_100", "Top 100"],
+  ["top_200", "Top 200"],
+  ["rank_201_500", "201-500"],
+  ["rank_500_plus", "500+"],
+];
+export const INTAKE_OPTIONS = ["Fall 2026", "Spring 2027", "Summer 2027", "Fall 2027", "Spring 2028"];
 
-const STEPS = ["Field of study","Destination","Tier & funding","Budget","Academics","Tests","Experience","Intake"];
+const STEPS = ["Field of study","Destination","Tier & funding","Academics","Tests","Experience","Intake"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -36,11 +43,9 @@ function OnboardingPage() {
   const [form, setForm] = useState({
     target_major: "",
     country_of_origin: "",
-    target_countries: [] as string[],
-    target_tier: "no_preference" as Database["public"]["Enums"]["tier_pref"],
+    target_country: "",
+    target_tier: "",
     funding_preference: "partial_ok" as Database["public"]["Enums"]["funding_pref"],
-    budget_ceiling: "" as string,
-    budget_currency: "USD",
     gpa: "" as string,
     test_scores: { gre: "", gmat: "", ielts: "", toefl: "" } as Record<string,string>,
     work_exp_years: "" as string,
@@ -61,15 +66,13 @@ function OnboardingPage() {
           ...f,
           target_major: data.target_major ?? "",
           country_of_origin: data.country_of_origin ?? "",
-          target_countries: data.target_countries ?? [],
-          target_tier: data.target_tier ?? f.target_tier,
+          target_country: data.target_country ?? "",
+          target_tier: TIER_OPTIONS.some(([v]) => v === data.target_tier) ? (data.target_tier as string) : "",
           funding_preference: data.funding_preference ?? f.funding_preference,
-          budget_ceiling: data.budget_ceiling != null ? String(data.budget_ceiling) : "",
-          budget_currency: data.budget_currency ?? "USD",
           gpa: data.gpa != null ? String(data.gpa) : "",
           test_scores: { ...f.test_scores, ...(data.test_scores as Record<string,string> ?? {}) },
           work_exp_years: data.work_exp_years != null ? String(data.work_exp_years) : "",
-          target_intake: data.target_intake ?? "Fall 2026",
+          target_intake: INTAKE_OPTIONS.includes(data.target_intake ?? "") ? (data.target_intake as string) : "Fall 2026",
         }));
       }
       setLoading(false);
@@ -83,11 +86,9 @@ function OnboardingPage() {
     const upd: ProfileUpd = {
       target_major: next.target_major || null,
       country_of_origin: next.country_of_origin || null,
-      target_countries: next.target_countries,
-      target_tier: next.target_tier,
+      target_country: next.target_country || null,
+      target_tier: (next.target_tier || null) as ProfileUpd["target_tier"],
       funding_preference: next.funding_preference,
-      budget_ceiling: next.budget_ceiling ? Number(next.budget_ceiling) : null,
-      budget_currency: next.budget_currency,
       gpa: next.gpa ? Number(next.gpa) : null,
       test_scores: next.test_scores,
       work_exp_years: next.work_exp_years ? Number(next.work_exp_years) : null,
@@ -104,10 +105,6 @@ function OnboardingPage() {
       saveTimer.current = setTimeout(() => autoSave(next), 600);
       return next;
     });
-  };
-
-  const toggleCountry = (c: string) => {
-    update({ target_countries: form.target_countries.includes(c) ? form.target_countries.filter((x) => x !== c) : [...form.target_countries, c] });
   };
 
   const finish = async () => {
