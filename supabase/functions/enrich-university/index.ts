@@ -780,6 +780,13 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       await admin.from("program_research_sources").insert({ program_id, url });
     }
 
+    if (meteredUserId && meteredColumn) {
+      await admin
+        .from("profiles")
+        .update({ [meteredColumn]: meteredNextValue })
+        .eq("id", meteredUserId);
+    }
+
     return new Response(
       JSON.stringify({ ok: true, sources_checked: docs.length, sources_saved: fallbackSources.length }),
       {
