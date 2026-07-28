@@ -71,7 +71,7 @@ function derivePathPrefix(url: string): string | null {
     const last = segs[segs.length - 1];
     const isLeaf =
       /\.[a-z0-9]{2,5}$/i.test(last) ||
-      /^(admissions?|apply|application|tuition|fees?|funding|scholarships?|career|careers|outcomes?|class-profile|profile|deadlines?|requirements?|overview|index)$/i.test(
+      /^(admissions?|apply|tuition|fees?|funding|scholarships?|career|careers|outcomes?|class-profile|profile|deadlines?|requirements?|overview|index)$/i.test(
         last,
       );
     const kept = isLeaf ? segs.slice(0, -1) : segs;
