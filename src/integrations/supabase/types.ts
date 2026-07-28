@@ -389,6 +389,7 @@ export type Database = {
           sandbox_subscription_tier: string
           sandbox_trial_end_date: string | null
           sandbox_trial_used: boolean
+          sandbox_update_data_used: number
           sandbox_usage_reset_at: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -405,6 +406,7 @@ export type Database = {
           test_scores: Json | null
           trial_end_date: string | null
           trial_used: boolean
+          update_data_used: number
           updated_at: string
           usage_reset_at: string
           work_exp_years: number | null
@@ -437,6 +439,7 @@ export type Database = {
           sandbox_subscription_tier?: string
           sandbox_trial_end_date?: string | null
           sandbox_trial_used?: boolean
+          sandbox_update_data_used?: number
           sandbox_usage_reset_at?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -453,6 +456,7 @@ export type Database = {
           test_scores?: Json | null
           trial_end_date?: string | null
           trial_used?: boolean
+          update_data_used?: number
           updated_at?: string
           usage_reset_at?: string
           work_exp_years?: number | null
@@ -485,6 +489,7 @@ export type Database = {
           sandbox_subscription_tier?: string
           sandbox_trial_end_date?: string | null
           sandbox_trial_used?: boolean
+          sandbox_update_data_used?: number
           sandbox_usage_reset_at?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -501,6 +506,7 @@ export type Database = {
           test_scores?: Json | null
           trial_end_date?: string | null
           trial_used?: boolean
+          update_data_used?: number
           updated_at?: string
           usage_reset_at?: string
           work_exp_years?: number | null
