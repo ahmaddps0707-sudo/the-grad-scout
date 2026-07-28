@@ -172,14 +172,14 @@ function OnboardingPage() {
           {step === 1 && (
             <div className="space-y-3">
               <Label>Target country</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <RadioGroup value={form.target_country} onValueChange={(v) => update({ target_country: v })} className="grid grid-cols-2 gap-2">
                 {COUNTRIES.map((c) => (
                   <label key={c} className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${form.target_country === c ? "border-primary bg-secondary" : "border-border hover:bg-secondary/60"}`}>
-                    <RadioGroupItemLike checked={form.target_country === c} onSelect={() => update({ target_country: c })} />
+                    <RadioGroupItem value={c} id={`c-${c}`} />
                     <span className="text-sm">{c}</span>
                   </label>
                 ))}
-              </div>
+              </RadioGroup>
             </div>
           )}
 
