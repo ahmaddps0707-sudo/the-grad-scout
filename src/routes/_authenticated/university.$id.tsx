@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -44,6 +44,7 @@ function DetailPage() {
   const [userCountry, setUserCountry] = useState<string | null>(null);
   const [discussions, setDiscussions] = useState<Array<{ id: string; title: string; is_anonymous: boolean; author_name: string | null; created_at: string; like_count: number; comment_count: number }>>([]);
   const [openNewPost, setOpenNewPost] = useState(false);
+  const enrichRequestedRef = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     const { data: u } = await supabase.auth.getUser();
@@ -57,6 +58,10 @@ function DetailPage() {
     setEntry(data as unknown as typeof entry);
     const pid = data.program_id;
     if (pid) {
+      // Reset the in-memory guard when navigating to a different program.
+      if (enrichRequestedRef.current && enrichRequestedRef.current !== pid) {
+        enrichRequestedRef.current = null;
+      }
       const [aRes, cRes, fRes, ciRes, coRes, sRes] = await Promise.all([
         supabase.from("program_admissions").select("*").eq("program_id", pid).maybeSingle(),
         supabase.from("program_class_profile").select("*").eq("program_id", pid).maybeSingle(),
@@ -71,7 +76,8 @@ function DetailPage() {
       const program = data.program as Prog | null;
       const stale = program?.last_verified_at && (Date.now() - new Date(program.last_verified_at).getTime() > 90 * 24 * 60 * 60 * 1000);
       const missing = !aRes.data || !cRes.data || !fRes.data || !ciRes.data || !coRes.data;
-      if ((missing || stale) && !enriching) {
+      if ((missing || stale) && !enriching && enrichRequestedRef.current !== pid) {
+        enrichRequestedRef.current = pid;
         triggerEnrich(pid, (data.university as Uni).name, (data.program as Prog).name, (data.university as Uni).website_url ?? "");
       }
     }
@@ -103,7 +109,7 @@ function DetailPage() {
         like_count: lm.get(r.id) ?? 0, comment_count: cm.get(r.id) ?? 0,
       })));
     }
-  }, [id, enriching]);
+  }, [id]);
 
   const triggerEnrich = async (pid: string, uniName: string, progName: string, url: string) => {
     setEnriching(true);
