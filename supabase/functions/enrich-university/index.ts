@@ -436,15 +436,15 @@ Deno.serve(async (req) => {
 
     console.log(`enrich-university: START req=${requestId} program_id=${program_id}`);
 
-    // Guard against duplicate concurrent enrichment (e.g. background enrichment
-    // for a freshly-discovered program racing a manual open of the detail page).
-    const { data: existing } = await admin
+    // Cheap pre-check for recently_enriched (does not need atomicity — the
+    // atomic conditional UPDATE below handles concurrent lock acquisition).
+    const { data: preCheck } = await admin
       .from("programs")
-      .select("last_verified_at, enrichment_started_at, program_url")
+      .select("last_verified_at")
       .eq("id", program_id)
       .maybeSingle();
-    if (existing?.last_verified_at) {
-      const ageMs = Date.now() - new Date(existing.last_verified_at).getTime();
+    if (preCheck?.last_verified_at) {
+      const ageMs = Date.now() - new Date(preCheck.last_verified_at).getTime();
       if (ageMs >= 0 && ageMs < 5 * 60 * 1000) {
         console.log(`enrich-university: SKIP recently_enriched req=${requestId} program_id=${program_id}`);
         return new Response(JSON.stringify({ ok: true, skipped: "recently_enriched" }), {
@@ -452,19 +452,31 @@ Deno.serve(async (req) => {
         });
       }
     }
-    if (existing?.enrichment_started_at) {
-      const lockAgeMs = Date.now() - new Date(existing.enrichment_started_at).getTime();
-      if (lockAgeMs >= 0 && lockAgeMs < 3 * 60 * 1000) {
-        console.log(
-          `enrich-university: SKIP enrichment_in_progress req=${requestId} program_id=${program_id} lock_age_ms=${lockAgeMs}`,
-        );
-        return new Response(JSON.stringify({ ok: true, skipped: "enrichment_in_progress" }), {
-          headers: { ...CORS_HEADERS, "content-type": "application/json" },
-        });
-      }
+
+    // Atomic lock acquisition: single conditional UPDATE that only matches
+    // rows without a valid live lock. Postgres serializes concurrent UPDATEs
+    // to the same row, so only the winner gets a non-empty select() back.
+    const lockCutoff = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const nowIso = new Date().toISOString();
+    const { data: lockedRows, error: lockErr } = await admin
+      .from("programs")
+      .update({ enrichment_started_at: nowIso })
+      .eq("id", program_id)
+      .or(`enrichment_started_at.is.null,enrichment_started_at.lt.${lockCutoff}`)
+      .select("id, last_verified_at, program_url");
+    if (lockErr) {
+      console.error(`enrich-university: lock acquisition error req=${requestId}`, lockErr);
+      throw lockErr;
     }
-    // Acquire lock.
-    await admin.from("programs").update({ enrichment_started_at: new Date().toISOString() }).eq("id", program_id);
+    if (!lockedRows || lockedRows.length === 0) {
+      console.log(
+        `enrich-university: SKIP enrichment_in_progress req=${requestId} program_id=${program_id} — lock held by another request`,
+      );
+      return new Response(JSON.stringify({ ok: true, skipped: "enrichment_in_progress" }), {
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+    const existing = lockedRows[0];
     lockedProgramId = program_id;
 
     // Prefer the specific program URL resolved during discovery; fall back to
