@@ -24,7 +24,10 @@ function hostname(url?: string | null): string | null {
 
 function resultScore(result: FirecrawlResult, officialHost: string | null, programName: string): number {
   const haystack = `${result.url} ${result.title ?? ""} ${result.description ?? ""}`.toLowerCase();
-  const programTokens = programName.toLowerCase().split(/\W+/).filter((t) => t.length > 3);
+  const programTokens = programName
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((t) => t.length > 3);
   let score = 0;
   if (officialHost && result.url.toLowerCase().includes(officialHost.toLowerCase())) score += 40;
   try {
@@ -32,7 +35,9 @@ function resultScore(result: FirecrawlResult, officialHost: string | null, progr
     const pathMatchCount = programTokens.filter((t) => urlPath.includes(t)).length;
     score += pathMatchCount * 15;
     if (/\/undergraduate\/|\/undergrad\//i.test(urlPath)) score -= 60;
-  } catch { /* skip path scoring on malformed URL */ }
+  } catch {
+    /* skip path scoring on malformed URL */
+  }
   for (const token of programTokens) if (haystack.includes(token)) score += 4;
   if (/admission|apply|deadline|requirement/.test(haystack)) score += 8;
   if (/tuition|fee|funding|scholarship|assistantship|cost/.test(haystack)) score += 8;
@@ -46,7 +51,10 @@ function isWrongProgramPage(url: string, programName: string): boolean {
   const lower = url.toLowerCase();
   if (/\/undergraduate\/|\/undergrad\/|\/bachelor/i.test(lower)) return true;
   const otherProgramMarkers = /\/mba\/|\/phd\/|\/doctoral\/|\/executive-mba\//i;
-  const programTokens = programName.toLowerCase().split(/\W+/).filter((t) => t.length > 3);
+  const programTokens = programName
+    .toLowerCase()
+    .split(/\W+/)
+    .filter((t) => t.length > 3);
   const urlMatchesProgram = programTokens.some((t) => lower.includes(t));
   if (otherProgramMarkers.test(lower) && !urlMatchesProgram) return true;
   return false;
@@ -61,8 +69,11 @@ function derivePathPrefix(url: string): string | null {
     // Drop last segment if it looks like a leaf page (has an extension or a
     // known leaf keyword) so the prefix scopes to the program directory.
     const last = segs[segs.length - 1];
-    const isLeaf = /\.[a-z0-9]{2,5}$/i.test(last) ||
-      /^(admissions?|apply|application|tuition|fees?|funding|scholarships?|curriculum|courses?|career|careers|outcomes?|class-profile|profile|deadlines?|requirements?|overview|index)$/i.test(last);
+    const isLeaf =
+      /\.[a-z0-9]{2,5}$/i.test(last) ||
+      /^(admissions?|apply|application|tuition|fees?|funding|scholarships?|curriculum|courses?|career|careers|outcomes?|class-profile|profile|deadlines?|requirements?|overview|index)$/i.test(
+        last,
+      );
     const kept = isLeaf ? segs.slice(0, -1) : segs;
     if (kept.length === 0) return null;
     return "/" + kept.join("/") + "/";
@@ -72,21 +83,17 @@ function derivePathPrefix(url: string): string | null {
 }
 
 function sourceContext(docs: FirecrawlDocument[], perDocCap = 8000, totalCap = 90000): string {
-  const out = docs.map((doc, index) => {
-    const body = doc.markdown.replace(/\s+/g, " ").slice(0, perDocCap);
-    const cat = (doc as any)._category ? ` [${(doc as any)._category}]` : "";
-    return `SOURCE ${index + 1}${cat}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
-  }).join("\n\n---\n\n");
+  const out = docs
+    .map((doc, index) => {
+      const body = doc.markdown.replace(/\s+/g, " ").slice(0, perDocCap);
+      const cat = (doc as any)._category ? ` [${(doc as any)._category}]` : "";
+      return `SOURCE ${index + 1}${cat}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
+    })
+    .join("\n\n---\n\n");
   return out.slice(0, totalCap);
 }
 
-const TARGET_CATEGORIES: SubPageCategory[] = [
-  "admissions",
-  "tuition",
-  "funding",
-  "class_profile",
-  "career",
-];
+const TARGET_CATEGORIES: SubPageCategory[] = ["admissions", "tuition", "funding", "class_profile", "career"];
 
 // Hard ceiling on Firecrawl operations (scrapes + searches) per enrichment run.
 const MAX_TOTAL_FIRECRAWL_OPS = 12;
@@ -98,7 +105,11 @@ async function extractDeadlines(opts: {
   targetIntake: string | null;
   deadlineContext: string;
   fallbackContext: string;
-}): Promise<{ deadline_type: "fixed" | "rolling" | "tbd"; deadlines: Array<{ round: string; deadline_date: string | null; decision_date: string | null; notes: string | null }>; raw_deadline_text: string }> {
+}): Promise<{
+  deadline_type: "fixed" | "rolling" | "tbd";
+  deadlines: Array<{ round: string; deadline_date: string | null; decision_date: string | null; notes: string | null }>;
+  raw_deadline_text: string;
+}> {
   const system = `You are an admissions deadline extraction specialist. Your only job is to find and extract every application deadline mentioned in the content provided.
 
 RULES:
@@ -117,7 +128,10 @@ RULES:
   const combined = [
     opts.deadlineContext ? `=== DEADLINE PAGES (highest priority for dates) ===\n${opts.deadlineContext}` : "",
     opts.fallbackContext ? `=== OTHER SCRAPED CONTENT ===\n${opts.fallbackContext}` : "",
-  ].filter(Boolean).join("\n\n").slice(0, 80000);
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .slice(0, 80000);
 
   const user = `Extract all application deadlines for this program from the content below. The current date is ${today}. The program intake is ${opts.targetIntake ?? "unspecified"}.
 
@@ -191,7 +205,9 @@ async function gatherLiveSources(
     if (opsBudget.count + n > MAX_TOTAL_FIRECRAWL_OPS) {
       if (!opsBudget.hit) {
         opsBudget.hit = true;
-        console.warn(`enrich-university: MAX_TOTAL_FIRECRAWL_OPS (${MAX_TOTAL_FIRECRAWL_OPS}) reached, halting further Firecrawl calls`);
+        console.warn(
+          `enrich-university: MAX_TOTAL_FIRECRAWL_OPS (${MAX_TOTAL_FIRECRAWL_OPS}) reached, halting further Firecrawl calls`,
+        );
       }
       return false;
     }
@@ -204,7 +220,10 @@ async function gatherLiveSources(
   };
   const scrapeMany = async (urls: string[], limit: number, o?: Parameters<typeof scrapeUniqueUrls>[2]) => {
     const budget = Math.max(0, Math.min(limit, urls.length, MAX_TOTAL_FIRECRAWL_OPS - opsBudget.count));
-    if (budget <= 0) { canSpend(1); return []; }
+    if (budget <= 0) {
+      canSpend(1);
+      return [];
+    }
     opsBudget.count += budget;
     return scrapeUniqueUrls(urls, budget, o);
   };
@@ -228,8 +247,10 @@ async function gatherLiveSources(
     const seedQuery = officialHost
       ? `site:${officialHost} ${programName} master's program`
       : `${universityName} ${programName} master's program official site`;
-    const seeds = await search(seedQuery, { limit: 3 });
-    const ranked = seeds.sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName));
+    const seeds = await search(seedQuery, { limit: 1 });
+    const ranked = seeds.sort(
+      (a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName),
+    );
     for (const s of ranked) {
       mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
       if (mainDoc) break;
@@ -410,7 +431,8 @@ Deno.serve(async (req) => {
   try {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
     const { program_id, university_name, program_name } = await req.json();
-    if (!program_id || !university_name || !program_name) throw new Error("program_id, university_name, program_name required");
+    if (!program_id || !university_name || !program_name)
+      throw new Error("program_id, university_name, program_name required");
 
     console.log(`enrich-university: START req=${requestId} program_id=${program_id}`);
 
@@ -433,7 +455,9 @@ Deno.serve(async (req) => {
     if (existing?.enrichment_started_at) {
       const lockAgeMs = Date.now() - new Date(existing.enrichment_started_at).getTime();
       if (lockAgeMs >= 0 && lockAgeMs < 3 * 60 * 1000) {
-        console.log(`enrich-university: SKIP enrichment_in_progress req=${requestId} program_id=${program_id} lock_age_ms=${lockAgeMs}`);
+        console.log(
+          `enrich-university: SKIP enrichment_in_progress req=${requestId} program_id=${program_id} lock_age_ms=${lockAgeMs}`,
+        );
         return new Response(JSON.stringify({ ok: true, skipped: "enrichment_in_progress" }), {
           headers: { ...CORS_HEADERS, "content-type": "application/json" },
         });
@@ -446,19 +470,15 @@ Deno.serve(async (req) => {
     // Prefer the specific program URL resolved during discovery; fall back to
     // the university website URL from the request payload or the row.
     const storedProgramUrl = (existing as any)?.program_url ?? null;
-    const gathered = await gatherLiveSources(
-      university_name,
-      program_name,
-      null,
-      storedProgramUrl,
-    );
+    const gathered = await gatherLiveSources(university_name, program_name, null, storedProgramUrl);
     const docs = gathered.docs;
     if (docs.length === 0) {
       throw new Error("No live university sources could be found or scraped. Please retry later.");
     }
     const validSources = new Set(docs.map((doc) => normalizeUrl(doc.url)));
 
-    const system = "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.\n\nFor test requirements, look for these label variations and map them to the correct field:\nGRE labels: GRE, GRE Score, GRE Requirement, Graduate Record Examination, GRE General Test, GRE Waiver, GRE Optional, GRE Required\nGMAT labels: GMAT, GMAT Score, GMAT Requirement, Graduate Management Admission Test, GMAT Waiver, GMAT Optional, GMAT Required, GMAT Focus\nAlso look for combined statements like:\n- 'GRE/GMAT optional' → set both to 'optional'\n- 'GRE or GMAT required' → set both to 'required'\n- 'GMAT required, GRE not accepted' → gmat: required, gre: not_required\n- 'Test scores not required' → set both to 'not_required'\n- 'GRE waived for applicants with X' → gre: 'waived', put condition in gre_gmat_notes\n- 'No GRE/GMAT required' → both: 'not_required'\n- 'GRE optional, GMAT not accepted' → gre: optional, gmat: not_required\nFor gre_gmat_notes: capture any important conditions such as waiver criteria, minimum score requirements, or exceptions (e.g. 'GRE waived for applicants with 2+ years work experience', 'GMAT required for applicants without a quantitative undergraduate background').\nIf test requirement information is completely absent from all scraped content, return null for both fields — do not guess.";
+    const system =
+      "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.\n\nFor test requirements, look for these label variations and map them to the correct field:\nGRE labels: GRE, GRE Score, GRE Requirement, Graduate Record Examination, GRE General Test, GRE Waiver, GRE Optional, GRE Required\nGMAT labels: GMAT, GMAT Score, GMAT Requirement, Graduate Management Admission Test, GMAT Waiver, GMAT Optional, GMAT Required, GMAT Focus\nAlso look for combined statements like:\n- 'GRE/GMAT optional' → set both to 'optional'\n- 'GRE or GMAT required' → set both to 'required'\n- 'GMAT required, GRE not accepted' → gmat: required, gre: not_required\n- 'Test scores not required' → set both to 'not_required'\n- 'GRE waived for applicants with X' → gre: 'waived', put condition in gre_gmat_notes\n- 'No GRE/GMAT required' → both: 'not_required'\n- 'GRE optional, GMAT not accepted' → gre: optional, gmat: not_required\nFor gre_gmat_notes: capture any important conditions such as waiver criteria, minimum score requirements, or exceptions (e.g. 'GRE waived for applicants with 2+ years work experience', 'GMAT required for applicants without a quantitative undergraduate background').\nIf test requirement information is completely absent from all scraped content, return null for both fields — do not guess.";
 
     const user = `Research this master's program using ONLY the live scraped source content below:
 University: ${university_name}
@@ -581,17 +601,23 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
     }
 
     const verifiedSources = Array.isArray(data.sources)
-      ? data.sources.map((url: unknown) => validUrlOrNull(url, validSources)).filter((url: string | null): url is string => !!url)
+      ? data.sources
+          .map((url: unknown) => validUrlOrNull(url, validSources))
+          .filter((url: string | null): url is string => !!url)
       : [];
-    const fallbackSources = verifiedSources.length > 0 ? verifiedSources : docs.slice(0, 5).map((doc) => normalizeUrl(doc.url));
+    const fallbackSources =
+      verifiedSources.length > 0 ? verifiedSources : docs.slice(0, 5).map((doc) => normalizeUrl(doc.url));
 
-    await admin.from("programs").update({
-      program_description: ov.program_description ?? null,
-      us_news_ranking: ov.us_news_ranking ?? null,
-      school_ranking: ov.qs_ranking ?? null,
-      apply_url: validUrlOrNull(ad.apply_url, validSources),
-      last_verified_at: new Date().toISOString(),
-    }).eq("id", program_id);
+    await admin
+      .from("programs")
+      .update({
+        program_description: ov.program_description ?? null,
+        us_news_ranking: ov.us_news_ranking ?? null,
+        school_ranking: ov.qs_ranking ?? null,
+        apply_url: validUrlOrNull(ad.apply_url, validSources),
+        last_verified_at: new Date().toISOString(),
+      })
+      .eq("id", program_id);
 
     const finalDeadlines = deadlineResult.deadlines;
     const finalDeadlineType = deadlineResult.deadline_type;
@@ -686,9 +712,12 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       await admin.from("program_research_sources").insert({ program_id, url });
     }
 
-    return new Response(JSON.stringify({ ok: true, sources_checked: docs.length, sources_saved: fallbackSources.length }), {
-      headers: { ...CORS_HEADERS, "content-type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, sources_checked: docs.length, sources_saved: fallbackSources.length }),
+      {
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      },
+    );
   } catch (e) {
     console.error("enrich-university error", e);
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
