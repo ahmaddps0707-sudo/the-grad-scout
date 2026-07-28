@@ -370,7 +370,7 @@ function SettingsPage() {
             <div>
               <div className="flex items-center justify-between text-sm mb-1.5">
                 <span className="text-muted-foreground">
-                  {paid ? "Discover runs this billing period" : "Discover runs (lifetime on Free)"}
+                  {paid ? "Discover runs this billing period" : "Discover runs"}
                 </span>
                 <span className="tabular-nums">
                   {Math.min(discoverUsed, paid ? PAID_LIMITS.discover_runs : FREE_LIMITS.discover_runs)} /{" "}
