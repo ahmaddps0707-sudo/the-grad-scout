@@ -354,7 +354,7 @@ async function gatherLiveSources(
   );
 
   const gapBatches = await Promise.all(
-    gapQueries.map((q) => search(q, { limit: 1, scrapeOptions: { formats: ["markdown"] } })),
+    gapQueries.map((q) => search(q, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } })),
   );
   const gapUrls: string[] = [];
   for (const results of gapBatches) {
