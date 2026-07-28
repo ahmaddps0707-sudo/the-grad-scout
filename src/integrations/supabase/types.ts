@@ -397,10 +397,11 @@ export type Database = {
           subscription_status: string | null
           subscription_tier: string
           target_countries: string[] | null
+          target_country: string | null
           target_degree_level: string | null
           target_intake: string | null
           target_major: string | null
-          target_tier: Database["public"]["Enums"]["tier_pref"] | null
+          target_tier: string | null
           test_scores: Json | null
           trial_end_date: string | null
           trial_used: boolean
@@ -444,10 +445,11 @@ export type Database = {
           subscription_status?: string | null
           subscription_tier?: string
           target_countries?: string[] | null
+          target_country?: string | null
           target_degree_level?: string | null
           target_intake?: string | null
           target_major?: string | null
-          target_tier?: Database["public"]["Enums"]["tier_pref"] | null
+          target_tier?: string | null
           test_scores?: Json | null
           trial_end_date?: string | null
           trial_used?: boolean
@@ -491,10 +493,11 @@ export type Database = {
           subscription_status?: string | null
           subscription_tier?: string
           target_countries?: string[] | null
+          target_country?: string | null
           target_degree_level?: string | null
           target_intake?: string | null
           target_major?: string | null
-          target_tier?: Database["public"]["Enums"]["tier_pref"] | null
+          target_tier?: string | null
           test_scores?: Json | null
           trial_end_date?: string | null
           trial_used?: boolean

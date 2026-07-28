@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
@@ -21,9 +20,16 @@ export const Route = createFileRoute("/_authenticated/onboarding")({
 });
 
 const COUNTRIES = ["United States","United Kingdom","Canada","Germany","Netherlands","Australia","France","Switzerland","Singapore","Sweden","Ireland","Spain","Italy","Hong Kong","Japan"];
-const MAJORS = ["Computer Science","Data Science","Business Analytics","MBA","Mechanical Engineering","Electrical Engineering","Public Policy","Economics","Finance","Marketing","Civil Engineering","Biotechnology","Public Health","Architecture","Design"];
+export const TIER_OPTIONS: [string, string][] = [
+  ["top_50", "Top 50"],
+  ["top_100", "Top 100"],
+  ["top_200", "Top 200"],
+  ["rank_201_500", "201-500"],
+  ["rank_500_plus", "500+"],
+];
+export const INTAKE_OPTIONS = ["Fall 2026", "Spring 2027", "Summer 2027", "Fall 2027", "Spring 2028"];
 
-const STEPS = ["Field of study","Destination","Tier & funding","Budget","Academics","Tests","Experience","Intake"];
+const STEPS = ["Field of study","Destination","Tier & funding","Academics","Tests","Experience","Intake"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
@@ -36,11 +42,9 @@ function OnboardingPage() {
   const [form, setForm] = useState({
     target_major: "",
     country_of_origin: "",
-    target_countries: [] as string[],
-    target_tier: "no_preference" as Database["public"]["Enums"]["tier_pref"],
+    target_country: "",
+    target_tier: "",
     funding_preference: "partial_ok" as Database["public"]["Enums"]["funding_pref"],
-    budget_ceiling: "" as string,
-    budget_currency: "USD",
     gpa: "" as string,
     test_scores: { gre: "", gmat: "", ielts: "", toefl: "" } as Record<string,string>,
     work_exp_years: "" as string,
@@ -61,15 +65,13 @@ function OnboardingPage() {
           ...f,
           target_major: data.target_major ?? "",
           country_of_origin: data.country_of_origin ?? "",
-          target_countries: data.target_countries ?? [],
-          target_tier: data.target_tier ?? f.target_tier,
+          target_country: data.target_country ?? "",
+          target_tier: TIER_OPTIONS.some(([v]) => v === data.target_tier) ? (data.target_tier as string) : "",
           funding_preference: data.funding_preference ?? f.funding_preference,
-          budget_ceiling: data.budget_ceiling != null ? String(data.budget_ceiling) : "",
-          budget_currency: data.budget_currency ?? "USD",
           gpa: data.gpa != null ? String(data.gpa) : "",
           test_scores: { ...f.test_scores, ...(data.test_scores as Record<string,string> ?? {}) },
           work_exp_years: data.work_exp_years != null ? String(data.work_exp_years) : "",
-          target_intake: data.target_intake ?? "Fall 2026",
+          target_intake: INTAKE_OPTIONS.includes(data.target_intake ?? "") ? (data.target_intake as string) : "Fall 2026",
         }));
       }
       setLoading(false);
@@ -83,11 +85,9 @@ function OnboardingPage() {
     const upd: ProfileUpd = {
       target_major: next.target_major || null,
       country_of_origin: next.country_of_origin || null,
-      target_countries: next.target_countries,
-      target_tier: next.target_tier,
+      target_country: next.target_country || null,
+      target_tier: (next.target_tier || null) as ProfileUpd["target_tier"],
       funding_preference: next.funding_preference,
-      budget_ceiling: next.budget_ceiling ? Number(next.budget_ceiling) : null,
-      budget_currency: next.budget_currency,
       gpa: next.gpa ? Number(next.gpa) : null,
       test_scores: next.test_scores,
       work_exp_years: next.work_exp_years ? Number(next.work_exp_years) : null,
@@ -104,10 +104,6 @@ function OnboardingPage() {
       saveTimer.current = setTimeout(() => autoSave(next), 600);
       return next;
     });
-  };
-
-  const toggleCountry = (c: string) => {
-    update({ target_countries: form.target_countries.includes(c) ? form.target_countries.filter((x) => x !== c) : [...form.target_countries, c] });
   };
 
   const finish = async () => {
@@ -153,11 +149,14 @@ function OnboardingPage() {
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">We default to Master's degrees for now. Pick the field you want to study.</p>
               <div>
-                <Label>Desired major / field of study</Label>
-                <Select value={form.target_major} onValueChange={(v) => update({ target_major: v })}>
-                  <SelectTrigger className="mt-1.5"><SelectValue placeholder="Pick a field" /></SelectTrigger>
-                  <SelectContent>{MAJORS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Desired major or field of study</Label>
+                <Input
+                  value={form.target_major}
+                  maxLength={100}
+                  onChange={(e) => update({ target_major: e.target.value })}
+                  placeholder="e.g. Business Analytics, Computer Science, Public Policy"
+                  className="mt-1.5"
+                />
               </div>
               <div>
                 <Label>Where are you from?</Label>
@@ -171,15 +170,15 @@ function OnboardingPage() {
 
           {step === 1 && (
             <div className="space-y-3">
-              <Label>Desired countries (multi-select)</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <Label>Target country</Label>
+              <RadioGroup value={form.target_country} onValueChange={(v) => update({ target_country: v })} className="grid grid-cols-2 gap-2">
                 {COUNTRIES.map((c) => (
-                  <label key={c} className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${form.target_countries.includes(c) ? "border-primary bg-secondary" : "border-border hover:bg-secondary/60"}`}>
-                    <Checkbox checked={form.target_countries.includes(c)} onCheckedChange={() => toggleCountry(c)} />
+                  <label key={c} className={`flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer transition-colors ${form.target_country === c ? "border-primary bg-secondary" : "border-border hover:bg-secondary/60"}`}>
+                    <RadioGroupItem value={c} id={`c-${c}`} />
                     <span className="text-sm">{c}</span>
                   </label>
                 ))}
-              </div>
+              </RadioGroup>
             </div>
           )}
 
@@ -187,8 +186,8 @@ function OnboardingPage() {
             <div className="space-y-6">
               <div>
                 <Label>Target university tier</Label>
-                <RadioGroup value={form.target_tier} onValueChange={(v) => update({ target_tier: v as typeof form.target_tier })} className="mt-2">
-                  {[["top_10","Top 10"],["top_50","Top 50"],["top_100","Top 100"],["no_preference","No preference"]].map(([v,l]) => (
+                <RadioGroup value={form.target_tier} onValueChange={(v) => update({ target_tier: v })} className="mt-2">
+                  {TIER_OPTIONS.map(([v,l]) => (
                     <label key={v} className="flex items-center gap-3 rounded-md border border-border px-3 py-2 cursor-pointer">
                       <RadioGroupItem value={v} id={v} /><span className="text-sm">{l}</span>
                     </label>
@@ -209,22 +208,6 @@ function OnboardingPage() {
           )}
 
           {step === 3 && (
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2">
-                <Label>Budget ceiling (annual, all-in)</Label>
-                <Input type="number" value={form.budget_ceiling} onChange={(e) => update({ budget_ceiling: e.target.value })} placeholder="e.g. 60000" className="mt-1.5" />
-              </div>
-              <div>
-                <Label>Currency</Label>
-                <Select value={form.budget_currency} onValueChange={(v) => update({ budget_currency: v })}>
-                  <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
-                  <SelectContent>{["USD","EUR","GBP","CAD","AUD","CHF","SGD"].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
             <div>
               <Label>Current GPA (on a 4.0 scale)</Label>
               <Input type="number" step="0.01" value={form.gpa} onChange={(e) => update({ gpa: e.target.value })} placeholder="3.6" className="mt-1.5 max-w-xs" />
@@ -232,7 +215,7 @@ function OnboardingPage() {
             </div>
           )}
 
-          {step === 5 && (
+          {step === 4 && (
             <div className="grid grid-cols-2 gap-3">
               {(["gre","gmat","ielts","toefl"] as const).map((t) => (
                 <div key={t}>
@@ -244,20 +227,20 @@ function OnboardingPage() {
             </div>
           )}
 
-          {step === 6 && (
+          {step === 5 && (
             <div>
               <Label>Years of work experience</Label>
               <Input type="number" step="0.5" value={form.work_exp_years} onChange={(e) => update({ work_exp_years: e.target.value })} placeholder="2" className="mt-1.5 max-w-xs" />
             </div>
           )}
 
-          {step === 7 && (
+          {step === 6 && (
             <div>
               <Label>Target intake</Label>
               <Select value={form.target_intake} onValueChange={(v) => update({ target_intake: v })}>
                 <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {["Fall 2026","Spring 2027","Fall 2027","Spring 2028","Fall 2028"].map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {INTAKE_OPTIONS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -272,7 +255,11 @@ function OnboardingPage() {
               {step < STEPS.length - 1 ? (
                 <Button
                   onClick={() => setStep((s) => s + 1)}
-                  disabled={step === 0 && (!form.target_major || !form.country_of_origin)}
+                  disabled={
+                    (step === 0 && (!form.target_major.trim() || !form.country_of_origin)) ||
+                    (step === 1 && !form.target_country) ||
+                    (step === 2 && !form.target_tier)
+                  }
                 >
                   Continue
                 </Button>

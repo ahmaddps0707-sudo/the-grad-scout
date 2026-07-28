@@ -90,9 +90,11 @@ async function resolveProgramUrl(p: DiscoveredProgram): Promise<string | null> {
 }
 
 function tierLabel(t: string | null | undefined) {
-  if (t === "top_10") return "Top 10";
   if (t === "top_50") return "Top 50";
   if (t === "top_100") return "Top 100";
+  if (t === "top_200") return "Top 200";
+  if (t === "rank_201_500") return "201-500";
+  if (t === "rank_500_plus") return "500+";
   return "No tier preference";
 }
 function fundingLabel(f: string | null | undefined) {
@@ -103,15 +105,17 @@ function fundingLabel(f: string | null | undefined) {
 
 function computeScore(profile: any, p: DiscoveredProgram): number {
   let score = 50;
-  const targets: string[] = profile.target_countries ?? [];
-  if (p.university_country && targets.map((c) => c.toLowerCase()).includes(p.university_country.toLowerCase())) {
+  const target: string = (profile.target_country ?? "").toLowerCase().trim();
+  if (p.university_country && target && p.university_country.toLowerCase().trim() === target) {
     score += 18;
   }
   const rank = p.qs_ranking ?? 999;
-  const tier = profile.target_tier ?? "no_preference";
-  if (tier === "top_10") score += rank <= 10 ? 22 : rank <= 50 ? 6 : -8;
-  else if (tier === "top_50") score += rank <= 50 ? 18 : rank <= 100 ? 4 : -6;
+  const tier = profile.target_tier ?? null;
+  if (tier === "top_50") score += rank <= 50 ? 18 : rank <= 100 ? 4 : -6;
   else if (tier === "top_100") score += rank <= 100 ? 14 : rank <= 200 ? 2 : -4;
+  else if (tier === "top_200") score += rank <= 200 ? 12 : rank <= 500 ? 2 : -4;
+  else if (tier === "rank_201_500") score += rank >= 201 && rank <= 500 ? 12 : 0;
+  else if (tier === "rank_500_plus") score += rank > 500 ? 10 : 0;
   else score += rank <= 100 ? 10 : rank <= 300 ? 4 : 0;
   if (p.is_stem) score += 4;
   const gpa = Number(profile.gpa ?? 0);
@@ -196,7 +200,7 @@ Deno.serve(async (req) => {
       .join(", ");
 
     const major = profile.target_major ?? "graduate";
-    const countries: string[] = (profile.target_countries ?? []).filter(Boolean);
+    const targetCountry: string = (profile.target_country ?? "").trim();
 
     const COUNTRY_SITE_FILTERS: Record<string, string[]> = {
       "united states": ["site:.edu"],
@@ -222,15 +226,13 @@ Deno.serve(async (req) => {
     };
 
     const searchQueries: string[] = [];
-    if (countries.length === 0) {
+    if (!targetCountry) {
       searchQueries.push(`master's ${major} program admissions tuition official`);
     } else {
-      for (const c of countries) {
-        const filters = COUNTRY_SITE_FILTERS[c.toLowerCase().trim()] ?? [];
-        searchQueries.push(`master's ${major} "${c}" admissions tuition official`);
-        for (const f of filters) {
-          searchQueries.push(`${f} master's ${major} program admissions tuition`);
-        }
+      const filters = COUNTRY_SITE_FILTERS[targetCountry.toLowerCase()] ?? [];
+      searchQueries.push(`master's ${major} "${targetCountry}" admissions tuition official`);
+      for (const f of filters) {
+        searchQueries.push(`${f} master's ${major} program admissions tuition`);
       }
     }
     let searchBatches: Awaited<ReturnType<typeof firecrawlSearch>>[];
@@ -262,10 +264,9 @@ Deno.serve(async (req) => {
     const user = `Student profile:
 - Target degree: Master's only
 - Target major / field: ${profile.target_major ?? "unspecified"}
-- Target countries: ${(profile.target_countries ?? []).join(", ") || "any"}
+- Target country: ${profile.target_country ?? "any"}
 - University tier preference: ${tierLabel(profile.target_tier)}
 - Funding preference: ${fundingLabel(profile.funding_preference)}
-- Budget ceiling: ${profile.budget_ceiling ?? "unspecified"} ${profile.budget_currency ?? ""}
 - Current GPA: ${profile.gpa ?? "unspecified"}
 - Test scores: ${testStr}
 - Work experience: ${profile.work_exp_years ?? 0} years
@@ -278,7 +279,7 @@ ${liveContext || "(No live search results were available. Return an empty array.
 
 Find up to 5 master's programs that best match this profile. Every result must be a master's degree — not a PhD, not a bachelor's. Only include programs that appear in the live web search results above. Use the official program or university URL from those results as website_url.
 
-HARD FILTER — Do NOT include any program whose university is located outside these countries: ${countries.length ? countries.join(", ") : "any"}. Do NOT include programs whose name/department is unrelated to "${major}". Discard rather than guess.
+HARD FILTER — Do NOT include any program whose university is located outside this country: ${targetCountry || "any"}. Do NOT include programs whose name/department is unrelated to "${major}". Discard rather than guess.
 
 Respond with ONLY a JSON array, no other text, no markdown fences:
 [{
@@ -305,9 +306,7 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     }
 
     const liveUrls = new Set(liveResults.map((result) => result.url));
-    const targetCountriesLc = ((profile.target_countries ?? []) as string[])
-      .map((c) => c.toLowerCase().trim())
-      .filter(Boolean);
+    const targetCountryLc = targetCountry.toLowerCase();
     const targetMajorLc = (profile.target_major ?? "").toLowerCase().trim();
     const stop = new Set([
       "and",
@@ -333,10 +332,10 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
     const majorTokens = targetMajorLc.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !stop.has(t));
 
     function matchesTargetCountry(country: string | null | undefined): boolean {
-      if (!targetCountriesLc.length) return true; // user has no preference
+      if (!targetCountryLc) return true; // user has no preference
       if (!country) return false;
       const c = country.toLowerCase().trim();
-      return targetCountriesLc.some((t) => c === t || c.includes(t) || t.includes(c));
+      return c === targetCountryLc || c.includes(targetCountryLc) || targetCountryLc.includes(c);
     }
     function matchesTargetMajor(programName: string, department: string | null | undefined): boolean {
       if (!majorTokens.length) return true; // no target major specified
