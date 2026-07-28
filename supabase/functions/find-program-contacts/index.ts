@@ -94,15 +94,15 @@ Deno.serve(async (req) => {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
     // Firecrawl search for public LinkedIn snippets (never scrape linkedin URLs)
-    const [r1, r2, r3] = await Promise.all([
+    const [r1, r2] = await Promise.all([
       firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} masters student`, { limit: 3 }),
       userCountry
         ? firecrawlSearch(`site:linkedin.com/in ${programName} ${universityName} ${userCountry}`, { limit: 3 })
         : Promise.resolve([]),
     ]);
-    const snippets = concatSnippets([...r1, ...r2, ...r3].filter((r) => /linkedin\.com\/in\//i.test(r.url)));
+    const snippets = concatSnippets([...r1, ...r2].filter((r) => /linkedin\.com\/in\//i.test(r.url)));
     const searchUrls = new Set(
-      [...r1, ...r2, ...r3]
+      [...r1, ...r2]
         .map((r) => r.url)
         .filter((u) => /linkedin\.com\/in\//i.test(u))
         .map(normalizeLinkedIn),
