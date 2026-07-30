@@ -1018,6 +1018,36 @@ export type Database = {
         }
         Relationships: []
       }
+      qs_rankings: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          name: string
+          overall_score: string | null
+          rank_display: string
+          rank_value: number
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          id?: string
+          name: string
+          overall_score?: string | null
+          rank_display: string
+          rank_value: number
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          name?: string
+          overall_score?: string | null
+          rank_display?: string
+          rank_value?: number
+        }
+        Relationships: []
+      }
       resume_ai_suggestions: {
         Row: {
           accepted_suggestion: string | null
