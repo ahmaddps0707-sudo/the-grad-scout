@@ -1,34 +1,70 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
-import { FREE_LIMITS, PAID_LIMITS, ensureUsageWindow, isPaid, envColumns, envView, parseEnv } from "../_shared/limits.ts";
+import {
+  FREE_LIMITS,
+  PAID_LIMITS,
+  ensureUsageWindow,
+  isPaid,
+  envColumns,
+  envView,
+  parseEnv,
+} from "../_shared/limits.ts";
 import { concatSnippets, firecrawlSearch, FirecrawlProviderError, normalizeUrl } from "../_shared/firecrawl.ts";
 
-interface DiscoveredProgram {
-  university_name: string;
-  university_country: string;
-  university_city: string;
-  qs_ranking: number | null;
-  website_url: string;
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface QsRankingRow {
+  id: string;
+  rank_display: string; // e.g. "1" or "951-1000"
+  rank_value: number; // parsed lower bound, used for all filtering/math
+  name: string; // exact QS name — source of truth for university.name
+  country: string; // exact QS country — source of truth for university.country
+}
+
+// What the AI is asked to extract for ONE specific candidate university.
+// Note: university identity fields (name/country/rank) are NOT requested from the AI —
+// they come from qs_rankings, which is authoritative. The AI's only job is to confirm
+// a relevant master's program exists and extract program-level facts about it.
+interface ExtractedProgram {
   program_name: string;
   degree_type: string;
   department: string;
   is_stem: boolean;
   duration_months: number | null;
+  university_city: string | null; // best-effort from snippets; qs_rankings has no city column
   match_rationale: string;
+  website_url: string; // must match a URL that appeared in the live search snippets
 }
 
-interface ResolvedProgram extends DiscoveredProgram {
+interface CandidateResult extends ExtractedProgram {
+  university_name: string;
+  university_country: string;
+  qs_ranking: number; // parsed integer, from qs_rankings.rank_value
+  qs_ranking_band: string; // display text, from qs_rankings.rank_display
   program_url: string | null;
 }
 
-function extractDomain(url: string): string | null {
-  try {
-    return new URL(url).hostname.toLowerCase().replace(/^www\./, "");
-  } catch {
-    return null;
-  }
-}
+// ---------------------------------------------------------------------------
+// Tier -> search window (base range widened by tolerance, both ends)
+// ---------------------------------------------------------------------------
+
+const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
+  top_50: { min: 1, max: 75 },
+  top_100: { min: 1, max: 125 },
+  top_200: { min: 1, max: 250 },
+  rank_201_500: { min: 151, max: 550 },
+  rank_500_plus: { min: 450, max: 1500 },
+};
+
+const CANDIDATE_SAMPLE_SIZE = 8;
+const FINAL_RESULT_CAP = 5;
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function tokenize(s: string): string[] {
   const stop = new Set([
@@ -61,32 +97,39 @@ function tokenize(s: string): string[] {
     .filter((t) => t.length >= 3 && !stop.has(t));
 }
 
-async function resolveProgramUrl(p: DiscoveredProgram): Promise<string | null> {
-  const originalDomain = extractDomain(p.website_url);
-  const query = `${p.university_name} ${p.program_name} ${p.degree_type ?? ""} official program page admissions`.trim();
-  const results = await firecrawlSearch(query, { limit: 3 });
-  const normalized = results.map((r) => ({ ...r, url: normalizeUrl(r.url) })).filter((r) => !!r.url);
-  const sameDomain = originalDomain
-    ? normalized.filter((r) => {
-        const d = extractDomain(r.url);
-        return d && (d === originalDomain || d.endsWith("." + originalDomain) || originalDomain.endsWith("." + d));
-      })
-    : normalized;
-  const nameTokens = tokenize(`${p.program_name} ${p.department ?? ""}`);
-  // 1. Same-domain URL containing program name tokens
-  const byName = sameDomain.find((r) => {
-    const lower = r.url.toLowerCase();
-    return nameTokens.some((t) => lower.includes(t));
-  });
-  if (byName) return byName.url;
-  // 2. Same-domain URL containing admission/program keywords
-  const kwRe = /(program|programs|degree|admission|admissions|graduate|apply|application)/i;
-  const byKw = sameDomain.find((r) => kwRe.test(r.url));
-  if (byKw) return byKw.url;
-  // 3. First same-domain URL
-  if (sameDomain[0]) return sameDomain[0].url;
-  // 4. Fallback to original
-  return p.website_url ?? null;
+function matchesTargetMajor(
+  programName: string,
+  department: string | null | undefined,
+  majorTokens: string[],
+): boolean {
+  if (!majorTokens.length) return true;
+  const hay = `${programName ?? ""} ${department ?? ""}`.toLowerCase();
+  return majorTokens.some((tok) => hay.includes(tok));
+}
+
+function isUsefulProgramResult(url: string): boolean {
+  return !/linkedin\.com|facebook\.com|instagram\.com|youtube\.com|reddit\.com|quora\.com|wikipedia\.org/i.test(url);
+}
+
+function parseNumberOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function fundingLabel(f: string | null | undefined) {
+  if (f === "fully_funded") return "Fully funded only";
+  if (f === "partial_ok") return "Partial funding OK";
+  return "Self-funded OK";
 }
 
 function tierLabel(t: string | null | undefined) {
@@ -95,38 +138,202 @@ function tierLabel(t: string | null | undefined) {
   if (t === "top_200") return "Top 200";
   if (t === "rank_201_500") return "201-500";
   if (t === "rank_500_plus") return "500+";
-  return "No tier preference";
-}
-function fundingLabel(f: string | null | undefined) {
-  if (f === "fully_funded") return "Fully funded only";
-  if (f === "partial_ok") return "Partial funding OK";
-  return "Self-funded OK";
+  return "Unspecified";
 }
 
-function computeScore(profile: any, p: DiscoveredProgram): number {
+// Final locked scoring formula. No ranking, no country bonus (both are now
+// hard-enforced upstream via qs_rankings selection, so they'd be inert here).
+// Max possible: 99. Min possible: 54.
+function computeScore(profile: any, program: { is_stem: boolean }): number {
   let score = 50;
-  const target: string = (profile.target_country ?? "").toLowerCase().trim();
-  if (p.university_country && target && p.university_country.toLowerCase().trim() === target) {
-    score += 18;
-  }
-  const rank = p.qs_ranking ?? 999;
-  const tier = profile.target_tier ?? null;
-  if (tier === "top_50") score += rank <= 50 ? 18 : rank <= 100 ? 4 : -6;
-  else if (tier === "top_100") score += rank <= 100 ? 14 : rank <= 200 ? 2 : -4;
-  else if (tier === "top_200") score += rank <= 200 ? 12 : rank <= 500 ? 2 : -4;
-  else if (tier === "rank_201_500") score += rank >= 201 && rank <= 500 ? 12 : 0;
-  else if (tier === "rank_500_plus") score += rank > 500 ? 10 : 0;
-  else score += rank <= 100 ? 10 : rank <= 300 ? 4 : 0;
-  if (p.is_stem) score += 4;
-  const gpa = Number(profile.gpa ?? 0);
-  if (gpa >= 3.7) score += 6;
-  else if (gpa >= 3.3) score += 3;
-  return Math.max(0, Math.min(100, Math.round(score)));
+
+  if (program.is_stem) score += 4;
+
+  const gpa = parseNumberOrNull(profile.gpa);
+  if (gpa === null) score += 10;
+  else if (gpa >= 3.7) score += 20;
+  else if (gpa >= 3.5) score += 15;
+  else if (gpa >= 3.3) score += 10;
+  else if (gpa >= 3.0) score += 5;
+  else score += 2;
+
+  const ts = (profile.test_scores ?? {}) as Record<string, string>;
+  const gre = parseNumberOrNull(ts.gre);
+  if (gre === null) score += 20;
+  else if (gre >= 325) score += 25;
+  else if (gre >= 320) score += 20;
+  else if (gre >= 315) score += 15;
+  else if (gre >= 310) score += 10;
+  else if (gre >= 305) score += 5;
+  else score += 2;
+
+  return score;
 }
 
-function isUsefulProgramResult(url: string): boolean {
-  return !/linkedin\.com|facebook\.com|instagram\.com|youtube\.com|reddit\.com|quora\.com|wikipedia\.org/i.test(url);
+// Same URL-resolution strategy as before — finds the most specific official
+// program page, given a starting website_url and program identity.
+async function resolveProgramUrl(p: {
+  university_name: string;
+  program_name: string;
+  degree_type: string;
+  website_url: string;
+}): Promise<string | null> {
+  const originalDomain = (() => {
+    try {
+      return new URL(p.website_url).hostname.toLowerCase().replace(/^www\./, "");
+    } catch {
+      return null;
+    }
+  })();
+  const query = `${p.university_name} ${p.program_name} ${p.degree_type ?? ""} official program page admissions`.trim();
+  const results = await firecrawlSearch(query, { limit: 3 });
+  const normalized = results.map((r) => ({ ...r, url: normalizeUrl(r.url) })).filter((r) => !!r.url);
+  const sameDomain = originalDomain
+    ? normalized.filter((r) => {
+        const d = (() => {
+          try {
+            return new URL(r.url).hostname.toLowerCase().replace(/^www\./, "");
+          } catch {
+            return null;
+          }
+        })();
+        return d && (d === originalDomain || d.endsWith("." + originalDomain) || originalDomain.endsWith("." + d));
+      })
+    : normalized;
+  const nameTokens = tokenize(`${p.program_name}`);
+  const byName = sameDomain.find((r) => {
+    const lower = r.url.toLowerCase();
+    return nameTokens.some((t) => lower.includes(t));
+  });
+  if (byName) return byName.url;
+  const kwRe = /(program|programs|degree|admission|admissions|graduate|apply|application)/i;
+  const byKw = sameDomain.find((r) => kwRe.test(r.url));
+  if (byKw) return byKw.url;
+  if (sameDomain[0]) return sameDomain[0].url;
+  return p.website_url ?? null;
 }
+
+// Per-candidate: search for this ONE university's program, ask the AI to
+// confirm + extract (not discover/judge — just extract), validate against
+// the live snippets (anti-hallucination) and the major filter.
+async function discoverForCandidate(
+  candidate: QsRankingRow,
+  profile: any,
+  major: string,
+  apiKey: string,
+  majorTokens: string[],
+): Promise<CandidateResult | null> {
+  const query = `${candidate.name} ${major} master's degree program official admissions`.trim();
+  let results: Awaited<ReturnType<typeof firecrawlSearch>>;
+  try {
+    results = await firecrawlSearch(query, { limit: 6 });
+  } catch (e) {
+    if (e instanceof FirecrawlProviderError) throw e; // propagate provider-level failures (credits/outage)
+    console.error("firecrawl error for candidate", candidate.name, e);
+    return null;
+  }
+
+  const liveResults = results
+    .filter((r) => r.url && isUsefulProgramResult(r.url))
+    .map((r) => ({ ...r, url: normalizeUrl(r.url) }))
+    .filter((r) => !!r.url);
+  if (liveResults.length === 0) return null;
+
+  const liveUrls = new Set(liveResults.map((r) => r.url));
+  const liveContext = concatSnippets(liveResults);
+
+  const system =
+    "You are a graduate admissions research assistant. You are given live web search snippets " +
+    "about ONE specific university. Determine whether it offers a master's degree program relevant " +
+    "to the requested field. Use only the provided snippets as evidence — never use prior knowledge " +
+    "and never guess a URL that is not present in the snippets. Only master's programs qualify — never " +
+    "PhD, doctoral, or bachelor's programs. If no relevant master's program is found in the snippets, " +
+    "respond with exactly the text: null";
+
+  const user = `University: ${candidate.name}
+Country: ${candidate.country}
+Target major / field: ${major}
+University tier preference: ${tierLabel(profile.target_tier)}
+Funding preference: ${fundingLabel(profile.funding_preference)}
+
+Live web search snippets for this university:
+${liveContext}
+
+If this university has a master's program relevant to "${major}" that appears in the snippets above,
+respond with ONLY a JSON object, no markdown fences, no other text:
+{
+  "program_name": string,
+  "degree_type": string,
+  "department": string,
+  "is_stem": boolean,
+  "duration_months": number or null,
+  "university_city": string or null — only if a city is mentioned in the snippets, otherwise null,
+  "match_rationale": string,
+  "website_url": string — must be one of the URLs that appears explicitly in the snippets above
+}
+
+If no relevant master's program is found in the snippets, respond with exactly: null`;
+
+  let raw: string;
+  try {
+    raw = await callLovableAI({ apiKey, system, user, maxTokens: 1500 });
+  } catch (e) {
+    console.error("AI extraction error for candidate", candidate.name, e);
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  if (/^null$/i.test(trimmed)) return null;
+
+  let extracted: ExtractedProgram;
+  try {
+    extracted = parseJsonLoose(raw);
+    if (!extracted || typeof extracted !== "object" || Array.isArray(extracted)) return null;
+  } catch {
+    return null; // one bad candidate should not fail the whole job
+  }
+
+  if (!extracted.program_name || !extracted.website_url) return null;
+
+  const normalizedUrl = normalizeUrl(extracted.website_url);
+  if (!liveUrls.has(normalizedUrl)) {
+    // anti-hallucination: the AI must cite a URL that was actually in the snippets
+    console.log("discard candidate (hallucinated URL)", candidate.name, extracted.website_url);
+    return null;
+  }
+
+  if (!matchesTargetMajor(extracted.program_name, extracted.department, majorTokens)) {
+    console.log("discard candidate (major mismatch)", candidate.name, extracted.program_name);
+    return null;
+  }
+
+  let program_url: string | null;
+  try {
+    program_url = await resolveProgramUrl({
+      university_name: candidate.name,
+      program_name: extracted.program_name,
+      degree_type: extracted.degree_type,
+      website_url: normalizedUrl,
+    });
+  } catch (e) {
+    console.error("resolveProgramUrl error", candidate.name, e);
+    program_url = normalizedUrl;
+  }
+
+  return {
+    ...extracted,
+    website_url: normalizedUrl,
+    university_name: candidate.name,
+    university_country: candidate.country,
+    qs_ranking: candidate.rank_value,
+    qs_ranking_band: candidate.rank_display,
+    program_url,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Main handler
+// ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS_HEADERS });
@@ -138,6 +345,7 @@ Deno.serve(async (req) => {
 
   let jobId: string | null = null;
   let providerErrorCode: "search_provider_out_of_credits" | "search_provider_error" | null = null;
+
   try {
     const body = await req.json().catch(() => ({}));
     jobId = body.job_id ?? null;
@@ -161,7 +369,7 @@ Deno.serve(async (req) => {
     if (pErr) throw pErr;
     if (!profile) throw new Error("Please complete onboarding before running discovery.");
 
-    // Enforce tier limits BEFORE spending an AI call
+    // Enforce tier limits BEFORE spending any calls
     profile = await ensureUsageWindow(admin, profile, env);
     const paid = isPaid(profile, env);
     const cols = envColumns(env);
@@ -182,207 +390,88 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Load existing entries to exclude
+    const major = profile.target_major ?? "";
+    if (!major) throw new Error("Please set a target major before running discovery.");
+
+    const countries: string[] = (profile.target_countries ?? []).filter(Boolean);
+    if (countries.length === 0) throw new Error("Please select at least one target country before running discovery.");
+
+    const window = TIER_WINDOWS[profile.target_tier as string];
+    if (!window) throw new Error("Please select a ranking preference before running discovery.");
+
+    const majorTokens = tokenize(major);
+
+    // Load already-shown university names for exclusion
     const { data: existing } = await admin
       .from("user_entries")
-      .select("university:universities(name), program:programs(name)")
+      .select("university:universities(name)")
       .eq("user_id", userId);
-    const excluded =
-      (existing ?? []).map((e: any) => `${e.university?.name ?? "?"} — ${e.program?.name ?? "?"}`).join("; ") ||
-      "(none yet)";
-
-    const ts = (profile.test_scores ?? {}) as Record<string, string>;
-    const testStr = ["GRE", "GMAT", "IELTS", "TOEFL"]
-      .map((t) => {
-        const v = ts[t.toLowerCase()];
-        return v ? `${t}: ${v}` : `${t}: not taken`;
-      })
-      .join(", ");
-
-    const major = profile.target_major ?? "graduate";
-    const targetCountry: string = (profile.target_country ?? "").trim();
-
-    const COUNTRY_SITE_FILTERS: Record<string, string[]> = {
-      "united states": ["site:.edu"],
-      usa: ["site:.edu"],
-      us: ["site:.edu"],
-      "united kingdom": ["site:.ac.uk"],
-      uk: ["site:.ac.uk"],
-      england: ["site:.ac.uk"],
-      scotland: ["site:.ac.uk"],
-      australia: ["site:.edu.au"],
-      canada: ["site:.ca"],
-      germany: ["site:.de"],
-      netherlands: ["site:.nl"],
-      france: ["site:.fr"],
-      singapore: ["site:.edu.sg"],
-      ireland: ["site:.ie"],
-      "hong kong": ["site:.edu.hk"],
-      switzerland: ["site:.ch"],
-      sweden: ["site:.se"],
-      italy: ["site:.it"],
-      spain: ["site:.es"],
-      "new zealand": ["site:.ac.nz"],
-    };
-
-    const searchQueries: string[] = [];
-    if (!targetCountry) {
-      searchQueries.push(`master's ${major} program admissions tuition official`);
-    } else {
-      const filters = COUNTRY_SITE_FILTERS[targetCountry.toLowerCase()] ?? [];
-      searchQueries.push(`master's ${major} "${targetCountry}" admissions tuition official`);
-      for (const f of filters) {
-        searchQueries.push(`${f} master's ${major} program admissions tuition`);
-      }
-    }
-    let searchBatches: Awaited<ReturnType<typeof firecrawlSearch>>[];
-    try {
-      searchBatches = await Promise.all(searchQueries.map((query) => firecrawlSearch(query, { limit: 8 })));
-    } catch (e) {
-      if (e instanceof FirecrawlProviderError) {
-        providerErrorCode = e.code;
-        throw e;
-      }
-      throw e;
-    }
-    const seenUrls = new Set<string>();
-    const liveResults = searchBatches
-      .flat()
-      .filter((result) => result.url && isUsefulProgramResult(result.url))
-      .map((result) => ({ ...result, url: normalizeUrl(result.url) }))
-      .filter((result) => {
-        if (seenUrls.has(result.url)) return false;
-        seenUrls.add(result.url);
-        return true;
-      })
-      .slice(0, 24);
-    const liveContext = concatSnippets(liveResults);
-
-    const system =
-      "You are a graduate admissions research assistant specializing in master's degree programs. Use only the live web search results provided by the user as evidence. You only recommend master's level programs — never PhD, doctoral, or bachelor's programs. If a program is not present in the live search results with an official-looking program URL, exclude it entirely rather than guessing.";
-
-    const user = `Student profile:
-- Target degree: Master's only
-- Target major / field: ${profile.target_major ?? "unspecified"}
-- Target country: ${profile.target_country ?? "any"}
-- University tier preference: ${tierLabel(profile.target_tier)}
-- Funding preference: ${fundingLabel(profile.funding_preference)}
-- Current GPA: ${profile.gpa ?? "unspecified"}
-- Test scores: ${testStr}
-- Work experience: ${profile.work_exp_years ?? 0} years
-- Target intake: ${profile.target_intake ?? "unspecified"}
-
-Already shown to this user (exclude these): ${excluded}.
-
-Live web search results to use as evidence:
-${liveContext || "(No live search results were available. Return an empty array.)"}
-
-Find up to 5 master's programs that best match this profile. Every result must be a master's degree — not a PhD, not a bachelor's. Only include programs that appear in the live web search results above. Use the official program or university URL from those results as website_url.
-
-HARD FILTER — Do NOT include any program whose university is located outside this country: ${targetCountry || "any"}. Do NOT include programs whose name/department is unrelated to "${major}". Discard rather than guess.
-
-Respond with ONLY a JSON array, no other text, no markdown fences:
-[{
-  "university_name": string,
-  "university_country": string,
-  "university_city": string,
-  "qs_ranking": number or null,
-  "website_url": string — the university homepage or best available URL from the search results. Do not guess or construct URLs. Only use URLs that appear explicitly in the search context provided. If no URL is visible in the context, return null.,
-  "program_name": string,
-  "degree_type": string,
-  "department": string,
-  "is_stem": boolean,
-  "duration_months": number or null,
-  "match_rationale": string
-}]`;
-
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 12000 });
-    let parsed: DiscoveredProgram[];
-    try {
-      parsed = parseJsonLoose(raw);
-      if (!Array.isArray(parsed)) throw new Error("not an array");
-    } catch (e) {
-      throw new Error(`Failed to parse model output: ${(e as Error).message}. Raw: ${raw.slice(0, 300)}`);
-    }
-
-    const liveUrls = new Set(liveResults.map((result) => result.url));
-    const targetCountryLc = targetCountry.toLowerCase();
-    const targetMajorLc = (profile.target_major ?? "").toLowerCase().trim();
-    const stop = new Set([
-      "and",
-      "of",
-      "the",
-      "in",
-      "for",
-      "a",
-      "an",
-      "to",
-      "science",
-      "sciences",
-      "studies",
-      "study",
-      "program",
-      "master",
-      "masters",
-      "ms",
-      "msc",
-      "ma",
-      "degree",
-    ]);
-    const majorTokens = targetMajorLc.split(/[^a-z0-9]+/).filter((t) => t.length >= 3 && !stop.has(t));
-
-    function matchesTargetCountry(country: string | null | undefined): boolean {
-      if (!targetCountryLc) return true; // user has no preference
-      if (!country) return false;
-      const c = country.toLowerCase().trim();
-      return c === targetCountryLc || c.includes(targetCountryLc) || targetCountryLc.includes(c);
-    }
-    function matchesTargetMajor(programName: string, department: string | null | undefined): boolean {
-      if (!majorTokens.length) return true; // no target major specified
-      const hay = `${programName ?? ""} ${department ?? ""}`.toLowerCase();
-      return majorTokens.some((tok) => hay.includes(tok));
-    }
-
-    const validatedPrograms = parsed
-      .filter((p) => p?.university_name && p?.program_name && p?.website_url)
-      .map((p) => ({ ...p, website_url: normalizeUrl(p.website_url) }))
-      .filter((p) => liveUrls.has(p.website_url))
-      .filter((p) => {
-        const okCountry = matchesTargetCountry(p.university_country);
-        const okMajor = matchesTargetMajor(p.program_name, p.department);
-        if (!okCountry || !okMajor) {
-          console.log("discard program (country/major mismatch)", {
-            program: p.program_name,
-            country: p.university_country,
-            okCountry,
-            okMajor,
-          });
-          return false;
-        }
-        return true;
-      })
-      .slice(0, 5);
-
-    // Resolve specific program page URL for each result via Firecrawl.
-    const resolvedPrograms: ResolvedProgram[] = await Promise.all(
-      validatedPrograms.map(async (p) => {
-        try {
-          const program_url = await resolveProgramUrl(p);
-          return { ...p, program_url };
-        } catch (e) {
-          console.error("resolveProgramUrl error", p.program_name, e);
-          return { ...p, program_url: p.website_url ?? null };
-        }
-      }),
+    const excludedNames = new Set(
+      (existing ?? [])
+        .map((e: any) => (e.university?.name ?? "").toLowerCase().trim())
+        .filter((n: string) => n.length > 0),
     );
 
-    for (const p of resolvedPrograms) {
-      // Upsert university (by case-insensitive name + country)
+    // Pull eligible candidate universities from the authoritative QS reference table
+    const { data: qsRows, error: qsErr } = await admin
+      .from("qs_rankings")
+      .select("id, rank_display, rank_value, name, country")
+      .in("country", countries)
+      .gte("rank_value", window.min)
+      .lte("rank_value", window.max);
+    if (qsErr) throw qsErr;
+
+    const eligible = (qsRows ?? []).filter((r) => !excludedNames.has(r.name.toLowerCase().trim())) as QsRankingRow[];
+
+    if (eligible.length === 0) {
+      await admin
+        .from("discover_jobs")
+        .update({ status: "done", error: "no_matches_for_targets", completed_at: new Date().toISOString() })
+        .eq("id", jobId);
+      await admin
+        .from("profiles")
+        .update({ [cols.discoverUsed]: view.discoverUsed + 1 })
+        .eq("id", userId);
+      return new Response(JSON.stringify({ ok: true, count: 0 }), {
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+
+    const candidates = shuffle(eligible).slice(0, CANDIDATE_SAMPLE_SIZE);
+
+    // Search + extract per candidate, in parallel. Any FirecrawlProviderError
+    // (out of credits / provider outage) should abort the whole job, same as
+    // the old behavior — everything else is a soft per-candidate skip.
+    const settled = await Promise.allSettled(
+      candidates.map((c) => discoverForCandidate(c, profile, major, apiKey, majorTokens)),
+    );
+
+    for (const s of settled) {
+      if (s.status === "rejected" && s.reason instanceof FirecrawlProviderError) {
+        providerErrorCode = s.reason.code;
+        throw s.reason;
+      }
+    }
+
+    const resolvedPrograms: CandidateResult[] = settled
+      .filter((s): s is PromiseFulfilledResult<CandidateResult | null> => s.status === "fulfilled")
+      .map((s) => s.value)
+      .filter((v): v is CandidateResult => v !== null);
+
+    // Order by score, cap to final result size. We do NOT re-query for more
+    // candidates if fewer than FINAL_RESULT_CAP survived — return what was found.
+    const finalPrograms = resolvedPrograms
+      .map((p) => ({ ...p, _score: computeScore(profile, p) }))
+      .sort((a, b) => b._score - a._score)
+      .slice(0, FINAL_RESULT_CAP);
+
+    for (const p of finalPrograms) {
+      // Upsert university — name/country are the QS-canonical values (source of truth)
       const { data: existingUni } = await admin
         .from("universities")
         .select("*")
         .ilike("name", p.university_name)
-        .ilike("country", p.university_country ?? "")
+        .ilike("country", p.university_country)
         .maybeSingle();
       let uniId = existingUni?.id;
       if (!uniId) {
@@ -393,7 +482,8 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
             country: p.university_country,
             city: p.university_city,
             qs_ranking: p.qs_ranking,
-            website_url: p.website_url,
+            qs_ranking_band: p.qs_ranking_band,
+            website_url: p.program_url ?? p.website_url,
           })
           .select()
           .single();
@@ -402,6 +492,14 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
           continue;
         }
         uniId = newUni.id;
+      } else {
+        // Keep ranking fields fresh from the authoritative source even for existing rows
+        const updates: Record<string, unknown> = {};
+        if (existingUni.qs_ranking !== p.qs_ranking) updates.qs_ranking = p.qs_ranking;
+        if (existingUni.qs_ranking_band !== p.qs_ranking_band) updates.qs_ranking_band = p.qs_ranking_band;
+        if (Object.keys(updates).length > 0) {
+          await admin.from("universities").update(updates).eq("id", uniId);
+        }
       }
 
       const { data: existingProg } = await admin
@@ -435,28 +533,29 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
         await admin.from("programs").update({ program_url: p.program_url }).eq("id", progId);
       }
 
-      const score = computeScore(profile, p);
       const { error: eErr } = await admin.from("user_entries").insert({
         user_id: userId,
         university_id: uniId,
         program_id: progId,
         status: "scored",
         source: "scored",
-        score,
+        score: computeScore(profile, p),
         match_rationale: p.match_rationale,
       });
       if (eErr && !eErr.message.includes("duplicate")) console.error("entry insert", eErr);
     }
 
     const doneUpdate: Record<string, unknown> = { status: "done", completed_at: new Date().toISOString() };
-    if (validatedPrograms.length === 0) doneUpdate.error = "no_matches_for_targets";
+    if (finalPrograms.length === 0) doneUpdate.error = "no_matches_for_targets";
     await admin.from("discover_jobs").update(doneUpdate).eq("id", jobId);
+
     // Always increment env-scoped discover_runs_used (both tiers are metered)
     await admin
       .from("profiles")
       .update({ [cols.discoverUsed]: view.discoverUsed + 1 })
       .eq("id", userId);
-    return new Response(JSON.stringify({ ok: true, count: validatedPrograms.length }), {
+
+    return new Response(JSON.stringify({ ok: true, count: finalPrograms.length }), {
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
     });
   } catch (e) {
@@ -466,10 +565,10 @@ Respond with ONLY a JSON array, no other text, no markdown fences:
       const friendly = providerErrorCode
         ? providerErrorCode
         : /truncated|malformed/i.test(msg)
-        ? "AI response was too long — please retry."
-        : /401|invalid x-api-key|anthropic/i.test(msg)
-          ? "AI research failed — please retry."
-          : msg;
+          ? "AI response was too long — please retry."
+          : /401|invalid x-api-key|anthropic/i.test(msg)
+            ? "AI research failed — please retry."
+            : msg;
       await admin
         .from("discover_jobs")
         .update({ status: "failed", error: friendly, completed_at: new Date().toISOString() })
