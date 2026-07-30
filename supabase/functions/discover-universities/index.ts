@@ -1,3 +1,4 @@
+// new
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
@@ -59,7 +60,7 @@ const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
   rank_500_plus: { min: 450, max: 1500 },
 };
 
-const CANDIDATE_SAMPLE_SIZE = 8;
+const CANDIDATE_SAMPLE_SIZE = 7;
 const FINAL_RESULT_CAP = 5;
 
 // ---------------------------------------------------------------------------
@@ -170,26 +171,22 @@ function computeScore(profile: any, program: { is_stem: boolean }): number {
   return score;
 }
 
-// Same URL-resolution strategy as before — finds the most specific official
-// program page, given a starting website_url and program identity.
-async function resolveProgramUrl(p: {
-  university_name: string;
-  program_name: string;
-  degree_type: string;
-  website_url: string;
-}): Promise<string | null> {
+// Picks the most specific official program URL from results we ALREADY HAVE
+// (the first search's liveResults) instead of firing a second Firecrawl call.
+// Same matching heuristics as before (same-domain preference, program-name
+// tokens in the URL, then admissions-keyword URLs), just applied locally —
+// no network request. Falls back to the AI-cited website_url if nothing
+// better is found in the existing result set.
+function pickBestProgramUrl(liveResults: { url: string }[], originalUrl: string, programName: string): string | null {
   const originalDomain = (() => {
     try {
-      return new URL(p.website_url).hostname.toLowerCase().replace(/^www\./, "");
+      return new URL(originalUrl).hostname.toLowerCase().replace(/^www\./, "");
     } catch {
       return null;
     }
   })();
-  const query = `${p.university_name} ${p.program_name} ${p.degree_type ?? ""} official program page admissions`.trim();
-  const results = await firecrawlSearch(query, { limit: 3 });
-  const normalized = results.map((r) => ({ ...r, url: normalizeUrl(r.url) })).filter((r) => !!r.url);
   const sameDomain = originalDomain
-    ? normalized.filter((r) => {
+    ? liveResults.filter((r) => {
         const d = (() => {
           try {
             return new URL(r.url).hostname.toLowerCase().replace(/^www\./, "");
@@ -199,18 +196,21 @@ async function resolveProgramUrl(p: {
         })();
         return d && (d === originalDomain || d.endsWith("." + originalDomain) || originalDomain.endsWith("." + d));
       })
-    : normalized;
-  const nameTokens = tokenize(`${p.program_name}`);
+    : liveResults;
+
+  const nameTokens = tokenize(programName);
   const byName = sameDomain.find((r) => {
     const lower = r.url.toLowerCase();
     return nameTokens.some((t) => lower.includes(t));
   });
   if (byName) return byName.url;
+
   const kwRe = /(program|programs|degree|admission|admissions|graduate|apply|application)/i;
   const byKw = sameDomain.find((r) => kwRe.test(r.url));
   if (byKw) return byKw.url;
+
   if (sameDomain[0]) return sameDomain[0].url;
-  return p.website_url ?? null;
+  return originalUrl ?? null;
 }
 
 // Per-candidate: search for this ONE university's program, ask the AI to
@@ -307,18 +307,8 @@ If no relevant master's program is found in the snippets, respond with exactly: 
     return null;
   }
 
-  let program_url: string | null;
-  try {
-    program_url = await resolveProgramUrl({
-      university_name: candidate.name,
-      program_name: extracted.program_name,
-      degree_type: extracted.degree_type,
-      website_url: normalizedUrl,
-    });
-  } catch (e) {
-    console.error("resolveProgramUrl error", candidate.name, e);
-    program_url = normalizedUrl;
-  }
+  // No second Firecrawl call — pick the best URL from results we already have.
+  const program_url = pickBestProgramUrl(liveResults, normalizedUrl, extracted.program_name) ?? normalizedUrl;
 
   return {
     ...extracted,
