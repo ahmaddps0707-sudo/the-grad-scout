@@ -467,12 +467,30 @@ Deno.serve(async (req) => {
 
     for (const p of finalPrograms) {
       // Upsert university — name/country are the QS-canonical values (source of truth)
-      const { data: existingUni } = await admin
+      const { data: existingUniRows, error: uniSelErr } = await admin
         .from("universities")
         .select("*")
         .ilike("name", p.university_name)
-        .ilike("country", p.university_country)
-        .maybeSingle();
+        .ilike("country", p.university_country);
+
+      if (uniSelErr) {
+        console.error("university lookup failed", p.university_name, p.university_country, uniSelErr);
+        continue; // skip this program rather than silently mis-branching into a duplicate insert
+      }
+
+      if ((existingUniRows ?? []).length > 1) {
+        // Duplicate (name, country) rows already exist — do not guess which one is
+        // canonical. Log loudly and skip so this doesn't get worse silently.
+        console.error(
+          "DUPLICATE university rows detected — skipping upsert",
+          p.university_name,
+          p.university_country,
+          (existingUniRows ?? []).map((r: any) => ({ id: r.id, qs_ranking: r.qs_ranking, created_at: r.created_at })),
+        );
+        continue;
+      }
+
+      const existingUni = (existingUniRows ?? [])[0];
       let uniId = existingUni?.id;
       if (!uniId) {
         const { data: newUni, error: uErr } = await admin
@@ -488,7 +506,7 @@ Deno.serve(async (req) => {
           .select()
           .single();
         if (uErr) {
-          console.error("uni insert", uErr);
+          console.error("uni insert", p.university_name, uErr);
           continue;
         }
         uniId = newUni.id;
@@ -498,7 +516,37 @@ Deno.serve(async (req) => {
         if (existingUni.qs_ranking !== p.qs_ranking) updates.qs_ranking = p.qs_ranking;
         if (existingUni.qs_ranking_band !== p.qs_ranking_band) updates.qs_ranking_band = p.qs_ranking_band;
         if (Object.keys(updates).length > 0) {
-          await admin.from("universities").update(updates).eq("id", uniId);
+          const { data: updatedUni, error: uniUpdErr } = await admin
+            .from("universities")
+            .update(updates)
+            .eq("id", uniId)
+            .select()
+            .maybeSingle();
+          if (uniUpdErr) {
+            console.error(
+              "university rank update FAILED",
+              p.university_name,
+              "attempted:",
+              updates,
+              "error:",
+              uniUpdErr,
+            );
+          } else if (!updatedUni) {
+            console.error(
+              "university rank update returned no row (likely blocked by RLS on service role, or id mismatch)",
+              p.university_name,
+              uniId,
+            );
+          } else {
+            console.log(
+              "university rank corrected",
+              p.university_name,
+              "qs_ranking:",
+              existingUni.qs_ranking,
+              "->",
+              updatedUni.qs_ranking,
+            );
+          }
         }
       }
 
