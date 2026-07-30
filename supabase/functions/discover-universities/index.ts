@@ -1,4 +1,3 @@
-// new
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { callLovableAI, CORS_HEADERS, parseJsonLoose } from "../_shared/lovable-ai.ts";
@@ -61,7 +60,7 @@ const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
 };
 
 const CANDIDATE_SAMPLE_SIZE = 7;
-const FINAL_RESULT_CAP = 7;
+const FINAL_RESULT_CAP = 5;
 
 // ---------------------------------------------------------------------------
 // Helpers
