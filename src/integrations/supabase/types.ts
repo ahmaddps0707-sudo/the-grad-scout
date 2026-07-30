@@ -1187,6 +1187,7 @@ export type Database = {
           name: string
           name_normalized: string | null
           qs_ranking: number | null
+          qs_ranking_band: string | null
           website_url: string | null
         }
         Insert: {
@@ -1197,6 +1198,7 @@ export type Database = {
           name: string
           name_normalized?: string | null
           qs_ranking?: number | null
+          qs_ranking_band?: string | null
           website_url?: string | null
         }
         Update: {
@@ -1207,6 +1209,7 @@ export type Database = {
           name?: string
           name_normalized?: string | null
           qs_ranking?: number | null
+          qs_ranking_band?: string | null
           website_url?: string | null
         }
         Relationships: []
