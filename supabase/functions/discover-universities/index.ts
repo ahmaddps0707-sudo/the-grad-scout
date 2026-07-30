@@ -61,7 +61,7 @@ const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
 };
 
 const CANDIDATE_SAMPLE_SIZE = 7;
-const FINAL_RESULT_CAP = 5;
+const FINAL_RESULT_CAP = 7;
 
 // ---------------------------------------------------------------------------
 // Helpers
