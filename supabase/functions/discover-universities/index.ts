@@ -236,7 +236,10 @@ async function discoverForCandidate(
     .filter((r) => r.url && isUsefulProgramResult(r.url))
     .map((r) => ({ ...r, url: normalizeUrl(r.url) }))
     .filter((r) => !!r.url);
-  if (liveResults.length === 0) return null;
+  if (liveResults.length === 0) {
+    console.log("discard candidate (no usable search results)", candidate.name);
+    return null;
+  }
 
   const liveUrls = new Set(liveResults.map((r) => r.url));
   const liveContext = concatSnippets(liveResults);
@@ -282,17 +285,27 @@ If no relevant master's program is found in the snippets, respond with exactly: 
   }
 
   const trimmed = raw.trim();
-  if (/^null$/i.test(trimmed)) return null;
+  if (/^null$/i.test(trimmed)) {
+    console.log("discard candidate (AI found no relevant program)", candidate.name);
+    return null;
+  }
 
   let extracted: ExtractedProgram;
   try {
     extracted = parseJsonLoose(raw);
-    if (!extracted || typeof extracted !== "object" || Array.isArray(extracted)) return null;
-  } catch {
+    if (!extracted || typeof extracted !== "object" || Array.isArray(extracted)) {
+      console.log("discard candidate (AI response not a JSON object)", candidate.name, trimmed.slice(0, 200));
+      return null;
+    }
+  } catch (e) {
+    console.log("discard candidate (JSON parse failed)", candidate.name, trimmed.slice(0, 200), (e as Error).message);
     return null; // one bad candidate should not fail the whole job
   }
 
-  if (!extracted.program_name || !extracted.website_url) return null;
+  if (!extracted.program_name || !extracted.website_url) {
+    console.log("discard candidate (missing required fields)", candidate.name, JSON.stringify(extracted).slice(0, 200));
+    return null;
+  }
 
   const normalizedUrl = normalizeUrl(extracted.website_url);
   if (!liveUrls.has(normalizedUrl)) {
