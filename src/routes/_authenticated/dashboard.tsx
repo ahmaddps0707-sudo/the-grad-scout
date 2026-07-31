@@ -385,29 +385,9 @@ function AddUniversityDialog({ onAdded }: { onAdded: () => void }) {
     if (!uni.trim() || !prog.trim()) return;
     setBusy(true);
     try {
-      const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Not signed in");
-      const { data: existingUni } = await supabase.from("universities")
-        .select("*").ilike("name", uni.trim()).maybeSingle();
-      let uniId = existingUni?.id;
-      if (!uniId) {
-        const { data: newUni, error: ue } = await supabase.from("universities")
-          .insert({ name: uni.trim(), website_url: url || null }).select().single();
-        if (ue) throw ue;
-        uniId = newUni.id;
-      }
-      const { data: existingProg } = await supabase.from("programs")
-        .select("*").eq("university_id", uniId).ilike("name", prog.trim()).maybeSingle();
-      let progId = existingProg?.id;
-      if (!progId) {
-        const { data: newProg, error: pe } = await supabase.from("programs")
-          .insert({ university_id: uniId, name: prog.trim(), degree_level: "masters" }).select().single();
-        if (pe) throw pe;
-        progId = newProg.id;
-      }
-      const { error: ee } = await supabase.from("user_entries")
-        .insert({ user_id: u.user.id, university_id: uniId, program_id: progId, status: "planning", source: "manual", score: 50 });
-      if (ee && !ee.message.includes("duplicate")) throw ee;
+      await addManualEntry({
+        data: { universityName: uni.trim(), programName: prog.trim(), websiteUrl: url || "" },
+      });
       toast.success("Added");
       setOpen(false); setUni(""); setProg(""); setUrl("");
       onAdded();
