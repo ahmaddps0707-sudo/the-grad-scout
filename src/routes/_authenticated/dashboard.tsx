@@ -17,6 +17,7 @@ import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal, type UpgradeReason } from "@/components/upgrade-modal";
 import type { Database } from "@/integrations/supabase/types";
 import { getStripeEnvironment } from "@/lib/stripe";
+import { addManualEntry } from "@/utils/catalog.functions";
 import { envScopedSub } from "@/lib/subscription";
 
 type EntryRow = Database["public"]["Tables"]["user_entries"]["Row"];
