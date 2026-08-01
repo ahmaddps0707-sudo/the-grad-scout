@@ -264,14 +264,14 @@ ${liveContext}
 If this university has a master's program relevant to "${major}" that appears in the snippets above,
 respond with ONLY a JSON object, no markdown fences, no other text:
 {
+  "website_url": string — must be one of the URLs that appears explicitly in the snippets above,
   "program_name": string,
   "degree_type": string,
   "department": string,
   "is_stem": boolean,
   "duration_months": number or null,
   "university_city": string or null — only if a city is mentioned in the snippets, otherwise null,
-  "match_rationale": string,
-  "website_url": string — must be one of the URLs that appears explicitly in the snippets above
+  "match_rationale": string
 }
 
 If no relevant master's program is found in the snippets, respond with exactly: null`;
