@@ -59,7 +59,7 @@ const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
   rank_500_plus: { min: 450, max: 1500 },
 };
 
-const CANDIDATE_SAMPLE_SIZE = 5;
+const CANDIDATE_SAMPLE_SIZE = 7;
 const FINAL_RESULT_CAP = 5;
 
 // ---------------------------------------------------------------------------
@@ -97,6 +97,14 @@ function tokenize(s: string): string[] {
     .filter((t) => t.length >= 3 && !stop.has(t));
 }
 
+// Lightweight stemming: compares word prefixes rather than requiring an exact
+// substring match, so "finance" matches "financial", "engineer" matches
+// "engineering", etc. — grammatical variants that a literal .includes() check
+// would incorrectly treat as unrelated.
+function stem(word: string, len = 6): string {
+  return word.slice(0, Math.min(word.length, len));
+}
+
 function matchesTargetMajor(
   programName: string,
   department: string | null | undefined,
@@ -104,7 +112,12 @@ function matchesTargetMajor(
 ): boolean {
   if (!majorTokens.length) return true;
   const hay = `${programName ?? ""} ${department ?? ""}`.toLowerCase();
-  return majorTokens.some((tok) => hay.includes(tok));
+  const hayTokens = tokenize(hay);
+  const majorStems = majorTokens.map((t) => stem(t));
+  return hayTokens.some((hTok) => {
+    const hStem = stem(hTok);
+    return majorStems.some((mStem) => hStem === mStem);
+  });
 }
 
 function isUsefulProgramResult(url: string): boolean {
