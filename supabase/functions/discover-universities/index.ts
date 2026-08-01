@@ -59,8 +59,8 @@ const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
   rank_500_plus: { min: 450, max: 1500 },
 };
 
-const CANDIDATE_SAMPLE_SIZE = 6;
-const FINAL_RESULT_CAP = 6;
+const CANDIDATE_SAMPLE_SIZE = 3;
+const FINAL_RESULT_CAP = 5;
 
 // ---------------------------------------------------------------------------
 // Helpers
