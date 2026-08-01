@@ -264,14 +264,14 @@ ${liveContext}
 If this university has a master's program relevant to "${major}" that appears in the snippets above,
 respond with ONLY a JSON object, no markdown fences, no other text:
 {
-  "website_url": string — must be one of the URLs that appears explicitly in the snippets above,
   "program_name": string,
   "degree_type": string,
   "department": string,
   "is_stem": boolean,
   "duration_months": number or null,
   "university_city": string or null — only if a city is mentioned in the snippets, otherwise null,
-  "match_rationale": string
+  "match_rationale": string,
+  "website_url": string — must be one of the URLs that appears explicitly in the snippets above
 }
 
 If no relevant master's program is found in the snippets, respond with exactly: null`;
@@ -302,15 +302,36 @@ If no relevant master's program is found in the snippets, respond with exactly: 
     return null; // one bad candidate should not fail the whole job
   }
 
-  if (!extracted.program_name || !extracted.website_url) {
-    console.log("discard candidate (missing required fields)", candidate.name, JSON.stringify(extracted).slice(0, 200));
+  if (!extracted.program_name) {
+    console.log("discard candidate (missing program name)", candidate.name, JSON.stringify(extracted).slice(0, 200));
     return null;
   }
 
-  const normalizedUrl = normalizeUrl(extracted.website_url);
-  if (!liveUrls.has(normalizedUrl)) {
-    // anti-hallucination: the AI must cite a URL that was actually in the snippets
-    console.log("discard candidate (hallucinated URL)", candidate.name, extracted.website_url);
+  let normalizedUrl: string | null = null;
+  if (extracted.website_url) {
+    const aiUrl = normalizeUrl(extracted.website_url);
+    if (liveUrls.has(aiUrl)) {
+      normalizedUrl = aiUrl;
+    } else {
+      // AI cited a URL that wasn't actually in the search snippets — don't trust it,
+      // but don't discard a correctly-identified program over it either. Fall back to
+      // picking a URL ourselves from results we already fetched.
+      console.log(
+        "AI URL not in search results, falling back to local pick (hallucinated URL)",
+        candidate.name,
+        extracted.website_url,
+      );
+      normalizedUrl = pickBestProgramUrl(liveResults, "", extracted.program_name);
+    }
+  } else {
+    // AI omitted website_url entirely — pick the best one from results we already have
+    // instead of discarding a correctly-identified program over a formatting gap.
+    console.log("website_url missing from AI response, falling back to local pick", candidate.name);
+    normalizedUrl = pickBestProgramUrl(liveResults, "", extracted.program_name);
+  }
+
+  if (!normalizedUrl) {
+    console.log("discard candidate (no usable URL after fallback)", candidate.name);
     return null;
   }
 
@@ -395,8 +416,8 @@ Deno.serve(async (req) => {
     const major = profile.target_major ?? "";
     if (!major) throw new Error("Please set a target major before running discovery.");
 
-    const country: string = String(profile.target_country ?? "").trim();
-    if (!country) throw new Error("Please select a target country before running discovery.");
+    const targetCountry: string = (profile.target_country ?? "").trim();
+    if (!targetCountry) throw new Error("Please select a target country before running discovery.");
 
     const window = TIER_WINDOWS[profile.target_tier as string];
     if (!window) throw new Error("Please select a ranking preference before running discovery.");
@@ -418,14 +439,14 @@ Deno.serve(async (req) => {
     const { data: qsRows, error: qsErr } = await admin
       .from("qs_rankings")
       .select("id, rank_display, rank_value, name, country")
-      .eq("country", country)
+      .eq("country", targetCountry)
       .gte("rank_value", window.min)
       .lte("rank_value", window.max);
     if (qsErr) throw qsErr;
 
     console.log(
       "discover-universities: tier window resolved",
-      JSON.stringify({ target_tier: profile.target_tier, window, country, qsRowCount: (qsRows ?? []).length }),
+      JSON.stringify({ target_tier: profile.target_tier, window, targetCountry, qsRowCount: (qsRows ?? []).length }),
     );
 
     const eligible = (qsRows ?? []).filter((r) => !excludedNames.has(r.name.toLowerCase().trim())) as QsRankingRow[];
