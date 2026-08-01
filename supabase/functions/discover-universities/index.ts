@@ -59,7 +59,7 @@ const TIER_WINDOWS: Record<string, { min: number; max: number }> = {
   rank_500_plus: { min: 450, max: 1500 },
 };
 
-const CANDIDATE_SAMPLE_SIZE = 5;
+const CANDIDATE_SAMPLE_SIZE = 7;
 const FINAL_RESULT_CAP = 5;
 
 // ---------------------------------------------------------------------------
@@ -225,6 +225,23 @@ function pickBestProgramUrl(liveResults: { url: string }[], originalUrl: string,
   return originalUrl ?? null;
 }
 
+// Records a criteria-failure (not a technical/transient failure) so this
+// university isn't immediately resampled for this user. 30-day cooldown is
+// enforced at read-time (candidate-selection query), not here.
+async function recordFailedCandidate(
+  admin: ReturnType<typeof createClient>,
+  userId: string,
+  universityName: string,
+  reason: "major_mismatch" | "no_relevant_program",
+) {
+  const { error } = await admin.from("discover_failed_candidates").insert({
+    user_id: userId,
+    university_name: universityName,
+    reason,
+  });
+  if (error) console.error("failed to record discover_failed_candidates", universityName, reason, error);
+}
+
 // Per-candidate: search for this ONE university's program, ask the AI to
 // confirm + extract (not discover/judge — just extract), validate against
 // the live snippets (anti-hallucination) and the major filter.
@@ -234,6 +251,8 @@ async function discoverForCandidate(
   major: string,
   apiKey: string,
   majorTokens: string[],
+  admin: ReturnType<typeof createClient>,
+  userId: string,
 ): Promise<CandidateResult | null> {
   const query = `${candidate.name} ${major} master's degree program official admissions`.trim();
   let results: Awaited<ReturnType<typeof firecrawlSearch>>;
@@ -300,6 +319,7 @@ If no relevant master's program is found in the snippets, respond with exactly: 
   const trimmed = raw.trim();
   if (/^null$/i.test(trimmed)) {
     console.log("discard candidate (AI found no relevant program)", candidate.name);
+    await recordFailedCandidate(admin, userId, candidate.name, "no_relevant_program");
     return null;
   }
 
@@ -350,6 +370,7 @@ If no relevant master's program is found in the snippets, respond with exactly: 
 
   if (!matchesTargetMajor(extracted.program_name, extracted.department, majorTokens)) {
     console.log("discard candidate (major mismatch)", candidate.name, extracted.program_name);
+    await recordFailedCandidate(admin, userId, candidate.name, "major_mismatch");
     return null;
   }
 
@@ -448,6 +469,22 @@ Deno.serve(async (req) => {
         .filter((n: string) => n.length > 0),
     );
 
+    // Load universities that failed evaluation criteria (major mismatch / no
+    // relevant program) for this user within the last 30 days — kept out of
+    // resampling until the cooldown expires, so the same few failures don't
+    // keep getting re-picked run after run.
+    const cooldownCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentFailures, error: failuresErr } = await admin
+      .from("discover_failed_candidates")
+      .select("university_name")
+      .eq("user_id", userId)
+      .gte("failed_at", cooldownCutoff);
+    if (failuresErr) console.error("failed to load discover_failed_candidates", failuresErr);
+    for (const row of recentFailures ?? []) {
+      const n = (row.university_name ?? "").toLowerCase().trim();
+      if (n) excludedNames.add(n);
+    }
+
     // Pull eligible candidate universities from the authoritative QS reference table
     const { data: qsRows, error: qsErr } = await admin
       .from("qs_rankings")
@@ -459,7 +496,13 @@ Deno.serve(async (req) => {
 
     console.log(
       "discover-universities: tier window resolved",
-      JSON.stringify({ target_tier: profile.target_tier, window, targetCountry, qsRowCount: (qsRows ?? []).length }),
+      JSON.stringify({
+        target_tier: profile.target_tier,
+        window,
+        targetCountry,
+        qsRowCount: (qsRows ?? []).length,
+        cooldownExcludedCount: (recentFailures ?? []).length,
+      }),
     );
 
     const eligible = (qsRows ?? []).filter((r) => !excludedNames.has(r.name.toLowerCase().trim())) as QsRankingRow[];
@@ -489,7 +532,7 @@ Deno.serve(async (req) => {
     // (out of credits / provider outage) should abort the whole job, same as
     // the old behavior — everything else is a soft per-candidate skip.
     const settled = await Promise.allSettled(
-      candidates.map((c) => discoverForCandidate(c, profile, major, apiKey, majorTokens)),
+      candidates.map((c) => discoverForCandidate(c, profile, major, apiKey, majorTokens, admin, userId)),
     );
 
     for (const s of settled) {
