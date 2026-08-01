@@ -395,8 +395,8 @@ Deno.serve(async (req) => {
     const major = profile.target_major ?? "";
     if (!major) throw new Error("Please set a target major before running discovery.");
 
-    const countries: string[] = (profile.target_countries ?? []).filter(Boolean);
-    if (countries.length === 0) throw new Error("Please select at least one target country before running discovery.");
+    const country: string = String(profile.target_country ?? "").trim();
+    if (!country) throw new Error("Please select a target country before running discovery.");
 
     const window = TIER_WINDOWS[profile.target_tier as string];
     if (!window) throw new Error("Please select a ranking preference before running discovery.");
@@ -418,14 +418,14 @@ Deno.serve(async (req) => {
     const { data: qsRows, error: qsErr } = await admin
       .from("qs_rankings")
       .select("id, rank_display, rank_value, name, country")
-      .in("country", countries)
+      .eq("country", country)
       .gte("rank_value", window.min)
       .lte("rank_value", window.max);
     if (qsErr) throw qsErr;
 
     console.log(
       "discover-universities: tier window resolved",
-      JSON.stringify({ target_tier: profile.target_tier, window, countries, qsRowCount: (qsRows ?? []).length }),
+      JSON.stringify({ target_tier: profile.target_tier, window, country, qsRowCount: (qsRows ?? []).length }),
     );
 
     const eligible = (qsRows ?? []).filter((r) => !excludedNames.has(r.name.toLowerCase().trim())) as QsRankingRow[];
