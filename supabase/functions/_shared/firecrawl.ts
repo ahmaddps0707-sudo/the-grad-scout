@@ -29,6 +29,7 @@ function parseRetryAfterMs(body: string, headers: Headers): number {
 
 async function firecrawlFetch(path: string, init: RequestInit, maxRetries = 2): Promise<Response> {
   let attempt = 0;
+  let timeouts = 0;
   while (true) {
     // Per-request wall-clock timeout so a single hung upstream call cannot
     // consume the edge function's 150s idle budget.
@@ -41,7 +42,11 @@ async function firecrawlFetch(path: string, init: RequestInit, maxRetries = 2): 
       clearTimeout(timer);
       if ((e as Error)?.name === "AbortError") {
         console.warn(`firecrawl ${path} timed out after 25s`);
-        return new Response("timeout", { status: 504 });
+        if (timeouts < 1) {
+          timeouts++;
+          continue; // one retry — upstream hiccups are usually transient
+        }
+        return new Response("timeout", { status: 504, headers: { "x-firecrawl-timeout": "1" } });
       }
       throw e;
     }
@@ -119,6 +124,9 @@ export async function firecrawlSearch(
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     console.error("firecrawl search failed", res.status, body);
+    // Local client-side timeout: soft failure, treated as "no results" so one
+    // slow upstream call cannot abort the whole job.
+    if (res.headers.get("x-firecrawl-timeout") === "1") return [];
     // Surface provider auth/credit/rate errors so the caller can fail the job
     // instead of masking as "zero results".
     if (res.status === 402 || res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) {
