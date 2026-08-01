@@ -38,6 +38,38 @@ export type Database = {
         }
         Relationships: []
       }
+      discover_failed_candidates: {
+        Row: {
+          failed_at: string
+          id: string
+          reason: string
+          university_name: string
+          user_id: string
+        }
+        Insert: {
+          failed_at?: string
+          id?: string
+          reason: string
+          university_name: string
+          user_id: string
+        }
+        Update: {
+          failed_at?: string
+          id?: string
+          reason?: string
+          university_name?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discover_failed_candidates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discover_jobs: {
         Row: {
           completed_at: string | null
