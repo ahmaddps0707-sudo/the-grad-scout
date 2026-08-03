@@ -298,6 +298,7 @@ async function gatherLiveSources(
   // ---------- STEP 2: categorize + scrape sub-pages from main page links ----------
   const linkPool: Array<{ url: string; category: SubPageCategory }> = [];
   const seenUrls = new Set<string>(docs.map((d) => normalizeUrl(d.url)));
+  const rejectedLinks: string[] = [];
   if (mainDoc?.links?.length) {
     for (const raw of mainDoc.links) {
       let abs = raw;
@@ -310,7 +311,7 @@ async function gatherLiveSources(
       if (!norm || seenUrls.has(norm)) continue;
       if (!isSameOrSubDomain(norm, officialHost)) continue;
       if (isWrongProgramPage(norm, programName)) {
-        console.log(`enrich-university req=${requestId}: reject link (wrong program/level) ${norm}`);
+        rejectedLinks.push(norm);
         continue;
       }
       const cat = categorizeUrl(norm);
@@ -318,6 +319,9 @@ async function gatherLiveSources(
       linkPool.push({ url: norm, category: cat });
     }
   }
+  console.log(
+    `enrich-university req=${requestId}: Step 2 rejected ${rejectedLinks.length} wrong-program/level links (undergrad/phd/other-MBA-variant). Sample: ${rejectedLinks.slice(0, 5).join(", ")}${rejectedLinks.length > 5 ? ` ... +${rejectedLinks.length - 5} more` : ""}`,
+  );
 
   // Pick a single link per category to avoid over-scraping. A second link is
   // only added later in the gap-fill pass when the first came back thin.
