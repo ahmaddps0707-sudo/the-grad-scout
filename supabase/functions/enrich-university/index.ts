@@ -350,7 +350,7 @@ async function gatherLiveSources(
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
     tuition: `${programName} tuition fees cost per credit`,
-    funding: `${programName} scholarships assistantship financial aid stipend`,
+    funding: `${programName} scholarships assistantship financial aid`,
     class_profile: `${programName} class profile student statistics`,
     career: `${programName} career outcomes placement salary employers`,
   };
