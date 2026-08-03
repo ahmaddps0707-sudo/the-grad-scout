@@ -210,52 +210,56 @@ async function gatherLiveSources(
   programName: string,
   websiteUrl?: string | null,
   programUrl?: string | null,
+  requestId = "unknown",
 ): Promise<{ docs: FirecrawlDocument[]; mainDoc: FirecrawlDocument | null; officialHost: string | null }> {
   // Prefer the more specific program_url when available.
   const primaryUrl = programUrl && programUrl.trim() ? programUrl : (websiteUrl ?? null);
   let officialHost = hostname(primaryUrl);
   const programPathPrefix = primaryUrl ? derivePathPrefix(primaryUrl) : null;
   console.log(
-    `enrich-university: gatherLiveSources start — primary_url=${primaryUrl ?? "none"} path_prefix=${programPathPrefix ?? "none"} used_program_url=${!!(programUrl && programUrl.trim())}`,
+    `enrich-university req=${requestId}: gatherLiveSources start — primary_url=${primaryUrl ?? "none"} path_prefix=${programPathPrefix ?? "none"} used_program_url=${!!(programUrl && programUrl.trim())}`,
   );
   const catCount = TARGET_CATEGORIES.length;
   const uniqCatCount = new Set(TARGET_CATEGORIES).size;
   if (catCount !== uniqCatCount) {
-    console.warn(`enrich-university: TARGET_CATEGORIES has duplicates (${catCount} vs ${uniqCatCount})`);
+    console.warn(`enrich-university req=${requestId}: TARGET_CATEGORIES has duplicates (${catCount} vs ${uniqCatCount})`);
   }
   const opsBudget = { count: 0, hit: false };
-  const canSpend = (n = 1) => {
+  const canSpend = (n = 1, label = "unknown") => {
     if (opsBudget.count + n > MAX_TOTAL_FIRECRAWL_OPS) {
-      if (!opsBudget.hit) {
-        opsBudget.hit = true;
-        console.warn(
-          `enrich-university: MAX_TOTAL_FIRECRAWL_OPS (${MAX_TOTAL_FIRECRAWL_OPS}) reached, halting further Firecrawl calls`,
-        );
-      }
+      opsBudget.hit = true;
+      console.warn(
+        `enrich-university req=${requestId}: BUDGET EXHAUSTED — rejected spend for [${label}], current=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}`,
+      );
       return false;
     }
     opsBudget.count += n;
     return true;
   };
-  const scrape = async (url: string, o?: Parameters<typeof firecrawlScrape>[1]) => {
-    if (!canSpend(1)) return null;
+  const scrape = async (url: string, o?: Parameters<typeof firecrawlScrape>[1], label = "scrape") => {
+    if (!canSpend(1, label)) return null;
     return firecrawlScrape(url, o);
   };
-  const scrapeMany = async (urls: string[], limit: number, o?: Parameters<typeof scrapeUniqueUrls>[2]) => {
+  const scrapeMany = async (
+    urls: string[],
+    limit: number,
+    o?: Parameters<typeof scrapeUniqueUrls>[2],
+    label = "scrapeMany",
+  ) => {
     const budget = Math.max(0, Math.min(limit, urls.length, MAX_TOTAL_FIRECRAWL_OPS - opsBudget.count));
     if (budget <= 0) {
-      canSpend(1);
+      canSpend(1, label);
       return [];
     }
     opsBudget.count += budget;
     return scrapeUniqueUrls(urls, budget, o);
   };
-  const search = async (q: string, o?: Parameters<typeof firecrawlSearch>[1]) => {
-    if (!canSpend(1)) return [];
+  const search = async (q: string, o?: Parameters<typeof firecrawlSearch>[1], label = "search") => {
+    if (!canSpend(1, label)) return [];
     try {
       return await firecrawlSearch(q, o);
     } catch (e) {
-      console.warn("firecrawl search soft-fail", (e as Error).message);
+      console.warn(`enrich-university req=${requestId}: firecrawl search soft-fail [${label}] — ${(e as Error).message}`);
       return [];
     }
   };
@@ -263,23 +267,23 @@ async function gatherLiveSources(
   // ---------- STEP 1: main program page ----------
   let mainDoc: FirecrawlDocument | null = null;
   if (primaryUrl) {
-    mainDoc = await scrape(primaryUrl, { includeLinks: true, maxMarkdownChars: 14000 });
+    mainDoc = await scrape(primaryUrl, { includeLinks: true, maxMarkdownChars: 14000 }, "step1-main-page");
   }
   if (!mainDoc) {
-    console.log(`enrich-university: falling back to blind discovery — no stored program_url produced a scrape`);
+    console.log(`enrich-university req=${requestId}: falling back to blind discovery — no stored program_url produced a scrape`);
     const seedQuery = officialHost
       ? `site:${officialHost} ${programName} master's program`
       : `${universityName} ${programName} master's program official site`;
-    const seeds = await search(seedQuery, { limit: 1 });
+    const seeds = await search(seedQuery, { limit: 1 }, "step1-seed-search");
     const ranked = seeds.sort(
       (a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName),
     );
     for (const s of ranked) {
-      mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 });
+      mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 14000 }, "step1-seed-scrape");
       if (mainDoc) break;
     }
   } else {
-    console.log(`enrich-university: used stored program URL as authoritative start (${primaryUrl})`);
+    console.log(`enrich-university req=${requestId}: used stored program URL as authoritative start (${primaryUrl})`);
   }
   if (mainDoc && !officialHost) officialHost = hostname(mainDoc.url);
   const docs: FirecrawlDocument[] = [];
@@ -306,7 +310,7 @@ async function gatherLiveSources(
       if (!norm || seenUrls.has(norm)) continue;
       if (!isSameOrSubDomain(norm, officialHost)) continue;
       if (isWrongProgramPage(norm, programName)) {
-        console.log(`enrich-university: reject link (wrong program/level) ${norm}`);
+        console.log(`enrich-university req=${requestId}: reject link (wrong program/level) ${norm}`);
         continue;
       }
       const cat = categorizeUrl(norm);
@@ -332,6 +336,7 @@ async function gatherLiveSources(
     subPageUrls.map((x) => x.url),
     Math.min(subPageUrls.length, TARGET_CATEGORIES.length),
     { concurrency: 6, maxMarkdownChars: 10000 },
+    "step2-scrape-subpages",
   );
   const urlToCat = new Map(subPageUrls.map((x) => [normalizeUrl(x.url), x.category]));
   for (const d of step2Docs) {
@@ -377,7 +382,7 @@ async function gatherLiveSources(
     class_profile: nonAdmissionsScope,
     career: nonAdmissionsScope,
   };
-  console.log(`enrich-university: gap-fill searchMode=${searchMode}`);
+  console.log(`enrich-university req=${requestId}: gap-fill searchMode=${searchMode}`);
 
   const seenQueries = new Set<string>();
   const gapPlans: Array<{ cat: SubPageCategory; query: string; scopeMode: "path" | "domain" | "open" }> = [];
@@ -399,12 +404,14 @@ async function gatherLiveSources(
     query = query.trim();
     if (seenQueries.has(query)) continue;
     seenQueries.add(query);
-    console.log(`enrich-university: mode=${searchMode} category=${cat} scope=${usedScope} query='${query}'`);
+    console.log(`enrich-university req=${requestId}: mode=${searchMode} category=${cat} scope=${usedScope} query='${query}'`);
     gapPlans.push({ cat, query, scopeMode: usedScope });
   }
 
   const gapBatches = await Promise.all(
-    gapPlans.map((p) => search(p.query, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } })),
+    gapPlans.map((p) =>
+      search(p.query, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } }, `step3-search-${p.cat}`)
+    ),
   );
   const gapUrls: string[] = [];
   for (let i = 0; i < gapBatches.length; i++) {
@@ -414,7 +421,7 @@ async function gatherLiveSources(
       .filter((r) => plan.scopeMode === "open" || isSameOrSubDomain(r.url, officialHost))
       .filter((r) => {
         if (isWrongProgramPage(r.url, programName)) {
-          console.log(`enrich-university: reject gap result (wrong program/level) ${r.url}`);
+          console.log(`enrich-university req=${requestId}: reject gap result (wrong program/level) ${r.url}`);
           return false;
         }
         return true;
@@ -426,7 +433,7 @@ async function gatherLiveSources(
       )
       .slice(0, 2);
     console.log(
-      `enrich-university: mode=${searchMode} category=${plan.cat} scope=${plan.scopeMode} query='${plan.query}' → resolved: ${
+      `enrich-university req=${requestId}: mode=${searchMode} category=${plan.cat} scope=${plan.scopeMode} query='${plan.query}' → resolved: ${
         top.map((t) => t.url).join(", ") || "none"
       }`,
     );
@@ -437,6 +444,9 @@ async function gatherLiveSources(
       // instead of paying for a second scrape.
       if (t.markdown && t.markdown.trim().length > 200) {
         seenUrls.add(norm);
+        console.log(
+          `enrich-university req=${requestId}: category=${plan.cat} url=${norm} — used inline search markdown, length=${t.markdown.trim().length}`,
+        );
         const doc: FirecrawlDocument = {
           url: norm,
           title: t.title ?? "",
@@ -448,11 +458,33 @@ async function gatherLiveSources(
         (doc as any)._category = categorizeUrl(norm) ?? "overview";
         docs.push(doc);
       } else {
+        console.log(
+          `enrich-university req=${requestId}: category=${plan.cat} url=${norm} — inline markdown too short (${
+            t.markdown?.trim().length ?? 0
+          } chars), queuing separate scrape`,
+        );
         gapUrls.push(norm);
       }
     }
   }
-  const step3Docs = await scrapeMany(gapUrls, Math.min(gapUrls.length, 6), { concurrency: 5, maxMarkdownChars: 9000 });
+  const step3Docs = await scrapeMany(
+    gapUrls,
+    Math.min(gapUrls.length, 6),
+    { concurrency: 5, maxMarkdownChars: 9000 },
+    "step3-scrape-gapUrls",
+  );
+  for (const url of gapUrls) {
+    const found = step3Docs.find((d) => normalizeUrl(d.url) === url);
+    if (found) {
+      console.log(
+        `enrich-university req=${requestId}: gap-fill scrape SUCCESS url=${url} length=${found.markdown.length}`,
+      );
+    } else {
+      console.log(
+        `enrich-university req=${requestId}: gap-fill scrape FAILED or DROPPED url=${url} — check budget or scrape error`,
+      );
+    }
+  }
   for (const d of step3Docs) {
     const key = normalizeUrl(d.url);
     if (seenUrls.has(key)) continue;
@@ -466,7 +498,7 @@ async function gatherLiveSources(
   const otherDocs = docs.filter((d) => !officialHost || !d.url.toLowerCase().includes(officialHost.toLowerCase()));
   const finalDocs = [...officialDocs, ...otherDocs].slice(0, 20);
   console.log(
-    `enrich-university: gatherLiveSources done — firecrawl_ops=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}, docs=${finalDocs.length}`,
+    `enrich-university req=${requestId}: gatherLiveSources done — firecrawl_ops=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}, docs=${finalDocs.length}`,
   );
   return { docs: finalDocs, mainDoc, officialHost };
 }
