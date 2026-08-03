@@ -885,7 +885,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
       },
     );
   } catch (e) {
-    console.error("enrich-university error", e);
+    console.error(`enrich-university req=${requestId}: error`, e);
     return new Response(JSON.stringify({ ok: false, error: (e as Error).message }), {
       status: 500,
       headers: { ...CORS_HEADERS, "content-type": "application/json" },
