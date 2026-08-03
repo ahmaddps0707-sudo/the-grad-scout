@@ -31,7 +31,15 @@ function hostname(url?: string | null): string | null {
   }
 }
 
-function resultScore(result: FirecrawlResult, officialHost: string | null, programName: string): number {
+const REPUTABLE_THIRD_PARTY =
+  /poetsandquants\.com|gmac\.com|businessbecause\.com|topmba\.com|usnews\.com|qs\.com|topuniversities\.com/i;
+
+function resultScore(
+  result: FirecrawlResult,
+  officialHost: string | null,
+  programName: string,
+  scopeMode: "path" | "domain" | "open" = "domain",
+): number {
   const haystack = `${result.url} ${result.title ?? ""} ${result.description ?? ""}`.toLowerCase();
   const programTokens = programName
     .toLowerCase()
@@ -39,6 +47,7 @@ function resultScore(result: FirecrawlResult, officialHost: string | null, progr
     .filter((t) => t.length > 3);
   let score = 0;
   if (officialHost && result.url.toLowerCase().includes(officialHost.toLowerCase())) score += 40;
+  if (scopeMode === "open" && REPUTABLE_THIRD_PARTY.test(result.url)) score += 15;
   try {
     const urlPath = new URL(result.url).pathname.toLowerCase();
     const pathMatchCount = programTokens.filter((t) => urlPath.includes(t)).length;
