@@ -365,37 +365,53 @@ async function gatherLiveSources(
   };
   // Only admissions content reliably lives under the program's admissions path;
   // tuition/funding/class profile/career usually live in sibling paths.
-  const categoryScopeMode: Partial<Record<SubPageCategory, "path" | "domain">> = {
+  // Admissions stays path-scoped regardless of mode. The other categories are
+  // A/B-switchable between domain-scoped and open-web search via
+  // GAP_FILL_SEARCH_MODE ("domain" default | "open").
+  const searchMode = (Deno.env.get("GAP_FILL_SEARCH_MODE") ?? "domain") as "domain" | "open";
+  const nonAdmissionsScope: "domain" | "open" = searchMode === "open" ? "open" : "domain";
+  const categoryScopeMode: Partial<Record<SubPageCategory, "path" | "domain" | "open">> = {
     admissions: "path",
-    tuition: "domain",
-    funding: "domain",
-    class_profile: "domain",
-    career: "domain",
+    tuition: nonAdmissionsScope,
+    funding: nonAdmissionsScope,
+    class_profile: nonAdmissionsScope,
+    career: nonAdmissionsScope,
   };
-  const gapQueries: string[] = Array.from(
-    new Set(
-      needsFill.map((cat) => {
-        const base = catQueries[cat] ?? `${programName} ${cat}`;
-        const scopeMode = categoryScopeMode[cat] ?? "domain";
-        const scopedSite = scopeMode === "path" && programPathPrefix && officialHost
-          ? `site:${officialHost}${programPathPrefix}`
-          : officialHost
-          ? `site:${officialHost}`
-          : "";
-        const query = scopedSite ? `${scopedSite} ${base}`.trim() : `${universityName} ${base}`;
-        console.log(`enrich-university: query [${cat}] scope=${scopedSite ? scopeMode : "open_web"} → ${query}`);
-        return query;
-      }),
-    ),
-  );
+  console.log(`enrich-university: gap-fill searchMode=${searchMode}`);
+
+  const seenQueries = new Set<string>();
+  const gapPlans: Array<{ cat: SubPageCategory; query: string; scopeMode: "path" | "domain" | "open" }> = [];
+  for (const cat of needsFill) {
+    const base = catQueries[cat] ?? `${programName} ${cat}`;
+    const scopeMode = categoryScopeMode[cat] ?? "domain";
+    let query: string;
+    let usedScope: "path" | "domain" | "open";
+    if (scopeMode === "path" && programPathPrefix && officialHost) {
+      query = `site:${officialHost}${programPathPrefix} ${base}`;
+      usedScope = "path";
+    } else if (scopeMode !== "open" && officialHost) {
+      query = `site:${officialHost} ${base}`;
+      usedScope = "domain";
+    } else {
+      query = `${universityName} ${base}`;
+      usedScope = "open";
+    }
+    query = query.trim();
+    if (seenQueries.has(query)) continue;
+    seenQueries.add(query);
+    console.log(`enrich-university: mode=${searchMode} category=${cat} scope=${usedScope} query='${query}'`);
+    gapPlans.push({ cat, query, scopeMode: usedScope });
+  }
 
   const gapBatches = await Promise.all(
-    gapQueries.map((q) => search(q, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } })),
+    gapPlans.map((p) => search(p.query, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } })),
   );
   const gapUrls: string[] = [];
-  for (const results of gapBatches) {
+  for (let i = 0; i < gapBatches.length; i++) {
+    const results = gapBatches[i];
+    const plan = gapPlans[i];
     const top = results
-      .filter((r) => isSameOrSubDomain(r.url, officialHost))
+      .filter((r) => plan.scopeMode === "open" || isSameOrSubDomain(r.url, officialHost))
       .filter((r) => {
         if (isWrongProgramPage(r.url, programName)) {
           console.log(`enrich-university: reject gap result (wrong program/level) ${r.url}`);
@@ -403,8 +419,17 @@ async function gatherLiveSources(
         }
         return true;
       })
-      .sort((a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName))
+      .sort(
+        (a, b) =>
+          resultScore(b, officialHost, programName, plan.scopeMode) -
+          resultScore(a, officialHost, programName, plan.scopeMode),
+      )
       .slice(0, 2);
+    console.log(
+      `enrich-university: mode=${searchMode} category=${plan.cat} scope=${plan.scopeMode} query='${plan.query}' → resolved: ${
+        top.map((t) => t.url).join(", ") || "none"
+      }`,
+    );
     for (const t of top) {
       const norm = normalizeUrl(t.url);
       if (seenUrls.has(norm)) continue;
