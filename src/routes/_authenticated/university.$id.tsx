@@ -126,7 +126,12 @@ function DetailPage() {
 
   const manualRefresh = async () => {
     if (!entry?.program) return;
-    setAdm(null); setCp(null); setFd(null); setCity(null); setCareer(null);
+    // Do NOT clear adm/cp/fd/city/career optimistically. A rejected request
+    // (403 update_data_limit_reached) performs zero database writes to
+    // program_admissions, program_class_profile, program_funding,
+    // program_city_info or program_career_stats, so the displayed data must
+    // stay exactly as-is. Fresh values are only applied via load() after a
+    // successful response.
     setEnriching(true);
     try {
       const runEnv = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
@@ -144,6 +149,7 @@ function DetailPage() {
         let payload: any = null;
         try { payload = await (error as any).context?.json?.(); } catch { /* not a JSON body */ }
         if (payload?.code === "update_data_limit_reached") {
+          console.log("update-data denied (free tier) — no data cleared, no rows written");
           setUpgradeOpen(true);
           return;
         }
