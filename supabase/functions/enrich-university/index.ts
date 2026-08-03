@@ -350,19 +350,32 @@ async function gatherLiveSources(
     overview: `${programName} overview`,
     admissions: `${programName} admissions how to apply`,
     tuition: `${programName} tuition fees cost per credit`,
-    funding: `${programName} scholarships assistantship financial aid`,
-    class_profile: `${programName} class profile student statistics`,
-    career: `${programName} career outcomes placement salary employers`,
+    funding: `${programName} scholarships assistantship financial aid stipend`,
+    class_profile: `${programName} class profile student statistics average GMAT GPA`,
+    career: `${programName} employment report career outcomes placement salary employers`,
+  };
+  // Only admissions content reliably lives under the program's admissions path;
+  // tuition/funding/class profile/career usually live in sibling paths.
+  const categoryScopeMode: Partial<Record<SubPageCategory, "path" | "domain">> = {
+    admissions: "path",
+    tuition: "domain",
+    funding: "domain",
+    class_profile: "domain",
+    career: "domain",
   };
   const gapQueries: string[] = Array.from(
     new Set(
       needsFill.map((cat) => {
         const base = catQueries[cat] ?? `${programName} ${cat}`;
-        if (officialHost) {
-          const scope = programPathPrefix ? `${officialHost}${programPathPrefix}` : officialHost;
-          return `site:${scope} ${base}`;
-        }
-        return `${universityName} ${base}`;
+        const scopeMode = categoryScopeMode[cat] ?? "domain";
+        const scopedSite = scopeMode === "path" && programPathPrefix && officialHost
+          ? `site:${officialHost}${programPathPrefix}`
+          : officialHost
+          ? `site:${officialHost}`
+          : "";
+        const query = scopedSite ? `${scopedSite} ${base}`.trim() : `${universityName} ${base}`;
+        console.log(`enrich-university: query [${cat}] scope=${scopedSite ? scopeMode : "open_web"} → ${query}`);
+        return query;
       }),
     ),
   );
