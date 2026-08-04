@@ -503,10 +503,17 @@ async function gatherLiveSources(
   const officialDocs = docs.filter((d) => officialHost && d.url.toLowerCase().includes(officialHost.toLowerCase()));
   const otherDocs = docs.filter((d) => !officialHost || !d.url.toLowerCase().includes(officialHost.toLowerCase()));
   const finalDocs = [...officialDocs, ...otherDocs].slice(0, 20);
+  // Step-3-first ordering: gap-fill docs move to the front so any residual
+  // totalCap truncation cuts the least-important content first. Same docs,
+  // different sequence only.
+  const step3Urls = new Set(step3Docs.map((d) => normalizeUrl(d.url)));
+  const gapFillDocs = finalDocs.filter((d) => step3Urls.has(normalizeUrl(d.url)));
+  const remainingDocs = finalDocs.filter((d) => !step3Urls.has(normalizeUrl(d.url)));
+  const orderedDocs = [...gapFillDocs, ...remainingDocs];
   console.log(
-    `enrich-university req=${requestId}: gatherLiveSources done — firecrawl_ops=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}, docs=${finalDocs.length}`,
+    `enrich-university req=${requestId}: gatherLiveSources done — firecrawl_ops=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}, docs=${orderedDocs.length} (gap-fill first: ${gapFillDocs.length})`,
   );
-  return { docs: finalDocs, mainDoc, officialHost };
+  return { docs: orderedDocs, mainDoc, officialHost };
 }
 
 function validUrlOrNull(url: unknown, validSources: Set<string>): string | null {
