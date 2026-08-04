@@ -247,7 +247,6 @@ function DetailPage() {
             <TabsTrigger value="admissions">Admissions</TabsTrigger>
             <TabsTrigger value="class">Class Profile</TabsTrigger>
             <TabsTrigger value="funding">Tuition & Funding</TabsTrigger>
-            <TabsTrigger value="city">City</TabsTrigger>
             <TabsTrigger value="career">Career Outcomes</TabsTrigger>
             <TabsTrigger value="outreach">Outreach</TabsTrigger>
             <TabsTrigger value="discussion">Discussion</TabsTrigger>
@@ -323,18 +322,6 @@ function DetailPage() {
                     : null
                 } />
                 <Row k="Estimated total cost of attendance" v={fd?.est_total_cost_of_attendance ? `${fd.est_total_cost_of_attendance.toLocaleString()} ${fd.tuition_currency ?? ""}` : null} />
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="city" className="mt-6">
-            {enriching && !city ? <SkeletonCard /> : (
-              <Card title="City">
-                <Row k="City" v={city?.city_name} />
-                <Row k="Vibe" v={city?.city_vibe} />
-                <Row k="Nearest major city" v={city?.nearest_major_city} />
-                <Row k="Distance" v={city?.distance_to_major_city_km != null ? `${city.distance_to_major_city_km} km` : null} />
-                <Row k="Travel time" v={city?.travel_time_to_major_city} />
               </Card>
             )}
           </TabsContent>
