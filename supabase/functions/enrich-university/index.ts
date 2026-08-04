@@ -108,7 +108,11 @@ function sourceContext(docs: FirecrawlDocument[], perDocCap = 75000, totalCap = 
       const rawBody = doc.markdown.replace(/\s+/g, " ");
       const wasTruncated = rawBody.length > perDocCap;
       const body = rawBody.slice(0, perDocCap) + (wasTruncated ? " [TRUNCATED]" : "");
-      const cat = (doc as any)._category ? ` [${(doc as any)._category}]` : "";
+      const cat = (doc as any)._categories
+        ? ` [${Array.from((doc as any)._categories).join("/")}]`
+        : (doc as any)._category
+        ? ` [${(doc as any)._category}]`
+        : "";
       const truncFlag = doc.truncated ? " [SOURCE ALREADY TRUNCATED AT SCRAPE]" : "";
       return `SOURCE ${index + 1}${cat}${truncFlag}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
     })
@@ -445,7 +449,20 @@ async function gatherLiveSources(
     );
     for (const t of top) {
       const norm = normalizeUrl(t.url);
-      if (seenUrls.has(norm)) continue;
+      if (seenUrls.has(norm)) {
+        const existingDoc = docs.find((d) => normalizeUrl(d.url) === norm);
+        if (existingDoc) {
+          const existingCat = (existingDoc as any)._category;
+          if (!(existingDoc as any)._categories) {
+            (existingDoc as any)._categories = new Set([existingCat]);
+          }
+          (existingDoc as any)._categories.add(plan.cat);
+          console.log(
+            `enrich-university req=${requestId}: category=${plan.cat} url=${norm} — already fetched under category="${existingCat}", also tagging as "${plan.cat}" (page covers both)`,
+          );
+        }
+        continue;
+      }
       // Reuse: if search already returned markdown, construct the doc directly
       // instead of paying for a second scrape.
       if (t.markdown && t.markdown.trim().length > 200) {
@@ -462,6 +479,7 @@ async function gatherLiveSources(
           links: [],
         };
         (doc as any)._category = categorizeUrl(norm) ?? "overview";
+        (doc as any)._categories = new Set([(doc as any)._category]);
         docs.push(doc);
       } else {
         console.log(
@@ -496,6 +514,7 @@ async function gatherLiveSources(
     if (seenUrls.has(key)) continue;
     seenUrls.add(key);
     (d as any)._category = categorizeUrl(d.url) ?? "overview";
+    (d as any)._categories = new Set([(d as any)._category]);
     docs.push(d);
   }
 
@@ -643,7 +662,9 @@ Deno.serve(async (req) => {
       `enrich-university req=${requestId}: context assembled — ${docs.length} docs, ${truncatedDocCount} truncated at scrape layer, final context length ${assembledContext.length}/${SOURCE_CONTEXT_TOTAL_CAP}`,
     );
     const categoryContentSummary = TARGET_CATEGORIES.map((cat) => {
-      const catDocsForSummary = docs.filter((d) => (d as any)._category === cat);
+      const catDocsForSummary = docs.filter((d) =>
+        (d as any)._categories?.has(cat) ?? (d as any)._category === cat
+      );
       const totalChars = catDocsForSummary.reduce((sum, d) => sum + d.markdown.length, 0);
       return `${cat}=${catDocsForSummary.length}doc(s)/${totalChars}chars`;
     }).join(", ");
