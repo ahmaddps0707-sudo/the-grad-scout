@@ -52,7 +52,10 @@ async function firecrawlFetch(path: string, init: RequestInit, maxRetries = 2): 
     }
     clearTimeout(timer);
     if (res.status !== 429 || attempt >= maxRetries) return res;
-    const body = await res.clone().text().catch(() => "");
+    const body = await res
+      .clone()
+      .text()
+      .catch(() => "");
     const wait = parseRetryAfterMs(body, res.headers);
     await new Promise((r) => setTimeout(r, wait));
     attempt++;
@@ -139,10 +142,10 @@ export async function firecrawlSearch(
     const data = Array.isArray(json?.data)
       ? json.data
       : Array.isArray(json?.data?.web)
-      ? json.data.web
-      : Array.isArray(json?.web)
-      ? json.web
-      : [];
+        ? json.data.web
+        : Array.isArray(json?.web)
+          ? json.web
+          : [];
     return data
       .map((r: any) => ({
         url: String(r?.url ?? ""),
@@ -195,13 +198,18 @@ export async function firecrawlScrape(
     const markdown = String(payload?.markdown ?? json?.markdown ?? "").trim();
     if (!markdown) return null;
     const sourceURL = normalizeUrl(String(metadata?.sourceURL ?? payload?.url ?? normalized));
-    const rawLinks: any[] = Array.isArray(payload?.links) ? payload.links : Array.isArray(json?.links) ? json.links : [];
+    const rawLinks: any[] = Array.isArray(payload?.links)
+      ? payload.links
+      : Array.isArray(json?.links)
+        ? json.links
+        : [];
     const links = rawLinks
-      .map((l: any) => (typeof l === "string" ? l : l?.url ?? l?.href ?? ""))
+      .map((l: any) => (typeof l === "string" ? l : (l?.url ?? l?.href ?? "")))
       .filter((l: string) => !!l);
     const cap = opts.maxMarkdownChars ?? 75000;
     const wasTruncated = markdown.length > cap;
-    const slicedMarkdown = markdown.slice(0, cap) +
+    const slicedMarkdown =
+      markdown.slice(0, cap) +
       (wasTruncated ? "\n\n[CONTENT TRUNCATED — additional content existed beyond this point]" : "");
     return {
       url: sourceURL,
@@ -267,10 +275,16 @@ export type SubPageCategory =
   | "overview";
 
 const CATEGORY_PATTERNS: Array<{ cat: SubPageCategory; re: RegExp }> = [
-  { cat: "admissions", re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i },
+  {
+    cat: "admissions",
+    re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i,
+  },
   { cat: "tuition", re: /(tuition|cost|fees?|price|expenses|cost-of-attendance)/i },
   { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
-  { cat: "class_profile", re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i },
+  {
+    cat: "class_profile",
+    re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i,
+  },
   { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
 ];
 
@@ -284,10 +298,13 @@ export function categorizeUrl(url: string): SubPageCategory | null {
   const lastSegment = path.split("/").filter(Boolean).pop() ?? "";
 
   const SPECIFIC_FIRST: Array<{ cat: SubPageCategory; re: RegExp }> = [
-    { cat: "class_profile", re: /(class-profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i },
+    {
+      cat: "class_profile",
+      re: /(class-profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i,
+    },
     { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
     { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
-    { cat: "tuition", re: /(tuition|cost|fees?|price|expenses|cost-of-attendance)/i },
+    { cat: "tuition", re: /(tuition|cost|fees?|expenses|cost-of-attendance)/i },
   ];
 
   for (const { cat, re } of SPECIFIC_FIRST) {
@@ -300,13 +317,16 @@ export function categorizeUrl(url: string): SubPageCategory | null {
   }
 
   if (
-    /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i
-      .test(lower)
+    /(admission|apply|application|how-to-apply|deadline|dates|timeline|requirement|prerequisite|eligibility|criteria)/i.test(
+      lower,
+    )
   ) {
     return "admissions";
   }
 
-  if (/(gre|gmat|gpa|class-size|class_size|years-of-experience|work-experience|test-scores|average-scores)/i.test(lower)) {
+  if (
+    /(gre|gmat|gpa|class-size|class_size|years-of-experience|work-experience|test-scores|average-scores)/i.test(lower)
+  ) {
     return "class_profile";
   }
 
@@ -326,7 +346,5 @@ export function isSameOrSubDomain(url: string, officialHost: string | null): boo
 }
 
 export function concatSnippets(results: FirecrawlResult[]): string {
-  return results
-    .map((r) => `URL: ${r.url}\nTitle: ${r.title ?? ""}\nSnippet: ${r.description ?? ""}`)
-    .join("\n---\n");
+  return results.map((r) => `URL: ${r.url}\nTitle: ${r.title ?? ""}\nSnippet: ${r.description ?? ""}`).join("\n---\n");
 }
