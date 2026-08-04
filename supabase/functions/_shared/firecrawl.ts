@@ -199,7 +199,7 @@ export async function firecrawlScrape(
     const links = rawLinks
       .map((l: any) => (typeof l === "string" ? l : l?.url ?? l?.href ?? ""))
       .filter((l: string) => !!l);
-    const cap = opts.maxMarkdownChars ?? 24000;
+    const cap = opts.maxMarkdownChars ?? 75000;
     const wasTruncated = markdown.length > cap;
     const slicedMarkdown = markdown.slice(0, cap) +
       (wasTruncated ? "\n\n[CONTENT TRUNCATED — additional content existed beyond this point]" : "");
