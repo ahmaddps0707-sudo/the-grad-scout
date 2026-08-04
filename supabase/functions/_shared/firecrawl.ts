@@ -300,7 +300,7 @@ export function categorizeUrl(url: string): SubPageCategory | null {
   const SPECIFIC_FIRST: Array<{ cat: SubPageCategory; re: RegExp }> = [
     {
       cat: "class_profile",
-      re: /(class-profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i,
+      re: /(class-profile|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i,
     },
     { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
     { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
