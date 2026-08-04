@@ -100,7 +100,9 @@ function derivePathPrefix(url: string): string | null {
   }
 }
 
-function sourceContext(docs: FirecrawlDocument[], perDocCap = 22000, totalCap = 150000): string {
+const SOURCE_CONTEXT_TOTAL_CAP = 280000;
+
+function sourceContext(docs: FirecrawlDocument[], perDocCap = 75000, totalCap = SOURCE_CONTEXT_TOTAL_CAP): string {
   const out = docs
     .map((doc, index) => {
       const rawBody = doc.markdown.replace(/\s+/g, " ");
@@ -154,7 +156,7 @@ RULES:
   ]
     .filter(Boolean)
     .join("\n\n")
-    .slice(0, 120000);
+    .slice(0, 200000);
 
   const user = `Extract all application deadlines for this program from the content below. The current date is ${today}. The program intake is ${opts.targetIntake ?? "unspecified"}.
 
@@ -179,7 +181,7 @@ Return ONLY this JSON, no markdown fences:
 }`;
 
   try {
-    const raw = await callLovableAI({ apiKey: opts.apiKey, system, user, maxTokens: 8000 });
+    const raw = await callLovableAI({ apiKey: opts.apiKey, system, user, maxTokens: 12000 });
     const parsed = parseJsonLoose(raw);
     const dt = parsed?.deadline_type;
     const deadline_type: "fixed" | "rolling" | "tbd" = dt === "fixed" || dt === "rolling" || dt === "tbd" ? dt : "tbd";
@@ -267,7 +269,7 @@ async function gatherLiveSources(
   // ---------- STEP 1: main program page ----------
   let mainDoc: FirecrawlDocument | null = null;
   if (primaryUrl) {
-    mainDoc = await scrape(primaryUrl, { includeLinks: true, maxMarkdownChars: 28000 }, "step1-main-page");
+    mainDoc = await scrape(primaryUrl, { includeLinks: true, maxMarkdownChars: 75000 }, "step1-main-page");
   }
   if (!mainDoc) {
     console.log(`enrich-university req=${requestId}: falling back to blind discovery — no stored program_url produced a scrape`);
@@ -279,7 +281,7 @@ async function gatherLiveSources(
       (a, b) => resultScore(b, officialHost, programName) - resultScore(a, officialHost, programName),
     );
     for (const s of ranked) {
-      mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 28000 }, "step1-seed-scrape");
+      mainDoc = await scrape(s.url, { includeLinks: true, maxMarkdownChars: 75000 }, "step1-seed-scrape");
       if (mainDoc) break;
     }
   } else {
@@ -339,7 +341,7 @@ async function gatherLiveSources(
   const step2Docs = await scrapeMany(
     subPageUrls.map((x) => x.url),
     Math.min(subPageUrls.length, TARGET_CATEGORIES.length),
-    { concurrency: 6, maxMarkdownChars: 22000 },
+    { concurrency: 6, maxMarkdownChars: 75000 },
     "step2-scrape-subpages",
   );
   const urlToCat = new Map(subPageUrls.map((x) => [normalizeUrl(x.url), x.category]));
@@ -455,7 +457,7 @@ async function gatherLiveSources(
           url: norm,
           title: t.title ?? "",
           description: t.description ?? "",
-          markdown: t.markdown.slice(0, 22000),
+          markdown: t.markdown.slice(0, 75000),
           statusCode: t.statusCode ?? null,
           links: [],
         };
@@ -474,7 +476,7 @@ async function gatherLiveSources(
   const step3Docs = await scrapeMany(
     gapUrls,
     Math.min(gapUrls.length, 6),
-    { concurrency: 5, maxMarkdownChars: 22000 },
+    { concurrency: 5, maxMarkdownChars: 75000 },
     "step3-scrape-gapUrls",
   );
   for (const url of gapUrls) {
@@ -631,7 +633,7 @@ Deno.serve(async (req) => {
     const assembledContext = sourceContext(docs);
     const truncatedDocCount = docs.filter((d) => d.truncated).length;
     console.log(
-      `enrich-university req=${requestId}: context assembled — ${docs.length} docs, ${truncatedDocCount} truncated at scrape layer, final context length ${assembledContext.length}/90000`,
+      `enrich-university req=${requestId}: context assembled — ${docs.length} docs, ${truncatedDocCount} truncated at scrape layer, final context length ${assembledContext.length}/${SOURCE_CONTEXT_TOTAL_CAP}`,
     );
     const categoryContentSummary = TARGET_CATEGORIES.map((cat) => {
       const catDocsForSummary = docs.filter((d) => (d as any)._category === cat);
@@ -728,7 +730,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
   "sources": [string]
 }`;
 
-    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 48000 });
+    const raw = await callLovableAI({ apiKey, system, user, maxTokens: 64000 });
     let data: any;
     try {
       data = parseJsonLoose(raw);
@@ -759,7 +761,7 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
         programName: program_name,
         targetIntake: null,
         deadlineContext: "",
-        fallbackContext: sourceContext(docs, 15000, 70000),
+        fallbackContext: sourceContext(docs, 40000, 120000),
       });
     }
 
