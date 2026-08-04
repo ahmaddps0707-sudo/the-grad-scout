@@ -263,19 +263,15 @@ export type SubPageCategory =
   | "funding"
   | "class_profile"
   | "career"
-  | "curriculum"
   | "international"
-  | "faculty"
   | "overview";
 
 const CATEGORY_PATTERNS: Array<{ cat: SubPageCategory; re: RegExp }> = [
   { cat: "admissions", re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i },
   { cat: "tuition", re: /(tuition|cost|fees?|price|expenses|cost-of-attendance)/i },
   { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
-  { cat: "class_profile", re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|international|visa|i-20|stem|opt|cpt)/i },
+  { cat: "class_profile", re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i },
   { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
-  { cat: "curriculum", re: /(curriculum|courses?|course-list|program-structure|electives|specializations?|tracks?|concentration)/i },
-  { cat: "faculty", re: /(faculty|professors?|research|people)/i },
 ];
 
 export function categorizeUrl(url: string): SubPageCategory | null {
@@ -288,15 +284,10 @@ export function categorizeUrl(url: string): SubPageCategory | null {
   const lastSegment = path.split("/").filter(Boolean).pop() ?? "";
 
   const SPECIFIC_FIRST: Array<{ cat: SubPageCategory; re: RegExp }> = [
-    { cat: "class_profile", re: /(class-profile|student-body|statistics|stats|demographics|incoming-class)/i },
+    { cat: "class_profile", re: /(class-profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i },
     { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
     { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
     { cat: "tuition", re: /(tuition|cost|fees?|price|expenses|cost-of-attendance)/i },
-    {
-      cat: "curriculum",
-      re: /(curriculum|courses?|course-list|program-structure|electives|specializations?|tracks?|concentration)/i,
-    },
-    { cat: "faculty", re: /(faculty|professors?|research|people)/i },
   ];
 
   for (const { cat, re } of SPECIFIC_FIRST) {
@@ -315,7 +306,7 @@ export function categorizeUrl(url: string): SubPageCategory | null {
     return "admissions";
   }
 
-  if (/(international|visa|i-20|stem|opt|cpt)/i.test(lower)) {
+  if (/(gre|gmat|gpa|class-size|class_size|years-of-experience|work-experience|test-scores|average-scores)/i.test(lower)) {
     return "class_profile";
   }
 
