@@ -278,7 +278,7 @@ function SettingsPage() {
                 className="mt-1.5"
               />
             </div>
-            {(["gre", "gmat", "ielts", "toefl"] as const).map((t) => (
+            {(["gre", "gmat"] as const).map((t) => (
               <div key={t}>
                 <Label className="uppercase">{t}</Label>
                 <Input

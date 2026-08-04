@@ -46,7 +46,7 @@ function OnboardingPage() {
     target_tier: "",
     funding_preference: "partial_ok" as Database["public"]["Enums"]["funding_pref"],
     gpa: "" as string,
-    test_scores: { gre: "", gmat: "", ielts: "", toefl: "" } as Record<string,string>,
+    test_scores: { gre: "", gmat: "" } as Record<string,string>,
     work_exp_years: "" as string,
     target_intake: "Fall 2026",
   });
@@ -217,7 +217,7 @@ function OnboardingPage() {
 
           {step === 4 && (
             <div className="grid grid-cols-2 gap-3">
-              {(["gre","gmat","ielts","toefl"] as const).map((t) => (
+              {(["gre","gmat"] as const).map((t) => (
                 <div key={t}>
                   <Label className="uppercase">{t}</Label>
                   <Input value={form.test_scores[t]} onChange={(e) => update({ test_scores: { ...form.test_scores, [t]: e.target.value } })} placeholder="Score or 'not taken'" className="mt-1.5" />

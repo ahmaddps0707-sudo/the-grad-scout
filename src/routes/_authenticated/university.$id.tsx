@@ -299,8 +299,6 @@ function DetailPage() {
                 <GreRows cp={cp} />
                 <Row k="Average GMAT" v={pick(cp?.avg_gmat, cp?.avg_gmat_note)} />
                 <Row k="Average GPA" v={pick(cp?.avg_gpa, cp?.avg_gpa_note)} />
-                <Row k="Average IELTS" v={pick(cp?.avg_ielts, cp?.avg_ielts_note)} />
-                <Row k="Average TOEFL" v={pick(cp?.avg_toefl, cp?.avg_toefl_note)} />
                 <Row k="Average work experience (yrs)" v={pick(cp?.avg_work_exp_years, cp?.avg_work_exp_note)} />
                 <Row k="Class size" v={cp?.class_size} />
                 <Row k="% International" v={cp?.intl_pct != null ? `${cp.intl_pct}%` : (cp?.intl_student_pct_note ?? null)} />
