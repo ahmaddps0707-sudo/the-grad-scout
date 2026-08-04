@@ -277,7 +277,7 @@ export type SubPageCategory =
 const CATEGORY_PATTERNS: Array<{ cat: SubPageCategory; re: RegExp }> = [
   {
     cat: "admissions",
-    re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i,
+    re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|requirement|prerequisite|eligibility|criteria)/i,
   },
   { cat: "tuition", re: /(tuition|cost|fees?|expenses|cost-of-attendance)/i },
   { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
