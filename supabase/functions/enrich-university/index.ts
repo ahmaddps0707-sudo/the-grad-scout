@@ -108,7 +108,11 @@ function sourceContext(docs: FirecrawlDocument[], perDocCap = 75000, totalCap = 
       const rawBody = doc.markdown.replace(/\s+/g, " ");
       const wasTruncated = rawBody.length > perDocCap;
       const body = rawBody.slice(0, perDocCap) + (wasTruncated ? " [TRUNCATED]" : "");
-      const cat = (doc as any)._category ? ` [${(doc as any)._category}]` : "";
+      const cat = (doc as any)._categories
+        ? ` [${Array.from((doc as any)._categories).join("/")}]`
+        : (doc as any)._category
+        ? ` [${(doc as any)._category}]`
+        : "";
       const truncFlag = doc.truncated ? " [SOURCE ALREADY TRUNCATED AT SCRAPE]" : "";
       return `SOURCE ${index + 1}${cat}${truncFlag}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
     })
@@ -445,7 +449,20 @@ async function gatherLiveSources(
     );
     for (const t of top) {
       const norm = normalizeUrl(t.url);
-      if (seenUrls.has(norm)) continue;
+      if (seenUrls.has(norm)) {
+        const existingDoc = docs.find((d) => normalizeUrl(d.url) === norm);
+        if (existingDoc) {
+          const existingCat = (existingDoc as any)._category;
+          if (!(existingDoc as any)._categories) {
+            (existingDoc as any)._categories = new Set([existingCat]);
+          }
+          (existingDoc as any)._categories.add(plan.cat);
+          console.log(
+            `enrich-university req=${requestId}: category=${plan.cat} url=${norm} — already fetched under category="${existingCat}", also tagging as "${plan.cat}" (page covers both)`,
+          );
+        }
+        continue;
+      }
       // Reuse: if search already returned markdown, construct the doc directly
       // instead of paying for a second scrape.
       if (t.markdown && t.markdown.trim().length > 200) {
@@ -462,6 +479,7 @@ async function gatherLiveSources(
           links: [],
         };
         (doc as any)._category = categorizeUrl(norm) ?? "overview";
+        (doc as any)._categories = new Set([(doc as any)._category]);
         docs.push(doc);
       } else {
         console.log(
@@ -496,6 +514,7 @@ async function gatherLiveSources(
     if (seenUrls.has(key)) continue;
     seenUrls.add(key);
     (d as any)._category = categorizeUrl(d.url) ?? "overview";
+    (d as any)._categories = new Set([(d as any)._category]);
     docs.push(d);
   }
 
@@ -643,14 +662,16 @@ Deno.serve(async (req) => {
       `enrich-university req=${requestId}: context assembled — ${docs.length} docs, ${truncatedDocCount} truncated at scrape layer, final context length ${assembledContext.length}/${SOURCE_CONTEXT_TOTAL_CAP}`,
     );
     const categoryContentSummary = TARGET_CATEGORIES.map((cat) => {
-      const catDocsForSummary = docs.filter((d) => (d as any)._category === cat);
+      const catDocsForSummary = docs.filter((d) =>
+        (d as any)._categories?.has(cat) ?? (d as any)._category === cat
+      );
       const totalChars = catDocsForSummary.reduce((sum, d) => sum + d.markdown.length, 0);
       return `${cat}=${catDocsForSummary.length}doc(s)/${totalChars}chars`;
     }).join(", ");
     console.log(`enrich-university req=${requestId}: pre-Gemini category summary — ${categoryContentSummary}`);
 
     const system =
-      "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.\n\nFor test requirements, look for these label variations and map them to the correct field:\nGRE labels: GRE, GRE Score, GRE Requirement, Graduate Record Examination, GRE General Test, GRE Waiver, GRE Optional, GRE Required\nGMAT labels: GMAT, GMAT Score, GMAT Requirement, Graduate Management Admission Test, GMAT Waiver, GMAT Optional, GMAT Required, GMAT Focus\nAlso look for combined statements like:\n- 'GRE/GMAT optional' → set both to 'optional'\n- 'GRE or GMAT required' → set both to 'required'\n- 'GMAT required, GRE not accepted' → gmat: required, gre: not_required\n- 'Test scores not required' → set both to 'not_required'\n- 'GRE waived for applicants with X' → gre: 'waived', put condition in gre_gmat_notes\n- 'No GRE/GMAT required' → both: 'not_required'\n- 'GRE optional, GMAT not accepted' → gre: optional, gmat: not_required\nFor gre_gmat_notes: capture any important conditions such as waiver criteria, minimum score requirements, or exceptions (e.g. 'GRE waived for applicants with 2+ years work experience', 'GMAT required for applicants without a quantitative undergraduate background').\nIf test requirement information is completely absent from all scraped content, return null for both fields — do not guess.";
+      "You are a graduate admissions data extraction specialist. You have been given content scraped from multiple pages of a university's official website. Your job is to find and extract every piece of admissions data present in the content.\n\nEXTRACTION RULES:\n- Be aggressive, not conservative. If the data is in the content in ANY form, extract it. Do not return null just because the format is unusual or the label is different from what you expected.\n- University websites use many different labels for the same field. You must recognize all of them. Examples below.\n- If a field is genuinely absent from all content, use null. But err on the side of extracting rather than skipping.\n- Never fabricate values. Only extract what is in the content.\n- When a value appears as a range (e.g. '310-330'), store the range string in the corresponding _range field and leave the numeric field null. Do not compute midpoints or averages from ranges.\n- When a value appears as 'average', 'median', or 'middle 80%' — extract whichever is available, preferring average, then median.\n- For GRE: never average or calculate. If the website publishes a range like '310-330', store it as a string in the _range field and leave the number field null. If it publishes a single average like '318', store it as a number and leave the _range field null. Both can be populated if the website provides both. Extract composite (gre_total), quant (gre_quant), and verbal (gre_verbal) independently — whichever the site publishes.\n\nFor test requirements, look for these label variations and map them to the correct field:\nGRE labels: GRE, GRE Score, GRE Requirement, Graduate Record Examination, GRE General Test, GRE Waiver, GRE Optional, GRE Required\nGMAT labels: GMAT, GMAT Score, GMAT Requirement, Graduate Management Admission Test, GMAT Waiver, GMAT Optional, GMAT Required, GMAT Focus\nAlso look for combined statements like:\n- 'GRE/GMAT optional' → set both to 'optional'\n- 'GRE or GMAT required' → set both to 'required'\n- 'GMAT required, GRE not accepted' → gmat: required, gre: not_required\n- 'Test scores not required' → set both to 'not_required'\n- 'GRE waived for applicants with X' → gre: 'waived', put condition in gre_gmat_notes\n- 'No GRE/GMAT required' → both: 'not_required'\n- 'GRE optional, GMAT not accepted' → gre: optional, gmat: not_required\nFor gre_gmat_notes: capture any important conditions such as waiver criteria, minimum score requirements, or exceptions (e.g. 'GRE waived for applicants with 2+ years work experience', 'GMAT required for applicants without a quantitative undergraduate background').\nIf test requirement information is completely absent from all scraped content, return null for both fields — do not guess.\n\nThe bracketed label next to each source (e.g. [admissions] or [class_profile/admissions]) only indicates where the page was discovered during research — it is NOT a restriction on what you may extract from it. A single page often contains information relevant to multiple sections of the output schema (for example, an admissions page may also contain class profile statistics like GMAT/GPA/class size, or a tuition page may also contain funding and scholarship details). Read the full content of every source and extract every relevant fact into its correct schema section, regardless of which category label the source was tagged with.";
 
     const user = `Research this master's program using ONLY the live scraped source content below:
 University: ${university_name}

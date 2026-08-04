@@ -279,10 +279,46 @@ const CATEGORY_PATTERNS: Array<{ cat: SubPageCategory; re: RegExp }> = [
 ];
 
 export function categorizeUrl(url: string): SubPageCategory | null {
+  let path: string;
+  try {
+    path = new URL(url).pathname.toLowerCase();
+  } catch {
+    path = url.toLowerCase();
+  }
+  const lastSegment = path.split("/").filter(Boolean).pop() ?? "";
+
+  const SPECIFIC_FIRST: Array<{ cat: SubPageCategory; re: RegExp }> = [
+    { cat: "class_profile", re: /(class-profile|student-body|statistics|stats|demographics|incoming-class)/i },
+    { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
+    { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
+    { cat: "tuition", re: /(tuition|cost|fees?|price|expenses|cost-of-attendance)/i },
+    {
+      cat: "curriculum",
+      re: /(curriculum|courses?|course-list|program-structure|electives|specializations?|tracks?|concentration)/i,
+    },
+    { cat: "faculty", re: /(faculty|professors?|research|people)/i },
+  ];
+
+  for (const { cat, re } of SPECIFIC_FIRST) {
+    if (re.test(lastSegment)) return cat;
+  }
+
   const lower = url.toLowerCase();
-  for (const { cat, re } of CATEGORY_PATTERNS) {
+  for (const { cat, re } of SPECIFIC_FIRST) {
     if (re.test(lower)) return cat;
   }
+
+  if (
+    /(admission|apply|application|how-to-apply|deadline|dates|timeline|calendar|requirement|prerequisite|eligibility|criteria|gre|gmat|toefl|ielts)/i
+      .test(lower)
+  ) {
+    return "admissions";
+  }
+
+  if (/(international|visa|i-20|stem|opt|cpt)/i.test(lower)) {
+    return "class_profile";
+  }
+
   return null;
 }
 
