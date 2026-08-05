@@ -429,6 +429,7 @@ async function gatherLiveSources(
     ),
   );
   const gapUrls: string[] = [];
+  const gapUrlToCat = new Map<string, string>();
   for (let i = 0; i < gapBatches.length; i++) {
     const results = gapBatches[i];
     const plan = gapPlans[i];
@@ -500,6 +501,7 @@ async function gatherLiveSources(
           } chars), queuing separate scrape`,
         );
         gapUrls.push(norm);
+        gapUrlToCat.set(norm, plan.cat);
       }
     }
   }
