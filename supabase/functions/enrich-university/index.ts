@@ -68,7 +68,7 @@ function resultScore(
 function isWrongProgramPage(url: string, programName: string): boolean {
   const lower = url.toLowerCase();
   if (/\/undergraduate\/|\/undergrad\/|\/bachelor/i.test(lower)) return true;
-  const otherProgramMarkers = /\/mba\/|\/phd\/|\/doctoral\/|\/executive-mba\//i;
+  const otherProgramMarkers = /\/part-time-mba\/|\/phd\/|\/doctoral\/|\/executive-mba\//i;
   const programTokens = programName
     .toLowerCase()
     .split(/\W+/)
