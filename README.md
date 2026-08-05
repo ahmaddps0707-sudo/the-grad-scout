@@ -1,6 +1,6 @@
 # The Grad Scout
 
-Build "Admitly" — a subscription-based web app that helps international 
+Build "The Grad Scout" — a subscription-based web app that helps international 
 
 students research master's programs, score them against their profile, 
 
