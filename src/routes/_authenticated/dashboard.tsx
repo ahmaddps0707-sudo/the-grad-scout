@@ -61,7 +61,7 @@ function DashboardPage() {
   const statusFilter = search.status as EntryStatus | "all";
   const sort = search.sort;
   const setSearch = (patch: Partial<typeof search>) =>
-    navigate({ to: "/dashboard", search: (prev) => ({ ...prev, ...patch }) });
+    navigate({ to: "/dashboard", search: { ...search, ...patch } });
   const [entries, setEntries] = useState<EntryFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [discovering, setDiscovering] = useState(false);
