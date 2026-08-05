@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -61,7 +61,7 @@ function DashboardPage() {
   const statusFilter = search.status as EntryStatus | "all";
   const sort = search.sort;
   const setSearch = (patch: Partial<typeof search>) =>
-    navigate({ to: ".", search: (prev) => ({ ...prev, ...patch }) });
+    navigate({ to: "/dashboard", search: (prev) => ({ ...prev, ...patch }) });
   const [entries, setEntries] = useState<EntryFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [discovering, setDiscovering] = useState(false);
