@@ -302,7 +302,10 @@ export function categorizeUrl(url: string): SubPageCategory | null {
       cat: "class_profile",
       re: /(class-profile|statistics|stats|demographics|incoming-class|\bgre\b|\bgmat\b|\bgpa\b|class-size|test-scores|work-experience)/i,
     },
-    { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
+    {
+      cat: "career",
+      re: /(career-outcome|employment-report|employment-outcome|outcomes-report|\boutcome\b|\bplacement\b|\bsalary\b|salary-report|class-employment)/i,
+    },
     { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|\baid\b)/i },
     { cat: "tuition", re: /(tuition|cost|fees?|expenses|cost-of-attendance)/i },
   ];
