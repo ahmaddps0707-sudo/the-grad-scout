@@ -954,7 +954,9 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
     // ---- Personalized fit rationale (triggering user only) ----
     try {
       if (!meteredUserId) {
-        console.log(`enrich-university req=${requestId}: no authenticated user on this request — skipping fit rationale`);
+        console.log(
+          `enrich-university req=${requestId}: no authenticated user on this request — skipping fit rationale`,
+        );
       } else {
         const { data: triggeringEntry } = await admin
           .from("user_entries")
@@ -964,7 +966,9 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
           .maybeSingle();
 
         if (!triggeringEntry) {
-          console.log(`enrich-university req=${requestId}: triggering user has no user_entries row for this program — skipping fit rationale`);
+          console.log(
+            `enrich-university req=${requestId}: triggering user has no user_entries row for this program — skipping fit rationale`,
+          );
         } else {
           const fieldSummary = `
 Program: ${program_name} at ${university_name}
@@ -980,16 +984,19 @@ Career outcomes: placement rate ${co.placement_rate_pct ?? "not available"}%, av
 
           const { data: profile } = await admin
             .from("profiles")
-            .select("target_major, target_country, target_tier, funding_preference, gpa, test_scores, work_exp_years, target_intake")
+            .select(
+              "target_major, target_country, target_tier, funding_preference, gpa, test_scores, work_exp_years, target_intake",
+            )
             .eq("id", meteredUserId)
             .maybeSingle();
 
           if (profile) {
             const ts = (profile.test_scores ?? {}) as Record<string, string>;
-            const testStr = ["gre", "gmat", "ielts", "toefl"]
-              .map((t) => (ts[t] ? `${t.toUpperCase()}: ${ts[t]}` : null))
-              .filter(Boolean)
-              .join(", ") || "not provided";
+            const testStr =
+              ["gre", "gmat", "ielts", "toefl"]
+                .map((t) => (ts[t] ? `${t.toUpperCase()}: ${ts[t]}` : null))
+                .filter(Boolean)
+                .join(", ") || "not provided";
 
             const userPrefsSummary = `
 Target major: ${profile.target_major ?? "unspecified"}
@@ -1007,14 +1014,18 @@ Target intake: ${profile.target_intake ?? "unspecified"}
             const fitUser = `Program data:\n${fieldSummary}\n\nApplicant profile:\n${userPrefsSummary}\n\nWrite a short, specific fit rationale (max 2 sentences) explaining how well this program matches this applicant, grounded only in the data above.`;
 
             try {
-              const rationale = await callLovableAI({ apiKey, system: fitSystem, user: fitUser, maxTokens: 1000 });
+              const rationale = await callLovableAI({ apiKey, system: fitSystem, user: fitUser, maxTokens: 2000 });
               const cleaned = rationale.trim().replace(/^["']|["']$/g, "");
               const endsCleanly = /[.!?]$/.test(cleaned);
               if (!endsCleanly) {
-                console.warn(`enrich-university req=${requestId}: fit rationale looks truncated (no terminal punctuation), not saving — "${cleaned}"`);
+                console.warn(
+                  `enrich-university req=${requestId}: fit rationale looks truncated (no terminal punctuation), not saving — "${cleaned}"`,
+                );
               } else {
                 await admin.from("user_entries").update({ match_rationale: cleaned }).eq("id", triggeringEntry.id);
-                console.log(`enrich-university req=${requestId}: fit rationale regenerated for triggering user ${meteredUserId}`);
+                console.log(
+                  `enrich-university req=${requestId}: fit rationale regenerated for triggering user ${meteredUserId}`,
+                );
               }
             } catch (e) {
               console.warn(`enrich-university req=${requestId}: fit rationale generation failed`, (e as Error).message);
