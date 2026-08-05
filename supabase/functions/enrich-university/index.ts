@@ -597,19 +597,28 @@ Deno.serve(async (req) => {
 
     console.log(`enrich-university: START req=${requestId} program_id=${program_id}`);
 
-    // Manual "Update Data" runs are metered per tier.
+    // Resolve the requesting user's identity whenever a valid Authorization
+    // header is present — independent of force. This does NOT enforce any
+    // usage limit; it only identifies who is asking, so features like the fit
+    // rationale can be personalized on every trigger (auto or manual).
+    const authToken = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    if (authToken) {
+      const { data: authedUserData } = await admin.auth.getUser(authToken);
+      if (authedUserData?.user) {
+        meteredUserId = authedUserData.user.id;
+      }
+    }
+
+    // Manual "Update Data" runs are additionally metered per tier.
     if (force) {
       const env = parseEnv(environment);
-      const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-      const { data: userData } = await admin.auth.getUser(token);
-      const user = userData?.user;
-      if (!user) {
+      if (!meteredUserId) {
         return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
           status: 401,
           headers: { ...CORS_HEADERS, "content-type": "application/json" },
         });
       }
-      let { data: profile } = await admin.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      let { data: profile } = await admin.from("profiles").select("*").eq("id", meteredUserId).maybeSingle();
       if (!profile) throw new Error("profile missing");
       profile = await ensureUsageWindow(admin, profile, env);
       const paid = isPaid(profile, env);
@@ -625,7 +634,6 @@ Deno.serve(async (req) => {
           { status: 403, headers: { ...CORS_HEADERS, "content-type": "application/json" } },
         );
       }
-      meteredUserId = user.id;
       meteredColumn = envColumns(env).updateDataUsed;
       meteredNextValue = (view.updateDataUsed ?? 0) + 1;
     }
@@ -995,14 +1003,19 @@ Target intake: ${profile.target_intake ?? "unspecified"}
             `.trim();
 
             const fitSystem =
-              "You write short, factual fit assessments for a graduate school applicant comparing their profile against a specific program's actual admissions data. Be precise and concrete — reference specific numbers from the program data when relevant (deadlines, class profile averages, tuition, outcomes). Do not use generic praise or vague phrases like 'great fit' or 'strong program' without a specific reason tied to the data provided. If the program's data doesn't clearly support a strength or gap, don't invent one. Maximum 2 short sentences.";
+              "You write short, factual fit assessments for a graduate school applicant comparing their profile against a specific program's actual admissions data. Be precise and concrete — reference specific numbers from the program data when relevant (deadlines, class profile averages, tuition, outcomes). Do not use generic praise or vague phrases like 'great fit' or 'strong program' without a specific reason tied to the data provided. If the program's data doesn't clearly support a strength or gap, don't invent one. Write exactly 1-2 complete sentences, under 300 characters total. Never leave a sentence unfinished — if you are running out of room, write one shorter complete sentence instead of a longer incomplete one.";
             const fitUser = `Program data:\n${fieldSummary}\n\nApplicant profile:\n${userPrefsSummary}\n\nWrite a short, specific fit rationale (max 2 sentences) explaining how well this program matches this applicant, grounded only in the data above.`;
 
             try {
-              const rationale = await callLovableAI({ apiKey, system: fitSystem, user: fitUser, maxTokens: 300 });
+              const rationale = await callLovableAI({ apiKey, system: fitSystem, user: fitUser, maxTokens: 1000 });
               const cleaned = rationale.trim().replace(/^["']|["']$/g, "");
-              await admin.from("user_entries").update({ match_rationale: cleaned }).eq("id", triggeringEntry.id);
-              console.log(`enrich-university req=${requestId}: fit rationale regenerated for triggering user ${meteredUserId}`);
+              const endsCleanly = /[.!?]$/.test(cleaned);
+              if (!endsCleanly) {
+                console.warn(`enrich-university req=${requestId}: fit rationale looks truncated (no terminal punctuation), not saving — "${cleaned}"`);
+              } else {
+                await admin.from("user_entries").update({ match_rationale: cleaned }).eq("id", triggeringEntry.id);
+                console.log(`enrich-university req=${requestId}: fit rationale regenerated for triggering user ${meteredUserId}`);
+              }
             } catch (e) {
               console.warn(`enrich-university req=${requestId}: fit rationale generation failed`, (e as Error).message);
             }
