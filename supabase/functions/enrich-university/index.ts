@@ -943,6 +943,76 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
         .eq("id", meteredUserId);
     }
 
+    // ---- Personalized fit rationale (triggering user only) ----
+    try {
+      if (!meteredUserId) {
+        console.log(`enrich-university req=${requestId}: no authenticated user on this request — skipping fit rationale`);
+      } else {
+        const { data: triggeringEntry } = await admin
+          .from("user_entries")
+          .select("id")
+          .eq("program_id", program_id)
+          .eq("user_id", meteredUserId)
+          .maybeSingle();
+
+        if (!triggeringEntry) {
+          console.log(`enrich-university req=${requestId}: triggering user has no user_entries row for this program — skipping fit rationale`);
+        } else {
+          const fieldSummary = `
+Program: ${program_name} at ${university_name}
+Description: ${ov.program_description ?? "not available"}
+QS Ranking: ${ov.qs_ranking ?? "not available"}, US News: ${ov.us_news_ranking ?? "not available"}
+Deadline type: ${finalDeadlineType}, next deadline: ${finalDeadlines?.[0]?.deadline_date ?? "not available"}
+GRE/GMAT requirement: GRE ${ad.gre_required ?? "unknown"}, GMAT ${ad.gmat_required ?? "unknown"}
+Class profile: avg GMAT ${cp.avg_gmat ?? cp.gre_total ?? "not available"}, avg GPA ${cp.avg_gpa ?? "not available"}, class size ${cp.class_size ?? "not available"}, international % ${cp.intl_student_pct ?? "not available"}, STEM: ${cp.is_stem ?? "unknown"}
+Tuition: ${tf.tuition_amount ?? "not available"} ${tf.tuition_currency ?? ""} per ${tf.tuition_per ?? "unspecified period"}
+Funding: GA/TA available: ${tf.ga_ta_gra_available ?? "unknown"}, notes: ${tf.ga_ta_gra_notes ?? "none"}
+Career outcomes: placement rate ${co.placement_rate_pct ?? "not available"}%, avg salary ${co.avg_salary ?? "not available"} ${co.avg_salary_currency ?? ""}, top employers: ${(co.top_employers ?? []).slice(0, 3).join(", ") || "not available"}
+          `.trim();
+
+          const { data: profile } = await admin
+            .from("profiles")
+            .select("target_major, target_country, target_tier, funding_preference, gpa, test_scores, work_exp_years, target_intake")
+            .eq("id", meteredUserId)
+            .maybeSingle();
+
+          if (profile) {
+            const ts = (profile.test_scores ?? {}) as Record<string, string>;
+            const testStr = ["gre", "gmat", "ielts", "toefl"]
+              .map((t) => (ts[t] ? `${t.toUpperCase()}: ${ts[t]}` : null))
+              .filter(Boolean)
+              .join(", ") || "not provided";
+
+            const userPrefsSummary = `
+Target major: ${profile.target_major ?? "unspecified"}
+Target country: ${profile.target_country ?? "any"}
+Tier preference: ${profile.target_tier ?? "unspecified"}
+Funding preference: ${profile.funding_preference ?? "unspecified"}
+GPA: ${profile.gpa ?? "not provided"}
+Test scores: ${testStr}
+Work experience: ${profile.work_exp_years ?? 0} years
+Target intake: ${profile.target_intake ?? "unspecified"}
+            `.trim();
+
+            const fitSystem =
+              "You write short, factual fit assessments for a graduate school applicant comparing their profile against a specific program's actual admissions data. Be precise and concrete — reference specific numbers from the program data when relevant (deadlines, class profile averages, tuition, outcomes). Do not use generic praise or vague phrases like 'great fit' or 'strong program' without a specific reason tied to the data provided. If the program's data doesn't clearly support a strength or gap, don't invent one. Maximum 2 short sentences.";
+            const fitUser = `Program data:\n${fieldSummary}\n\nApplicant profile:\n${userPrefsSummary}\n\nWrite a short, specific fit rationale (max 2 sentences) explaining how well this program matches this applicant, grounded only in the data above.`;
+
+            try {
+              const rationale = await callLovableAI({ apiKey, system: fitSystem, user: fitUser, maxTokens: 300 });
+              const cleaned = rationale.trim().replace(/^["']|["']$/g, "");
+              await admin.from("user_entries").update({ match_rationale: cleaned }).eq("id", triggeringEntry.id);
+              console.log(`enrich-university req=${requestId}: fit rationale regenerated for triggering user ${meteredUserId}`);
+            } catch (e) {
+              console.warn(`enrich-university req=${requestId}: fit rationale generation failed`, (e as Error).message);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn(`enrich-university req=${requestId}: fit rationale step failed`, (e as Error).message);
+    }
+
     return new Response(
       JSON.stringify({ ok: true, sources_checked: docs.length, sources_saved: fallbackSources.length }),
       {
