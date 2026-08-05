@@ -253,9 +253,15 @@ function DetailPage() {
           </TabsList>
 
           <TabsContent value="overview" className="mt-6 space-y-6">
-            <Card title="Fit rationale">
-              <p className="text-sm leading-relaxed text-foreground">{entry.match_rationale ?? <DV />}</p>
-            </Card>
+            {enriching ? <SkeletonCard /> : (
+              <Card title="Fit rationale">
+                <p className="text-sm leading-relaxed text-foreground">
+                  {entry.match_rationale?.trim()
+                    ? entry.match_rationale
+                    : "Fit summary not available yet — try refreshing this page."}
+                </p>
+              </Card>
+            )}
             <Card title="Program">
               <Row k="Department" v={entry.program?.department} />
               <Row k="Degree level" v={entry.program?.degree_level} />
