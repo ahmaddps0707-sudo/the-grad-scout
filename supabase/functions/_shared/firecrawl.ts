@@ -280,10 +280,10 @@ const CATEGORY_PATTERNS: Array<{ cat: SubPageCategory; re: RegExp }> = [
     re: /(admission|apply|application|how-to-apply|deadline|dates|timeline|requirement|prerequisite|eligibility|criteria)/i,
   },
   { cat: "tuition", re: /(tuition|cost|fees?|expenses|cost-of-attendance)/i },
-  { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
+  { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|\baid\b)/i },
   {
     cat: "class_profile",
-    re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i,
+    re: /(class-profile|profile|student-body|statistics|stats|demographics|incoming-class|\bgre\b|\bgmat\b|\bgpa\b|class-size|test-scores|work-experience)/i,
   },
   { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
 ];
@@ -300,10 +300,10 @@ export function categorizeUrl(url: string): SubPageCategory | null {
   const SPECIFIC_FIRST: Array<{ cat: SubPageCategory; re: RegExp }> = [
     {
       cat: "class_profile",
-      re: /(class-profile|statistics|stats|demographics|incoming-class|gre|gmat|gpa|class-size|test-scores|work-experience)/i,
+      re: /(class-profile|statistics|stats|demographics|incoming-class|\bgre\b|\bgmat\b|\bgpa\b|class-size|test-scores|work-experience)/i,
     },
     { cat: "career", re: /(career|employment|outcome|placement|salary|jobs|employers|career-services)/i },
-    { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|aid)/i },
+    { cat: "funding", re: /(funding|scholarship|assistantship|financial-aid|fellowship|\baid\b)/i },
     { cat: "tuition", re: /(tuition|cost|fees?|expenses|cost-of-attendance)/i },
   ];
 
@@ -325,7 +325,7 @@ export function categorizeUrl(url: string): SubPageCategory | null {
   }
 
   if (
-    /(gre|gmat|gpa|class-size|class_size|years-of-experience|work-experience|test-scores|average-scores)/i.test(lower)
+    /(\bgre\b|\bgmat\b|\bgpa\b|class-size|class_size|years-of-experience|work-experience|test-scores|average-scores)/i.test(lower)
   ) {
     return "class_profile";
   }
