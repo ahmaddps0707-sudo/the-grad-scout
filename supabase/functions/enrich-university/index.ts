@@ -359,6 +359,11 @@ async function gatherLiveSources(
       covered.add(cat);
       catDocs.set(cat, d);
     }
+    console.log(
+      `enrich-university req=${requestId}: doc added — url=${key} computed_category="${
+        categorizeUrl(d.url) ?? "overview"
+      }" satisfying_search_category="n/a (Step 2 discovery)"`,
+    );
     docs.push(d);
   }
 
@@ -427,7 +432,7 @@ async function gatherLiveSources(
   for (let i = 0; i < gapBatches.length; i++) {
     const results = gapBatches[i];
     const plan = gapPlans[i];
-    const top = results
+    const scored = results
       .filter((r) => plan.scopeMode === "open" || isSameOrSubDomain(r.url, officialHost))
       .filter((r) => {
         if (isWrongProgramPage(r.url, programName)) {
@@ -436,12 +441,14 @@ async function gatherLiveSources(
         }
         return true;
       })
-      .sort(
-        (a, b) =>
-          resultScore(b, officialHost, programName, plan.scopeMode) -
-          resultScore(a, officialHost, programName, plan.scopeMode),
-      )
-      .slice(0, 2);
+      .map((r) => ({ r, score: resultScore(r, officialHost, programName, plan.scopeMode) }))
+      .sort((a, b) => b.score - a.score);
+    console.log(
+      `enrich-university req=${requestId}: category=${plan.cat} ALL CANDIDATES (ranked) — ${
+        scored.map((s) => `${s.r.url}[${s.score}]`).join(", ") || "none"
+      }`,
+    );
+    const top = scored.slice(0, 2).map((s) => s.r);
     console.log(
       `enrich-university req=${requestId}: mode=${searchMode} category=${plan.cat} scope=${plan.scopeMode} query='${plan.query}' → resolved: ${
         top.map((t) => t.url).join(", ") || "none"
@@ -469,6 +476,11 @@ async function gatherLiveSources(
         seenUrls.add(norm);
         console.log(
           `enrich-university req=${requestId}: category=${plan.cat} url=${norm} — used inline search markdown, length=${t.markdown.trim().length}`,
+        );
+        console.log(
+          `enrich-university req=${requestId}: doc added — url=${norm} computed_category="${
+            categorizeUrl(norm) ?? "overview"
+          }" satisfying_search_category="${plan.cat}"`,
         );
         const doc: FirecrawlDocument = {
           url: norm,
@@ -515,6 +527,11 @@ async function gatherLiveSources(
     seenUrls.add(key);
     (d as any)._category = categorizeUrl(d.url) ?? "overview";
     (d as any)._categories = new Set([(d as any)._category]);
+    console.log(
+      `enrich-university req=${requestId}: doc added — url=${key} computed_category="${
+        (d as any)._category
+      }" satisfying_search_category="${gapUrlToCat.get(key) ?? "n/a (Step 3 scrape)"}"`,
+    );
     docs.push(d);
   }
 
@@ -529,6 +546,14 @@ async function gatherLiveSources(
   const gapFillDocs = finalDocs.filter((d) => step3Urls.has(normalizeUrl(d.url)));
   const remainingDocs = finalDocs.filter((d) => !step3Urls.has(normalizeUrl(d.url)));
   const orderedDocs = [...gapFillDocs, ...remainingDocs];
+  const manifest = TARGET_CATEGORIES.map((cat) => {
+    const matchingDocs = orderedDocs.filter(
+      (d) => (d as any)._categories?.has(cat) ?? (d as any)._category === cat,
+    );
+    if (matchingDocs.length === 0) return `${cat}: NONE`;
+    return `${cat}: ${matchingDocs.map((d) => `${d.url} (${d.markdown.length}chars)`).join(" | ")}`;
+  }).join("\n  ");
+  console.log(`enrich-university req=${requestId}: CATEGORY MANIFEST\n  ${manifest}`);
   console.log(
     `enrich-university req=${requestId}: gatherLiveSources done — firecrawl_ops=${opsBudget.count}/${MAX_TOTAL_FIRECRAWL_OPS}, docs=${orderedDocs.length} (gap-fill first: ${gapFillDocs.length})`,
   );
