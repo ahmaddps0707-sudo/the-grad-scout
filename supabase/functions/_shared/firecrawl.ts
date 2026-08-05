@@ -296,6 +296,7 @@ export function categorizeUrl(url: string): SubPageCategory | null {
     path = url.toLowerCase();
   }
   const lastSegment = path.split("/").filter(Boolean).pop() ?? "";
+  const segments = path.split("/").filter(Boolean);
 
   const SPECIFIC_FIRST: Array<{ cat: SubPageCategory; re: RegExp }> = [
     {
@@ -310,11 +311,17 @@ export function categorizeUrl(url: string): SubPageCategory | null {
     { cat: "tuition", re: /(tuition|cost|fees?|expenses|cost-of-attendance)/i },
   ];
 
+  // Segment-exact match: bare "career"/"careers" only counts as its own path
+  // segment (not "career-impact", "career-services", etc.).
+  if (lastSegment === "career" || lastSegment === "careers") return "career";
+
   for (const { cat, re } of SPECIFIC_FIRST) {
     if (re.test(lastSegment)) return cat;
   }
 
   const lower = url.toLowerCase();
+  if (segments.includes("career") || segments.includes("careers")) return "career";
+
   for (const { cat, re } of SPECIFIC_FIRST) {
     if (re.test(lower)) return cat;
   }
