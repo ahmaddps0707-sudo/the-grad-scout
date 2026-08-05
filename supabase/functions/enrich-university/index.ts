@@ -100,7 +100,7 @@ function derivePathPrefix(url: string): string | null {
   }
 }
 
-const SOURCE_CONTEXT_TOTAL_CAP = 280000;
+const SOURCE_CONTEXT_TOTAL_CAP = 380000;
 
 function sourceContext(docs: FirecrawlDocument[], perDocCap = 75000, totalCap = SOURCE_CONTEXT_TOTAL_CAP): string {
   const out = docs
@@ -111,8 +111,8 @@ function sourceContext(docs: FirecrawlDocument[], perDocCap = 75000, totalCap = 
       const cat = (doc as any)._categories
         ? ` [${Array.from((doc as any)._categories).join("/")}]`
         : (doc as any)._category
-        ? ` [${(doc as any)._category}]`
-        : "";
+          ? ` [${(doc as any)._category}]`
+          : "";
       const truncFlag = doc.truncated ? " [SOURCE ALREADY TRUNCATED AT SCRAPE]" : "";
       return `SOURCE ${index + 1}${cat}${truncFlag}\nURL: ${doc.url}\nTitle: ${doc.title ?? ""}\nContent:\n${body}`;
     })
@@ -228,7 +228,9 @@ async function gatherLiveSources(
   const catCount = TARGET_CATEGORIES.length;
   const uniqCatCount = new Set(TARGET_CATEGORIES).size;
   if (catCount !== uniqCatCount) {
-    console.warn(`enrich-university req=${requestId}: TARGET_CATEGORIES has duplicates (${catCount} vs ${uniqCatCount})`);
+    console.warn(
+      `enrich-university req=${requestId}: TARGET_CATEGORIES has duplicates (${catCount} vs ${uniqCatCount})`,
+    );
   }
   const opsBudget = { count: 0, hit: false };
   const canSpend = (n = 1, label = "unknown") => {
@@ -265,7 +267,9 @@ async function gatherLiveSources(
     try {
       return await firecrawlSearch(q, o);
     } catch (e) {
-      console.warn(`enrich-university req=${requestId}: firecrawl search soft-fail [${label}] — ${(e as Error).message}`);
+      console.warn(
+        `enrich-university req=${requestId}: firecrawl search soft-fail [${label}] — ${(e as Error).message}`,
+      );
       return [];
     }
   };
@@ -276,7 +280,9 @@ async function gatherLiveSources(
     mainDoc = await scrape(primaryUrl, { includeLinks: true, maxMarkdownChars: 75000 }, "step1-main-page");
   }
   if (!mainDoc) {
-    console.log(`enrich-university req=${requestId}: falling back to blind discovery — no stored program_url produced a scrape`);
+    console.log(
+      `enrich-university req=${requestId}: falling back to blind discovery — no stored program_url produced a scrape`,
+    );
     const seedQuery = officialHost
       ? `site:${officialHost} ${programName} master's program`
       : `${universityName} ${programName} master's program official site`;
@@ -419,13 +425,15 @@ async function gatherLiveSources(
     query = query.trim();
     if (seenQueries.has(query)) continue;
     seenQueries.add(query);
-    console.log(`enrich-university req=${requestId}: mode=${searchMode} category=${cat} scope=${usedScope} query='${query}'`);
+    console.log(
+      `enrich-university req=${requestId}: mode=${searchMode} category=${cat} scope=${usedScope} query='${query}'`,
+    );
     gapPlans.push({ cat, query, scopeMode: usedScope });
   }
 
   const gapBatches = await Promise.all(
     gapPlans.map((p) =>
-      search(p.query, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } }, `step3-search-${p.cat}`)
+      search(p.query, { limit: 1, scrapeOptions: { formats: ["markdown", "links"] } }, `step3-search-${p.cat}`),
     ),
   );
   const gapUrls: string[] = [];
@@ -549,9 +557,7 @@ async function gatherLiveSources(
   const remainingDocs = finalDocs.filter((d) => !step3Urls.has(normalizeUrl(d.url)));
   const orderedDocs = [...gapFillDocs, ...remainingDocs];
   const manifest = TARGET_CATEGORIES.map((cat) => {
-    const matchingDocs = orderedDocs.filter(
-      (d) => (d as any)._categories?.has(cat) ?? (d as any)._category === cat,
-    );
+    const matchingDocs = orderedDocs.filter((d) => (d as any)._categories?.has(cat) ?? (d as any)._category === cat);
     if (matchingDocs.length === 0) return `${cat}: NONE`;
     return `${cat}: ${matchingDocs.map((d) => `${d.url} (${d.markdown.length}chars)`).join(" | ")}`;
   }).join("\n  ");
@@ -689,9 +695,7 @@ Deno.serve(async (req) => {
       `enrich-university req=${requestId}: context assembled — ${docs.length} docs, ${truncatedDocCount} truncated at scrape layer, final context length ${assembledContext.length}/${SOURCE_CONTEXT_TOTAL_CAP}`,
     );
     const categoryContentSummary = TARGET_CATEGORIES.map((cat) => {
-      const catDocsForSummary = docs.filter((d) =>
-        (d as any)._categories?.has(cat) ?? (d as any)._category === cat
-      );
+      const catDocsForSummary = docs.filter((d) => (d as any)._categories?.has(cat) ?? (d as any)._category === cat);
       const totalChars = catDocsForSummary.reduce((sum, d) => sum + d.markdown.length, 0);
       return `${cat}=${catDocsForSummary.length}doc(s)/${totalChars}chars`;
     }).join(", ");
