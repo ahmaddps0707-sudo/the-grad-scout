@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/app-shell";
@@ -31,7 +31,12 @@ interface EntryFull extends EntryRow {
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — The Grad Scout" }] }),
-  validateSearch: (search: Record<string, unknown>) => {
+  validateSearch: (search: {
+    quick?: "all" | "favorites" | "liked" | "applied" | "offers";
+    status?: string;
+    sort?: "score" | "qs" | "updated" | "deadline";
+    session_id?: string;
+  }) => {
     const quick = (search.quick as string) ?? "all";
     const status = (search.status as string) ?? "all";
     const sort = (search.sort as string) ?? "score";
@@ -50,13 +55,13 @@ type QuickFilter = "all" | "favorites" | "liked" | "applied" | "offers";
 type SortKey = "score" | "qs" | "updated" | "deadline";
 
 function DashboardPage() {
-  const navigate = useNavigate();
+  const navigate = Route.useNavigate();
   const search = Route.useSearch();
   const quick = search.quick;
   const statusFilter = search.status as EntryStatus | "all";
   const sort = search.sort;
   const setSearch = (patch: Partial<typeof search>) =>
-    navigate({ to: "/dashboard", search: (prev: typeof search) => ({ ...prev, ...patch }) });
+    navigate({ to: "/dashboard", search: { ...search, ...patch } });
   const [entries, setEntries] = useState<EntryFull[]>([]);
   const [loading, setLoading] = useState(true);
   const [discovering, setDiscovering] = useState(false);
