@@ -751,8 +751,8 @@ Return ONLY the following JSON, no other text, no markdown fences. Use null for 
     "is_stem": boolean or null
   },
   "tuition_and_funding": {
-    "tuition_amount": number or null,
-    "tuition_note": string or null,
+    "tuition_amount": number or null,  // PREFER non-resident / out-of-state / international tuition; only if none is published, use in-state / resident tuition
+    "tuition_note": string or null,    // MUST state which rate this is, e.g. "out-of-state" / "international" / "in-state (only rate published)"
     "tuition_currency": string or null,
     "tuition_per": "year" | "semester" | "credit" | "program" or null,
     "tuition_as_of": string or null,
