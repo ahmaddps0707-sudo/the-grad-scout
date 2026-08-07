@@ -74,7 +74,8 @@ export function isPaid(profile: any, env: StripeEnv = "sandbox"): boolean {
   const v = envView(profile, env);
   if (v.tier !== "paid") return false;
   const status = v.status;
-  if (status === "active" || status === "trialing" || status === "past_due") return true;
+  // past_due revokes access immediately.
+  if (status === "active" || status === "trialing") return true;
   if (status === "canceled" && v.periodEnd) {
     return new Date(v.periodEnd).getTime() > Date.now();
   }
