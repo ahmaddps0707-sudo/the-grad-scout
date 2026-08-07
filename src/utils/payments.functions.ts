@@ -194,11 +194,80 @@ export const createPortalSession = createServerFn({ method: "POST" })
       const customerId = (prof as any)?.[cols.customerId] as string | null | undefined;
       if (!customerId) return { error: "No billing account found" };
       const stripe = createStripeClient(data.environment);
-      const portal = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-        ...(data.returnUrl && { return_url: data.returnUrl }),
-      });
-      return { url: portal.url };
+      try {
+        const portal = await stripe.billingPortal.sessions.create({
+          customer: customerId,
+          ...(data.returnUrl && { return_url: data.returnUrl }),
+        });
+        return { url: portal.url };
+      } catch (e) {
+        if (isMissingResource(e)) {
+          // Stale customer from a previous Stripe connection — clear it so
+          // the next checkout creates a fresh customer instead of looping.
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              [cols.customerId]: null,
+              [cols.subscriptionId]: null,
+              [cols.tier]: "free",
+              [cols.status]: null,
+            } as never)
+            .eq("id", userId);
+          return { error: "Your billing account is no longer valid. Please start a new subscription." };
+        }
+        throw e;
+      }
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+/**
+ * Cancel the active subscription at the end of the current billing period.
+ * Used by the "Cancel subscription" action in Settings.
+ */
+export const cancelSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { environment: StripeEnv }) => data)
+  .handler(async ({ data, context }): Promise<CancelResult> => {
+    try {
+      const { supabase, userId } = context;
+      const cols = subColumns(data.environment);
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select(cols.subscriptionId)
+        .eq("id", userId)
+        .maybeSingle();
+      const subId = (prof as any)?.[cols.subscriptionId] as string | null | undefined;
+      if (!subId) return { error: "No active subscription found" };
+
+      const stripe = createStripeClient(data.environment);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      try {
+        const sub = await stripe.subscriptions.update(subId, { cancel_at_period_end: true });
+        const periodEnd = (sub as any).items?.data?.[0]?.current_period_end
+          ?? (sub as any).current_period_end;
+        await supabaseAdmin
+          .from("profiles")
+          .update({ [cols.cancelAtEnd]: true, updated_at: new Date().toISOString() } as never)
+          .eq("id", userId);
+        return { ok: true, periodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null };
+      } catch (e) {
+        if (isMissingResource(e)) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              [cols.subscriptionId]: null,
+              [cols.tier]: "free",
+              [cols.status]: null,
+              [cols.cancelAtEnd]: false,
+            } as never)
+            .eq("id", userId);
+          return { error: "That subscription no longer exists — your account has been set back to Free." };
+        }
+        throw e;
+      }
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
