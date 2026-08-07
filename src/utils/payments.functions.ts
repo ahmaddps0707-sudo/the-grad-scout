@@ -80,16 +80,40 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const stripePrice = prices.data[0];
       const isRecurring = stripePrice.type === "recurring";
 
-      const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
-
-      // Env-scoped trial gating: only offer the 7-day trial when this user
-      // has never had a paid subscription in this environment.
       const cols = subColumns(data.environment);
       const { data: prof } = await supabase
         .from("profiles")
-        .select(cols.trialUsed)
+        .select(`${cols.trialUsed}, ${cols.tier}, ${cols.status}, ${cols.customerId}, ${cols.subscriptionId}`)
         .eq("id", userId)
         .maybeSingle();
+
+      // Duplicate-purchase guard: an already-active subscriber must manage
+      // their plan through the billing portal, not buy a second one.
+      const curTier = (prof as any)?.[cols.tier];
+      const curStatus = (prof as any)?.[cols.status];
+      if (curTier === "paid" && (curStatus === "active" || curStatus === "trialing")) {
+        const existingSubId = (prof as any)?.[cols.subscriptionId] as string | undefined;
+        let stillLive = true;
+        if (existingSubId) {
+          try {
+            const s = await stripe.subscriptions.retrieve(existingSubId);
+            stillLive = s.status === "active" || s.status === "trialing";
+          } catch (e) {
+            if (isMissingResource(e)) stillLive = false;
+            else throw e;
+          }
+        }
+        if (stillLive) return { error: "already_subscribed" };
+      }
+
+      const customerId = await resolveOrCreateCustomer(stripe, {
+        email,
+        userId,
+        knownCustomerId: (prof as any)?.[cols.customerId] ?? null,
+      });
+
+      // Env-scoped trial gating: only offer the 7-day trial when this user
+      // has never had a paid subscription in this environment.
       const trialUsed = !!(prof as any)?.[cols.trialUsed];
       const effectiveTrialDays = trialUsed ? 0 : (data.trialDays ?? 0);
 
@@ -145,20 +169,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         ...(!isRecurring && discounts && { discounts }),
       } as any);
 
-      // Record redemption locally so subsequent attempts are blocked.
-      // Uses the authenticated client (RLS-safe: we already resolved userId from the session).
-      if (redeemedPromoId) {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await supabaseAdmin.from("user_promo_usage").insert({
-          user_id: userId,
-          promo_code_id: redeemedPromoId,
-        });
-        const { data: cur } = await supabaseAdmin
-          .from("promo_codes").select("times_redeemed").eq("id", redeemedPromoId).single();
-        await supabaseAdmin.from("promo_codes")
-          .update({ times_redeemed: ((cur?.times_redeemed as number | null) ?? 0) + 1 })
-          .eq("id", redeemedPromoId);
-      }
+      // NOTE: redemption is recorded by the webhook on
+      // checkout.session.completed, so an abandoned checkout does not burn
+      // the user's single-use promo code.
 
       return { clientSecret: session.client_secret ?? "" };
     } catch (error) {
