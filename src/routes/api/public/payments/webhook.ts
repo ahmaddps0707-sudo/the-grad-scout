@@ -80,9 +80,7 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
     // Any paid subscription burns the one-time trial for this env, so a
     // cancel + re-subscribe cannot re-trigger the 7-day trial.
     [cols.trialUsed]: true,
-    payment_method_attached: !!(subscription.default_payment_method
-      ?? subscription.default_source
-      ?? true),
+    payment_method_attached: !!(subscription.default_payment_method ?? subscription.default_source),
     updated_at: new Date().toISOString(),
   };
   if (isRenewal || isNewUpgrade) {
