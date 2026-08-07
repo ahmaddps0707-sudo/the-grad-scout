@@ -21,5 +21,6 @@ export type SubscriptionSummary = {
 };
 
 export function isPaidTier(s: Pick<SubscriptionSummary, "tier" | "status">): boolean {
-  return s.tier === "paid" && (s.status === "active" || s.status === "trialing" || s.status === "past_due" || s.status === "canceled");
+  // past_due does NOT grant access — a failed renewal revokes Pro immediately.
+  return s.tier === "paid" && (s.status === "active" || s.status === "trialing" || s.status === "canceled");
 }
