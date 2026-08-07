@@ -23,8 +23,20 @@ function isoFromUnix(seconds: number | null | undefined): string | null {
   return seconds ? new Date(seconds * 1000).toISOString() : null;
 }
 
+async function userIdFromCustomer(customerId: string | null | undefined, env: StripeEnv) {
+  if (!customerId) return undefined;
+  const cols = subColumns(env);
+  const { data } = await getSupabase()
+    .from("profiles")
+    .select("id")
+    .eq(cols.customerId, customerId)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? undefined;
+}
+
 async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
-  const userId = subscription.metadata?.userId;
+  const userId =
+    subscription.metadata?.userId ?? (await userIdFromCustomer(subscription.customer, env));
   if (!userId) {
     console.error("[webhook] No userId in subscription metadata", subscription.id);
     return;
@@ -35,7 +47,8 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
   const periodEnd = item?.current_period_end ?? subscription.current_period_end;
 
   const status = subscription.status as string;
-  const grants = status === "active" || status === "trialing" || status === "past_due";
+  // past_due revokes access immediately (product decision).
+  const grants = status === "active" || status === "trialing";
   const tier = grants ? "paid" : "free";
   const activeUntilPeriodEnd = status === "canceled" && periodEnd && periodEnd * 1000 > Date.now();
   const finalTier = activeUntilPeriodEnd ? "paid" : tier;
@@ -67,6 +80,9 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
     // Any paid subscription burns the one-time trial for this env, so a
     // cancel + re-subscribe cannot re-trigger the 7-day trial.
     [cols.trialUsed]: true,
+    payment_method_attached: !!(subscription.default_payment_method
+      ?? subscription.default_source
+      ?? true),
     updated_at: new Date().toISOString(),
   };
   if (isRenewal || isNewUpgrade) {
@@ -78,7 +94,8 @@ async function upsertSubscriptionOnProfile(subscription: any, env: StripeEnv) {
 }
 
 async function handleSubscriptionDeleted(subscription: any, env: StripeEnv) {
-  const userId = subscription.metadata?.userId;
+  const userId =
+    subscription.metadata?.userId ?? (await userIdFromCustomer(subscription.customer, env));
   if (!userId) return;
   const cols = subColumns(env);
   const supa = getSupabase();
@@ -143,12 +160,37 @@ async function handleInvoicePaid(invoice: any, env: StripeEnv) {
 }
 
 async function handleCheckoutSessionCompleted(session: any, env: StripeEnv) {
-  const userId = session.metadata?.userId;
+  const userId = session.metadata?.userId ?? (await userIdFromCustomer(session.customer, env));
   if (!userId) {
     console.error("[webhook] No userId in checkout session metadata", session.id);
     return;
   }
+  // Delayed-notification methods stay "unpaid" until settlement — don't grant
+  // a fresh usage window until money is actually committed.
+  if (session.payment_status === "unpaid") return;
   const cols = subColumns(env);
+
+  // Burn the promo code only once the checkout actually completed, so an
+  // abandoned session no longer consumes the user's single-use redemption.
+  const promoCodeId = session.metadata?.promoCodeId;
+  if (promoCodeId) {
+    const supa = getSupabase();
+    const { data: prior } = await supa
+      .from("user_promo_usage")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("promo_code_id", promoCodeId)
+      .maybeSingle();
+    if (!prior) {
+      await supa.from("user_promo_usage").insert({ user_id: userId, promo_code_id: promoCodeId });
+      const { data: cur } = await supa
+        .from("promo_codes").select("times_redeemed").eq("id", promoCodeId).maybeSingle();
+      await supa.from("promo_codes")
+        .update({ times_redeemed: ((cur?.times_redeemed as number | null) ?? 0) + 1 })
+        .eq("id", promoCodeId);
+    }
+  }
+
   // Initial upgrade: always reset usage counters regardless of free-plan usage.
   await getSupabase()
     .from("profiles")
@@ -163,12 +205,17 @@ async function handleCheckoutSessionCompleted(session: any, env: StripeEnv) {
 
 async function handleInvoicePaymentFailed(invoice: any, env: StripeEnv) {
   const userId = invoice.subscription_details?.metadata?.userId
-    ?? invoice.metadata?.userId;
+    ?? invoice.metadata?.userId
+    ?? (await userIdFromCustomer(invoice.customer, env));
   if (!userId) return;
   const cols = subColumns(env);
   await getSupabase()
     .from("profiles")
-    .update({ [cols.status]: "past_due", updated_at: new Date().toISOString() } as Database["public"]["Tables"]["profiles"]["Update"])
+    .update({
+      [cols.status]: "past_due",
+      [cols.tier]: "free",
+      updated_at: new Date().toISOString(),
+    } as Database["public"]["Tables"]["profiles"]["Update"])
     .eq("id", userId);
 }
 
