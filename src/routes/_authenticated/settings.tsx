@@ -13,7 +13,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { FREE_LIMITS, PAID_LIMITS, isPaidTier } from "@/lib/limits";
 import { UpgradeModal } from "@/components/upgrade-modal";
 import { Progress } from "@/components/ui/progress";
-import { createPortalSession } from "@/utils/payments.functions";
+import { createPortalSession, cancelSubscription } from "@/utils/payments.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
 import { envScopedSub } from "@/lib/subscription";
 import { PaymentTestModeBanner } from "@/components/payment-test-mode-banner";
