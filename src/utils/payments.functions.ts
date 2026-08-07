@@ -5,13 +5,30 @@ import { subColumns } from "@/lib/subscription";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
+type CancelResult = { ok: true; periodEnd: string | null } | { error: string };
+
+function isMissingResource(error: unknown): boolean {
+  const code = (error as any)?.raw?.code ?? (error as any)?.code;
+  const msg = String((error as any)?.raw?.message ?? (error as any)?.message ?? "");
+  return code === "resource_missing" || /No such customer|No such subscription/i.test(msg);
+}
 
 async function resolveOrCreateCustomer(
   stripe: ReturnType<typeof createStripeClient>,
-  options: { email?: string; userId?: string },
+  options: { email?: string; userId?: string; knownCustomerId?: string | null },
 ): Promise<string> {
   if (options.userId && !/^[a-zA-Z0-9_-]+$/.test(options.userId)) {
     throw new Error("Invalid userId");
+  }
+  // Prefer the customer id we already stored, but verify it still exists in
+  // this Stripe account (it won't if the integration was reconnected).
+  if (options.knownCustomerId) {
+    try {
+      const c = await stripe.customers.retrieve(options.knownCustomerId);
+      if (c && !(c as any).deleted) return options.knownCustomerId;
+    } catch (e) {
+      if (!isMissingResource(e)) throw e;
+    }
   }
   if (options.userId) {
     const found = await stripe.customers.search({
