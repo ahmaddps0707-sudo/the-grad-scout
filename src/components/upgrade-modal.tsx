@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check, X, Loader2, AlertCircle } from "lucide-react";
 import { StripeEmbeddedCheckout } from "@/components/stripe-embedded-checkout";
-import { createCheckoutSession } from "@/utils/payments.functions";
+import { createCheckoutSession, createPortalSession } from "@/utils/payments.functions";
 import { getStripeEnvironment } from "@/lib/stripe";
+import { supabase } from "@/integrations/supabase/client";
+import { envScopedSub } from "@/lib/subscription";
+import { isPaidTier } from "@/lib/limits";
 
 // Kept for backwards compatibility with existing call sites.
 export type UpgradeReason = "discover" | "ai" | "contacts" | "resume" | "generic";
@@ -40,6 +43,32 @@ export function UpgradeModal({
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alreadyPro, setAlreadyPro] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const env = (() => { try { return getStripeEnvironment(); } catch { return "sandbox" as const; } })();
+      const { data: prof } = await supabase.from("profiles").select("*").eq("id", u.user.id).maybeSingle();
+      const view = envScopedSub(prof, env);
+      setAlreadyPro(isPaidTier({ tier: view.tier, status: view.status as any }));
+    })();
+  }, [open]);
+
+  const openPortal = async () => {
+    setLoading(true);
+    try {
+      const result = await createPortalSession({
+        data: { environment: getStripeEnvironment(), returnUrl: `${window.location.origin}/settings` },
+      });
+      if ("error" in result) { setError(result.error); return; }
+      window.open(result.url, "_blank");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleClose = (v: boolean) => {
     if (!v) {
@@ -65,7 +94,12 @@ export function UpgradeModal({
         },
       });
       if ("error" in result) {
-        setError(result.error);
+        if (result.error === "already_subscribed") {
+          setAlreadyPro(true);
+          setError(null);
+        } else {
+          setError(result.error);
+        }
         return;
       }
       if (!result.clientSecret) {
@@ -90,7 +124,26 @@ export function UpgradeModal({
           </p>
         </DialogHeader>
 
-        {clientSecret ? (
+        {alreadyPro ? (
+          <div className="mt-4 flex flex-col items-center gap-3 text-center">
+            <Check className="h-10 w-10 text-primary" />
+            <div className="font-display text-lg">You're already Pro</div>
+            <p className="text-sm text-muted-foreground max-w-sm">
+              Your subscription is active. Change your plan, update your card, or cancel from the billing portal.
+            </p>
+            <Button onClick={openPortal} disabled={loading} className="mt-1">
+              {loading ? "Opening…" : "Manage billing"}
+            </Button>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <button
+              type="button"
+              onClick={() => handleClose(false)}
+              className="text-sm text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+            >
+              Close
+            </button>
+          </div>
+        ) : clientSecret ? (
           <div className="mt-4">
             <StripeEmbeddedCheckout clientSecret={clientSecret} />
           </div>

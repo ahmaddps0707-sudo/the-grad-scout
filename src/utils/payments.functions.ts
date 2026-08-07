@@ -5,13 +5,30 @@ import { subColumns } from "@/lib/subscription";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
+type CancelResult = { ok: true; periodEnd: string | null } | { error: string };
+
+function isMissingResource(error: unknown): boolean {
+  const code = (error as any)?.raw?.code ?? (error as any)?.code;
+  const msg = String((error as any)?.raw?.message ?? (error as any)?.message ?? "");
+  return code === "resource_missing" || /No such customer|No such subscription/i.test(msg);
+}
 
 async function resolveOrCreateCustomer(
   stripe: ReturnType<typeof createStripeClient>,
-  options: { email?: string; userId?: string },
+  options: { email?: string; userId?: string; knownCustomerId?: string | null },
 ): Promise<string> {
   if (options.userId && !/^[a-zA-Z0-9_-]+$/.test(options.userId)) {
     throw new Error("Invalid userId");
+  }
+  // Prefer the customer id we already stored, but verify it still exists in
+  // this Stripe account (it won't if the integration was reconnected).
+  if (options.knownCustomerId) {
+    try {
+      const c = await stripe.customers.retrieve(options.knownCustomerId);
+      if (c && !(c as any).deleted) return options.knownCustomerId;
+    } catch (e) {
+      if (!isMissingResource(e)) throw e;
+    }
   }
   if (options.userId) {
     const found = await stripe.customers.search({
@@ -63,16 +80,40 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const stripePrice = prices.data[0];
       const isRecurring = stripePrice.type === "recurring";
 
-      const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
-
-      // Env-scoped trial gating: only offer the 7-day trial when this user
-      // has never had a paid subscription in this environment.
       const cols = subColumns(data.environment);
       const { data: prof } = await supabase
         .from("profiles")
-        .select(cols.trialUsed)
+        .select(`${cols.trialUsed}, ${cols.tier}, ${cols.status}, ${cols.customerId}, ${cols.subscriptionId}`)
         .eq("id", userId)
         .maybeSingle();
+
+      // Duplicate-purchase guard: an already-active subscriber must manage
+      // their plan through the billing portal, not buy a second one.
+      const curTier = (prof as any)?.[cols.tier];
+      const curStatus = (prof as any)?.[cols.status];
+      if (curTier === "paid" && (curStatus === "active" || curStatus === "trialing")) {
+        const existingSubId = (prof as any)?.[cols.subscriptionId] as string | undefined;
+        let stillLive = true;
+        if (existingSubId) {
+          try {
+            const s = await stripe.subscriptions.retrieve(existingSubId);
+            stillLive = s.status === "active" || s.status === "trialing";
+          } catch (e) {
+            if (isMissingResource(e)) stillLive = false;
+            else throw e;
+          }
+        }
+        if (stillLive) return { error: "already_subscribed" };
+      }
+
+      const customerId = await resolveOrCreateCustomer(stripe, {
+        email,
+        userId,
+        knownCustomerId: (prof as any)?.[cols.customerId] ?? null,
+      });
+
+      // Env-scoped trial gating: only offer the 7-day trial when this user
+      // has never had a paid subscription in this environment.
       const trialUsed = !!(prof as any)?.[cols.trialUsed];
       const effectiveTrialDays = trialUsed ? 0 : (data.trialDays ?? 0);
 
@@ -128,20 +169,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         ...(!isRecurring && discounts && { discounts }),
       } as any);
 
-      // Record redemption locally so subsequent attempts are blocked.
-      // Uses the authenticated client (RLS-safe: we already resolved userId from the session).
-      if (redeemedPromoId) {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await supabaseAdmin.from("user_promo_usage").insert({
-          user_id: userId,
-          promo_code_id: redeemedPromoId,
-        });
-        const { data: cur } = await supabaseAdmin
-          .from("promo_codes").select("times_redeemed").eq("id", redeemedPromoId).single();
-        await supabaseAdmin.from("promo_codes")
-          .update({ times_redeemed: ((cur?.times_redeemed as number | null) ?? 0) + 1 })
-          .eq("id", redeemedPromoId);
-      }
+      // NOTE: redemption is recorded by the webhook on
+      // checkout.session.completed, so an abandoned checkout does not burn
+      // the user's single-use promo code.
 
       return { clientSecret: session.client_secret ?? "" };
     } catch (error) {
@@ -164,11 +194,80 @@ export const createPortalSession = createServerFn({ method: "POST" })
       const customerId = (prof as any)?.[cols.customerId] as string | null | undefined;
       if (!customerId) return { error: "No billing account found" };
       const stripe = createStripeClient(data.environment);
-      const portal = await stripe.billingPortal.sessions.create({
-        customer: customerId,
-        ...(data.returnUrl && { return_url: data.returnUrl }),
-      });
-      return { url: portal.url };
+      try {
+        const portal = await stripe.billingPortal.sessions.create({
+          customer: customerId,
+          ...(data.returnUrl && { return_url: data.returnUrl }),
+        });
+        return { url: portal.url };
+      } catch (e) {
+        if (isMissingResource(e)) {
+          // Stale customer from a previous Stripe connection — clear it so
+          // the next checkout creates a fresh customer instead of looping.
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              [cols.customerId]: null,
+              [cols.subscriptionId]: null,
+              [cols.tier]: "free",
+              [cols.status]: null,
+            } as never)
+            .eq("id", userId);
+          return { error: "Your billing account is no longer valid. Please start a new subscription." };
+        }
+        throw e;
+      }
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+/**
+ * Cancel the active subscription at the end of the current billing period.
+ * Used by the "Cancel subscription" action in Settings.
+ */
+export const cancelSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { environment: StripeEnv }) => data)
+  .handler(async ({ data, context }): Promise<CancelResult> => {
+    try {
+      const { supabase, userId } = context;
+      const cols = subColumns(data.environment);
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select(cols.subscriptionId)
+        .eq("id", userId)
+        .maybeSingle();
+      const subId = (prof as any)?.[cols.subscriptionId] as string | null | undefined;
+      if (!subId) return { error: "No active subscription found" };
+
+      const stripe = createStripeClient(data.environment);
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      try {
+        const sub = await stripe.subscriptions.update(subId, { cancel_at_period_end: true });
+        const periodEnd = (sub as any).items?.data?.[0]?.current_period_end
+          ?? (sub as any).current_period_end;
+        await supabaseAdmin
+          .from("profiles")
+          .update({ [cols.cancelAtEnd]: true, updated_at: new Date().toISOString() } as never)
+          .eq("id", userId);
+        return { ok: true, periodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null };
+      } catch (e) {
+        if (isMissingResource(e)) {
+          await supabaseAdmin
+            .from("profiles")
+            .update({
+              [cols.subscriptionId]: null,
+              [cols.tier]: "free",
+              [cols.status]: null,
+              [cols.cancelAtEnd]: false,
+            } as never)
+            .eq("id", userId);
+          return { error: "That subscription no longer exists — your account has been set back to Free." };
+        }
+        throw e;
+      }
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
