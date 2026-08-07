@@ -93,7 +93,9 @@ function OnboardingPage() {
       work_exp_years: next.work_exp_years ? Number(next.work_exp_years) : null,
       target_intake: next.target_intake,
     };
-    await supabase.from("profiles").update(upd).eq("id", u.user.id);
+    // Upsert so a missing profile row (e.g. signup trigger never fired) is created
+    // rather than silently no-op'ing an UPDATE.
+    await supabase.from("profiles").upsert({ id: u.user.id, ...upd }, { onConflict: "id" });
     setSaving(false);
   }, []);
 
@@ -112,7 +114,9 @@ function OnboardingPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
       await autoSave(form);
-      await supabase.from("profiles").update({ onboarding_complete: true }).eq("id", u.user.id);
+      await supabase
+        .from("profiles")
+        .upsert({ id: u.user.id, onboarding_complete: true }, { onConflict: "id" });
       const { data: job, error: jobErr } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();
       if (jobErr) throw jobErr;
       // Fire and forget — dashboard will poll
