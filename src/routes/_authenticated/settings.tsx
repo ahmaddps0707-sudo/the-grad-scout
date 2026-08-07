@@ -347,6 +347,12 @@ function SettingsPage() {
         </section>
 
         <section className="rounded-2xl border border-border bg-surface-elevated p-6">
+          {status === "past_due" && (
+            <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <strong className="font-medium">Your last payment failed.</strong> Pro features are paused until the
+              payment goes through. Update your card in the billing portal to restore access.
+            </div>
+          )}
           <div className="flex items-start justify-between">
             <div>
               <h2 className="font-display text-xl">Subscription</h2>
@@ -376,15 +382,28 @@ function SettingsPage() {
                 </p>
               )}
             </div>
-            {!paid ? (
-              <Button onClick={() => setUpgradeOpen(true)} className="gap-2">
-                Upgrade to Pro
-              </Button>
-            ) : (
-              <Button variant="outline" onClick={openPortal} disabled={portalLoading}>
-                {portalLoading ? "Opening…" : "Manage billing"}
-              </Button>
-            )}
+            <div className="flex flex-col items-end gap-2">
+              {!paid && status !== "past_due" ? (
+                <Button onClick={() => setUpgradeOpen(true)} className="gap-2">
+                  Upgrade to Pro
+                </Button>
+              ) : (
+                <Button variant="outline" onClick={openPortal} disabled={portalLoading}>
+                  {portalLoading ? "Opening…" : "Manage billing"}
+                </Button>
+              )}
+              {paid && !cancelAtEnd && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={cancelPlan}
+                  disabled={cancelLoading}
+                  className="text-muted-foreground hover:text-destructive"
+                >
+                  {cancelLoading ? "Cancelling…" : "Cancel subscription"}
+                </Button>
+              )}
+            </div>
           </div>
           <div className="mt-6 space-y-4">
             <div>
