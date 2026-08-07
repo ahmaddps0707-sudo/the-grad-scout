@@ -120,6 +120,25 @@ function SettingsPage() {
     }
   };
 
+  const cancelPlan = async () => {
+    if (!window.confirm("Cancel your Pro subscription? You'll keep access until the end of the current billing period.")) return;
+    setCancelLoading(true);
+    try {
+      const result = await cancelSubscription({ data: { environment: env } });
+      if ("error" in result) throw new Error(result.error);
+      toast.success("Subscription will end at the close of this billing period.");
+      const { data: u } = await supabase.auth.getUser();
+      if (u.user) {
+        const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
+        setProfile(data);
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Could not cancel subscription");
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   const update = (patch: Partial<ProfileRow>) => setProfile((p) => (p ? { ...p, ...patch } : p));
 
   const tierValid = TIER_OPTIONS.some(([v]) => v === profile.target_tier);
