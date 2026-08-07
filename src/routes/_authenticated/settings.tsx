@@ -59,6 +59,7 @@ function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const [payments, setPayments] = useState<any[]>([]);
 
   useEffect(() => {
