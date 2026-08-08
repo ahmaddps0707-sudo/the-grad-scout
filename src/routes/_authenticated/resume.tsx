@@ -52,6 +52,7 @@ function ResumePage() {
   const [uploadMode, setUploadMode] = useState<"new" | "replace">("new");
   const [newVersionOpen, setNewVersionOpen] = useState(false);
   const [renaming, setRenaming] = useState(false);
+  const [mobilePane, setMobilePane] = useState<"edit" | "preview">("edit");
   const debounceRef = useRef<any>(null);
   const initialLoad = useRef(true);
 
