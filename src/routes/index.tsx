@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import logoIcon from "@/assets/logo-icon.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -15,6 +16,8 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "The Grad Scout — Find Your Master's Program" },
       { name: "twitter:description", content: "AI-powered research, application tracking, and alumni outreach for international master's applicants." },
+      { property: "og:image", content: "https://thegradscout.com/og-image.png" },
+      { name: "twitter:image", content: "https://thegradscout.com/og-image.png" },
     ],
     links: [
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
@@ -30,7 +33,7 @@ export const Route = createFileRoute("/")({
               "@type": "Organization",
               name: "The Grad Scout",
               url: "https://thegradscout.com",
-              logo: "https://thegradscout.com/favicon.ico",
+              logo: "https://thegradscout.com/icon-512.png",
               description:
                 "AI-powered master's program research, fit scoring, and application tracking for international students.",
             },
@@ -91,13 +94,14 @@ const serif = { fontFamily: "'Playfair Display', serif" as const };
 function Wordmark({ dark = false }: { dark?: boolean }) {
   return (
     <span className="gs-logo" style={{ display: "flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
-      <span className="gs-logo-icon" style={{
-        width: 30, height: 30, borderRadius: 8,
-        background: dark ? "rgba(255,255,255,0.08)" : NAV,
-        border: dark ? "1px solid rgba(255,255,255,0.14)" : "none",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 15, color: AMBER, flexShrink: 0,
-      }}>🧭</span>
+      <img
+        className="gs-logo-icon"
+        src={logoIcon}
+        alt="The Grad Scout compass logo"
+        width={30}
+        height={30}
+        style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, objectFit: "cover" }}
+      />
       <span className="gs-logo-text" style={{ ...serif, fontSize: 20, fontWeight: 900, color: dark ? WHITE : NAV, letterSpacing: "-0.4px", whiteSpace: "nowrap" }}><span className="gs-logo-the">The </span>Grad Scout</span>
     </span>
   );
