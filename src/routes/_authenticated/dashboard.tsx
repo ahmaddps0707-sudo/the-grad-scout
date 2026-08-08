@@ -323,7 +323,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
         </div>
         <div className={`shrink-0 rounded-full border px-3 py-1 text-sm font-medium ${scoreColorClass(score)}`}>{score}</div>
       </div>
-      <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {entry.university.qs_ranking && <span>QS #{entry.university.qs_ranking}</span>}
         {entry.program?.us_news_ranking != null && <span>US News #{entry.program.us_news_ranking}</span>}
         {entry.program?.school_ranking != null && <span>School #{entry.program.school_ranking}</span>}
@@ -334,7 +334,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
           </a>
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <IconBtn active={entry.is_favorite} onClick={() => onUpdate({ is_favorite: !entry.is_favorite })} label="Favorite"><Star className="h-4 w-4" fill={entry.is_favorite ? "currentColor" : "none"} /></IconBtn>
           <IconBtn active={entry.is_liked} onClick={() => onUpdate({ is_liked: !entry.is_liked, is_disliked: false })} label="Like"><ThumbsUp className="h-4 w-4" /></IconBtn>
@@ -348,7 +348,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
                 <Trash2 className="h-4 w-4" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-72" onClick={(e) => e.stopPropagation()}>
+          <PopoverContent className="w-[min(18rem,calc(100vw-2rem))]" onClick={(e) => e.stopPropagation()}>
               <p className="text-sm text-foreground">Remove {entry.university.name} from your dashboard?</p>
               <div className="mt-3 flex items-center justify-end gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setConfirmOpen(false)}>Cancel</Button>
@@ -358,7 +358,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
           </Popover>
         </div>
         <Select value={entry.status} onValueChange={(v) => onUpdate({ status: v as EntryStatus })}>
-          <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-11 w-full text-xs sm:h-8 sm:w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
           </SelectContent>
@@ -402,7 +402,7 @@ function AddUniversityDialog({ onAdded }: { onAdded: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" /> Add University</Button>
+        <Button variant="outline" className="w-full gap-2 sm:w-auto"><Plus className="h-4 w-4" /> Add University</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Add a university manually</DialogTitle></DialogHeader>
