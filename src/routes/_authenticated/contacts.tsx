@@ -216,27 +216,27 @@ function ContactsPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-[1600px] px-6 py-6">
-        <div className="flex items-baseline justify-between mb-6 flex-wrap gap-4">
+      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl">Contacts</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Contacts</h1>
             <p className="text-muted-foreground text-sm mt-1">Track your outreach to students and alumni.</p>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
             <Input
               placeholder="Search by name or university…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-[260px]"
+              className="w-full sm:w-[260px]"
             />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   <Filter className="h-3.5 w-3.5 mr-1" />
                   University {uniFilter.size > 0 ? `(${uniFilter.size})` : ""}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-[300px] overflow-auto">
+              <DropdownMenuContent align="end" className="max-h-[300px] w-[min(20rem,calc(100vw-2rem))] overflow-auto">
                 {universityOptions.length === 0 ? (
                   <DropdownMenuItem disabled>No universities</DropdownMenuItem>
                 ) : (
@@ -277,7 +277,7 @@ function ContactsPage() {
           <EmptyState>No contacts match your current filters.</EmptyState>
         ) : (
           <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-            <div className="flex gap-4 overflow-x-auto pb-4">
+            <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-4 sm:mx-0 sm:snap-none sm:px-0">
               {COLUMNS.map((col) => (
                 <Column key={col.key} status={col.key} label={col.label} count={byColumn[col.key].length}>
                   {byColumn[col.key].map((r) => (
@@ -315,7 +315,7 @@ function Column({ status, label, count, children }: { status: Status; label: str
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col w-[300px] shrink-0 rounded-xl border bg-surface-elevated/40 p-3 transition-colors ${isOver ? "border-primary bg-primary/5" : "border-border"}`}
+      className={`flex w-[280px] shrink-0 snap-start flex-col rounded-xl border bg-surface-elevated/40 p-3 transition-colors sm:w-[300px] sm:snap-align-none ${isOver ? "border-primary bg-primary/5" : "border-border"}`}
     >
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="font-medium text-sm">{label}</h3>
