@@ -609,6 +609,15 @@ Deno.serve(async (req) => {
       }
     }
 
+    // This function spends third-party crawl/AI budget and writes with the
+    // service role, so an authenticated caller is always required.
+    if (!meteredUserId) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+
     // Manual "Update Data" runs are additionally metered per tier.
     if (force) {
       const env = parseEnv(environment);
