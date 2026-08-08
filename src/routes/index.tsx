@@ -135,7 +135,7 @@ function GradScoutLanding() {
   return (
     <div className="gs-root" style={{ fontFamily: "'Inter', sans-serif", background: BG, color: TEXT }}>
       {/* NAV */}
-      <nav style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(250,249,244,0.96)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6%", height: 64 }}>
+      <nav className="gs-nav" style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(250,249,244,0.96)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6%", height: 64 }}>
         <Wordmark />
         <div className="gs-nav-links" style={{ display: "flex", gap: 28, alignItems: "center" }}>
           {[["Features","#features"],["How it works","#how-it-works"],["Pricing","#pricing"],["FAQ","#faq"]].map(([l,h]) => (
@@ -143,8 +143,8 @@ function GradScoutLanding() {
           ))}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <a href="/auth" onClick={goAuth} style={{ fontSize: 14, fontWeight: 500, color: MUTED, textDecoration: "none", padding: "8px 14px" }}>Sign in</a>
-          <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 8, padding: "9px 18px", textDecoration: "none" }}>Get started free</a>
+          <a href="/auth" onClick={goAuth} className="gs-nav-signin" style={{ fontSize: 14, fontWeight: 500, color: MUTED, textDecoration: "none", padding: "8px 14px", whiteSpace: "nowrap" }}>Sign in</a>
+          <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 8, padding: "9px 18px", textDecoration: "none", whiteSpace: "nowrap" }}>Get started free</a>
         </div>
       </nav>
 
