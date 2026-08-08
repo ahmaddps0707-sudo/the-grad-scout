@@ -364,7 +364,7 @@ function GradScoutLanding() {
             <form onSubmit={submitForm} style={{ background: WHITE, borderRadius: 20, padding: 40, border: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 20 }}>
               <div>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Your name</label>
-                <input type="text" placeholder="Ahmad Khan" required maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
+                <input type="text" placeholder="Sarah" required maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
               </div>
               <div>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Email address</label>
