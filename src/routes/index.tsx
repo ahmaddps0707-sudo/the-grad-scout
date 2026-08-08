@@ -391,7 +391,6 @@ function GradScoutLanding() {
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 12, maxWidth: 230, lineHeight: 1.75 }}>
                 The research and tracking platform built for international master's applicants.
               </p>
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic", marginTop: 12, maxWidth: 230, lineHeight: 1.7 }}>Built for the students who made the brave choice to apply abroad.</p>
             </div>
             <div style={{ display: "flex", gap: 60, flexWrap: "wrap" }}>
               {[
