@@ -209,16 +209,16 @@ function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <UpgradeModal open={!!upgradeReason} onOpenChange={(v) => !v && setUpgradeReason(null)} reason={upgradeReason ?? "generic"} />
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl">Your pipeline</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Your pipeline</h1>
             <p className="text-sm text-muted-foreground mt-1">{entries.length} {entries.length === 1 ? "program" : "programs"} tracked</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center [&>*]:w-full sm:[&>*]:w-auto">
             <AddUniversityDialog onAdded={load} />
-            <Button onClick={discoverMore} disabled={discovering} className="gap-2">
+            <Button onClick={discoverMore} disabled={discovering} className="w-full gap-2 sm:w-auto">
               {discovering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {discovering ? "Researching…" : "Discover more"}
             </Button>
@@ -235,22 +235,24 @@ function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              {(["all","favorites","liked","applied","offers"] as QuickFilter[]).map((q) => (
-                <button key={q} onClick={() => setSearch({ quick: q })} className={`rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
-                  {q === "all" ? "All" : q[0].toUpperCase() + q.slice(1)}
-                </button>
-              ))}
-              <div className="ml-auto flex items-center gap-2">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none lg:mx-0 lg:flex-wrap lg:px-0">
+                {(["all","favorites","liked","applied","offers"] as QuickFilter[]).map((q) => (
+                  <button key={q} onClick={() => setSearch({ quick: q })} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
+                    {q === "all" ? "All" : q[0].toUpperCase() + q.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:ml-auto">
                 <Select value={statusFilter} onValueChange={(v) => setSearch({ status: v })}>
-                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={sort} onValueChange={(v) => setSearch({ sort: v as SortKey })}>
-                  <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="score">Sort: Score</SelectItem>
                     <SelectItem value="qs">Sort: QS Rank</SelectItem>
@@ -269,7 +271,7 @@ function DashboardPage() {
             ) : filtered.length === 0 ? (
               lastRunCount === 0 ? <LowResultsBanner count={0} onDismiss={() => setLastRunCount(null)} /> : <EmptyState onDiscover={discoverMore} />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
                   <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onDelete={() => deleteEntry(e.id)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
                 ))}
