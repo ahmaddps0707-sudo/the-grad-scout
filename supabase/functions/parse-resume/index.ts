@@ -34,8 +34,30 @@ Deno.serve(async (req) => {
   let resumeId: string | null = null;
   try {
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
-    const { resume_id, user_id, file_path } = await req.json();
-    if (!resume_id || !user_id || !file_path) throw new Error("resume_id, user_id, file_path required");
+    const { resume_id, file_path } = await req.json();
+    if (!resume_id || !file_path) throw new Error("resume_id and file_path required");
+
+    // Authenticate the caller — never trust a user_id supplied in the body.
+    const authToken = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: authed } = authToken
+      ? await admin.auth.getUser(authToken)
+      : { data: { user: null } as any };
+    const callerId: string | undefined = authed?.user?.id;
+    if (!callerId) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+
+    // Ownership checks: the resume row and the storage object must belong to the caller.
+    const { data: ownRow } = await admin.from("resumes").select("id,user_id").eq("id", resume_id).maybeSingle();
+    if (!ownRow || ownRow.user_id !== callerId || !String(file_path).startsWith(`${callerId}/`)) {
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+      });
+    }
     resumeId = resume_id;
 
     await admin.from("resumes").update({ parse_status: "parsing" }).eq("id", resume_id);

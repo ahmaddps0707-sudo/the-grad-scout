@@ -91,14 +91,16 @@ function PostThread() {
     } else setCommentAuthors({});
 
     const [pLikes, cLikes, myLikes, myFlagsPost, myFlagsC] = await Promise.all([
-      supabase.rpc("get_post_like_counts", { post_ids: [postId] }),
-      rows.length ? supabase.rpc("get_comment_like_counts", { comment_ids: rows.map((r) => r.id) }) : Promise.resolve({ data: [] as { comment_id: string; like_count: number }[] }),
+      supabase.from("forum_posts").select("id, like_count").eq("id", postId),
+      Promise.resolve({
+        data: rows.map((r) => ({ comment_id: r.id, like_count: (r as { like_count?: number }).like_count ?? 0 })),
+      }),
       u.user ? supabase.from("forum_likes").select("post_id, comment_id").eq("user_id", u.user.id) : Promise.resolve({ data: [] as { post_id: string | null; comment_id: string | null }[] }),
       u.user ? supabase.from("forum_flags").select("id").eq("post_id", postId).eq("reporter_user_id", u.user.id).maybeSingle() : Promise.resolve({ data: null }),
       u.user && rows.length ? supabase.from("forum_flags").select("comment_id").in("comment_id", rows.map((r) => r.id)).eq("reporter_user_id", u.user.id) : Promise.resolve({ data: [] as { comment_id: string | null }[] }),
     ]);
     const myLikeRows = (myLikes.data ?? []) as { post_id: string | null; comment_id: string | null }[];
-    const postCounts = (pLikes.data ?? []) as { post_id: string; like_count: number }[];
+    const postCounts = (pLikes.data ?? []) as unknown as { like_count: number }[];
     setPostLikes(Number(postCounts[0]?.like_count ?? 0));
     setPostLikedByMe(myLikeRows.some((l) => l.post_id === postId));
     setPostFlaggedByMe(!!myFlagsPost.data);

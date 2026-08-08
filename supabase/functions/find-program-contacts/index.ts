@@ -52,6 +52,20 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceKey);
 
   try {
+    // Require an authenticated caller: this function performs service-role reads
+    // and spends third-party search/AI budget.
+    const callerToken = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const { data: callerRes } = callerToken
+      ? await admin.auth.getUser(callerToken)
+      : { data: { user: null } as any };
+    const callerId: string | undefined = callerRes?.user?.id;
+    if (!callerId) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+
     const body = await req.json().catch(() => ({}));
     const programId: string | undefined = body.program_id;
     const universityName: string = body.university_name ?? "";
@@ -62,16 +76,12 @@ Deno.serve(async (req) => {
     // Prefer the authoritative value from profiles.country_of_origin for the
     // requesting user. Falls back to whatever the caller passed in body.
     try {
-      const authHeader = req.headers.get("Authorization") ?? "";
-      const token = authHeader.replace(/^Bearer\s+/i, "");
-      if (token) {
-        const { data: userRes } = await admin.auth.getUser(token);
-        const uid = userRes?.user?.id;
-        if (uid) {
-          const { data: prof } = await admin.from("profiles").select("country_of_origin").eq("id", uid).maybeSingle();
-          if (prof?.country_of_origin) userCountry = prof.country_of_origin;
-        }
-      }
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("country_of_origin")
+        .eq("id", callerId)
+        .maybeSingle();
+      if (prof?.country_of_origin) userCountry = prof.country_of_origin;
     } catch (_e) {
       // If profile lookup fails, run search without country prioritization.
     }

@@ -185,7 +185,7 @@ function ResumePage() {
     }
 
     const { error: fnErr } = await supabase.functions.invoke("parse-resume", {
-      body: { resume_id: resumeId, user_id: userId, file_path: path },
+      body: { resume_id: resumeId, file_path: path },
     });
     if (fnErr) { toast.error(`Parse trigger failed: ${fnErr.message}`); }
   };
