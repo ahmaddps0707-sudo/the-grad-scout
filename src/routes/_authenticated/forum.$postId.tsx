@@ -90,21 +90,26 @@ function PostThread() {
       setCommentAuthors(map);
     } else setCommentAuthors({});
 
-    const [pLikes, cLikes, myFlagsPost, myFlagsC] = await Promise.all([
-      supabase.from("forum_likes").select("user_id").eq("post_id", postId),
-      rows.length ? supabase.from("forum_likes").select("user_id, comment_id").in("comment_id", rows.map((r) => r.id)) : Promise.resolve({ data: [] as { user_id: string; comment_id: string | null }[] }),
+    const [pLikes, cLikes, myLikes, myFlagsPost, myFlagsC] = await Promise.all([
+      supabase.rpc("get_post_like_counts", { post_ids: [postId] }),
+      rows.length ? supabase.rpc("get_comment_like_counts", { comment_ids: rows.map((r) => r.id) }) : Promise.resolve({ data: [] as { comment_id: string; like_count: number }[] }),
+      u.user ? supabase.from("forum_likes").select("post_id, comment_id").eq("user_id", u.user.id) : Promise.resolve({ data: [] as { post_id: string | null; comment_id: string | null }[] }),
       u.user ? supabase.from("forum_flags").select("id").eq("post_id", postId).eq("reporter_user_id", u.user.id).maybeSingle() : Promise.resolve({ data: null }),
       u.user && rows.length ? supabase.from("forum_flags").select("comment_id").in("comment_id", rows.map((r) => r.id)).eq("reporter_user_id", u.user.id) : Promise.resolve({ data: [] as { comment_id: string | null }[] }),
     ]);
-    setPostLikes((pLikes.data ?? []).length);
-    setPostLikedByMe(u.user ? (pLikes.data ?? []).some((l) => l.user_id === u.user!.id) : false);
+    const myLikeRows = (myLikes.data ?? []) as { post_id: string | null; comment_id: string | null }[];
+    const postCounts = (pLikes.data ?? []) as { post_id: string; like_count: number }[];
+    setPostLikes(Number(postCounts[0]?.like_count ?? 0));
+    setPostLikedByMe(myLikeRows.some((l) => l.post_id === postId));
     setPostFlaggedByMe(!!myFlagsPost.data);
     const cMap: Record<string, { count: number; mine: boolean }> = {};
-    (cLikes.data ?? []).forEach((l) => {
+    ((cLikes.data ?? []) as { comment_id: string; like_count: number }[]).forEach((l) => {
+      cMap[l.comment_id] = { count: Number(l.like_count), mine: false };
+    });
+    myLikeRows.forEach((l) => {
       if (!l.comment_id) return;
       const cur = cMap[l.comment_id] ?? { count: 0, mine: false };
-      cur.count += 1;
-      if (u.user && l.user_id === u.user.id) cur.mine = true;
+      cur.mine = true;
       cMap[l.comment_id] = cur;
     });
     setCommentLikes(cMap);
