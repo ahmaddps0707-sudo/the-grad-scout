@@ -6,13 +6,19 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "The Grad Scout — Find your program. Not just a list of them." },
-      { name: "description", content: "The Grad Scout researches master's programs that match your profile, scores each on fit, and tracks every application from first shortlist to final decision." },
-      { property: "og:title", content: "The Grad Scout — Find your master's program" },
-      { property: "og:description", content: "Research, score, and track international master's programs." },
+      { title: "The Grad Scout — Find Your Master's Program, Not Just a List" },
+      { name: "description", content: "The Grad Scout researches master's programs that match your profile, scores each one on fit, and tracks every application from first shortlist to final decision. Built for international students applying abroad." },
+      { property: "og:title", content: "The Grad Scout — Find Your Master's Program" },
+      { property: "og:description", content: "AI-powered research, application tracking, and alumni outreach for international master's applicants." },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://thegradscout.com" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "The Grad Scout — Find Your Master's Program" },
+      { name: "twitter:description", content: "AI-powered research, application tracking, and alumni outreach for international master's applicants." },
     ],
     links: [
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
+      { rel: "canonical", href: "https://thegradscout.com" },
     ],
   }),
   component: GradScoutLanding,
