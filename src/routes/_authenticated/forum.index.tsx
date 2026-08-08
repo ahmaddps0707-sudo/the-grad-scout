@@ -63,7 +63,9 @@ function ForumFeed() {
     const userIds = Array.from(new Set(rows.filter((r) => !r.is_anonymous).map((r) => r.user_id)));
     const uniIds = Array.from(new Set(rows.map((r) => r.tag_university_id).filter(Boolean) as string[]));
     const [likeCountsRes, myLikesRes, commentsRes, profilesRes, unisRes, myFlagsRes] = await Promise.all([
-      supabase.rpc("get_post_like_counts", { post_ids: postIds }),
+      Promise.resolve({
+        data: rows.map((r) => ({ post_id: r.id, like_count: (r as { like_count?: number }).like_count ?? 0 })),
+      }),
       u.user ? supabase.from("forum_likes").select("post_id").in("post_id", postIds).eq("user_id", u.user.id) : Promise.resolve({ data: [] as { post_id: string | null }[] }),
       supabase.from("forum_comments").select("id, post_id").in("post_id", postIds).eq("is_removed", false),
       userIds.length ? supabase.from("profiles").select("id, full_name").in("id", userIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),

@@ -87,7 +87,7 @@ function DetailPage() {
     // Discussions
     const uniId = (data.university as Uni).id;
     const { data: posts } = await supabase.from("forum_posts")
-      .select("id, title, is_anonymous, user_id, created_at")
+      .select("id, title, is_anonymous, user_id, created_at, like_count")
       .eq("is_removed", false).eq("tag_university_id", uniId)
       .order("created_at", { ascending: false }).limit(5);
     const pRows = posts ?? [];
@@ -96,7 +96,9 @@ function DetailPage() {
       const ids = pRows.map((r) => r.id);
       const uids = Array.from(new Set(pRows.filter((r) => !r.is_anonymous).map((r) => r.user_id)));
       const [likesRes, commentsRes, profsRes] = await Promise.all([
-        supabase.rpc("get_post_like_counts", { post_ids: ids }),
+        Promise.resolve({
+          data: pRows.map((r) => ({ post_id: r.id, like_count: (r as { like_count?: number }).like_count ?? 0 })),
+        }),
         supabase.from("forum_comments").select("post_id").in("post_id", ids).eq("is_removed", false),
         uids.length ? supabase.from("profiles").select("id, full_name").in("id", uids) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
       ]);
