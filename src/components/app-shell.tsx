@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import logoIcon from "@/assets/logo-icon.png";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -80,7 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             search={{ quick: "all", status: "all", sort: "score" } as never}
             className="flex min-w-0 items-center gap-2"
           >
-            <img src={logoIcon} alt="The Grad Scout compass logo" width={32} height={32} className="h-8 w-8 shrink-0 rounded-lg" />
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[15px] text-accent">🧭</span>
             <span className="whitespace-nowrap text-sm font-display font-black tracking-tight text-primary min-[380px]:text-base sm:text-lg">
               The Grad Scout
             </span>
