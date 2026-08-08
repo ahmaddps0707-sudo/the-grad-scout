@@ -30,7 +30,13 @@ interface EntryFull extends EntryRow {
 }
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "Dashboard — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Dashboard — The Grad Scout" },
+      { name: "description", content: "Your scored master's program shortlist, application stages, and upcoming deadlines in one dashboard." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   validateSearch: (search: { quick?: unknown; status?: unknown; sort?: unknown }) => {
     const quick = (search.quick as string) ?? "all";
     const status = (search.status as string) ?? "all";

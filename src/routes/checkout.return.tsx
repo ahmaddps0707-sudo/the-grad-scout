@@ -7,7 +7,13 @@ import { AppShell } from "@/components/app-shell";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/checkout/return")({
-  head: () => ({ meta: [{ title: "Confirming your subscription — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Confirming your subscription — The Grad Scout" },
+      { name: "description", content: "We're confirming your The Grad Scout Pro subscription. This only takes a moment." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>) => ({
     session_id: typeof search.session_id === "string" ? search.session_id : undefined,
   }),

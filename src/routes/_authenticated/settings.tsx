@@ -22,7 +22,13 @@ import { CountrySelect } from "@/components/country-select";
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/settings")({
-  head: () => ({ meta: [{ title: "Settings — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Settings — The Grad Scout" },
+      { name: "description", content: "Manage your profile, preferences, subscription, and billing for The Grad Scout." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: SettingsPage,
 });
 

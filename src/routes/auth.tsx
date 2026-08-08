@@ -9,7 +9,20 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Sign in — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Sign in — The Grad Scout" },
+      { name: "description", content: "Sign in or create your free The Grad Scout account to research master's programs, score your fit, and track every application." },
+      { property: "og:title", content: "Sign in — The Grad Scout" },
+      { property: "og:description", content: "Access your master's program shortlist, fit scores, and application tracker." },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://thegradscout.com/auth" },
+      { name: "twitter:card", content: "summary" },
+      { name: "twitter:title", content: "Sign in — The Grad Scout" },
+      { name: "twitter:description", content: "Access your master's program shortlist, fit scores, and application tracker." },
+    ],
+    links: [{ rel: "canonical", href: "https://thegradscout.com/auth" }],
+  }),
   component: AuthPage,
 });
 

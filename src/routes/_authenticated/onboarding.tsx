@@ -15,7 +15,13 @@ import { getStripeEnvironment } from "@/lib/stripe";
 type ProfileUpd = Database["public"]["Tables"]["profiles"]["Update"];
 
 export const Route = createFileRoute("/_authenticated/onboarding")({
-  head: () => ({ meta: [{ title: "Welcome — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Welcome — The Grad Scout" },
+      { name: "description", content: "Tell us your field, target country, tier, and test scores so we can research master's programs that fit you." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: OnboardingPage,
 });
 

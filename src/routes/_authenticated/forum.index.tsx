@@ -30,7 +30,13 @@ type FeedItem = PostRow & {
 };
 
 export const Route = createFileRoute("/_authenticated/forum/")({
-  head: () => ({ meta: [{ title: "Community Forum — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Community Forum — The Grad Scout" },
+      { name: "description", content: "Ask questions and share experiences with other international master's applicants in the community forum." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: ForumFeed,
 });
 
