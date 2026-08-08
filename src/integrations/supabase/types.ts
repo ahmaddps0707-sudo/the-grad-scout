@@ -1407,7 +1407,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_comment_like_counts: {
+        Args: { comment_ids: string[] }
+        Returns: {
+          comment_id: string
+          like_count: number
+        }[]
+      }
+      get_post_like_counts: {
+        Args: { post_ids: string[] }
+        Returns: {
+          like_count: number
+          post_id: string
+        }[]
+      }
     }
     Enums: {
       discover_job_status: "pending" | "running" | "done" | "failed"
