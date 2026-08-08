@@ -59,15 +59,15 @@ const serif = { fontFamily: "'Playfair Display', serif" as const };
 
 function Wordmark({ dark = false }: { dark?: boolean }) {
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <span style={{
+    <span className="gs-logo" style={{ display: "flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
+      <span className="gs-logo-icon" style={{
         width: 30, height: 30, borderRadius: 8,
         background: dark ? "rgba(255,255,255,0.08)" : NAV,
         border: dark ? "1px solid rgba(255,255,255,0.14)" : "none",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 15, color: AMBER, flexShrink: 0,
       }}>🧭</span>
-      <span style={{ ...serif, fontSize: 20, fontWeight: 900, color: dark ? WHITE : NAV, letterSpacing: "-0.4px" }}>The Grad Scout</span>
+      <span className="gs-logo-text" style={{ ...serif, fontSize: 20, fontWeight: 900, color: dark ? WHITE : NAV, letterSpacing: "-0.4px", whiteSpace: "nowrap" }}><span className="gs-logo-the">The </span>Grad Scout</span>
     </span>
   );
 }
