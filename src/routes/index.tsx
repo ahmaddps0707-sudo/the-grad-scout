@@ -303,7 +303,7 @@ function GradScoutLanding() {
             {features.map((f, i) => (
               <div key={i} className="gs-f-card" style={{ background: WHITE, borderRadius: 16, padding: "28px 24px", border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
                 <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: NAV, marginBottom: 10 }}>{f.title}</h3>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: NAV, marginBottom: 10 }}>{f.title}</h2>
                 <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.8 }}>{f.desc}</p>
               </div>
             ))}
