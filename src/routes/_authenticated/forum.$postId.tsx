@@ -309,10 +309,16 @@ function PostThread() {
           })}
         </div>
 
-        <div className="mt-6 rounded-lg border border-border bg-surface-elevated p-4">
+        <div className="mt-6 scroll-mb-24 rounded-lg border border-border bg-surface-elevated p-4">
           <Label className="mb-1 block">Add a comment</Label>
-          <Textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} rows={3} placeholder="Share your thoughts…" />
-          <div className="mt-2 flex items-center justify-between gap-3">
+          <Textarea
+            value={newComment}
+            onChange={(e) => setNewComment(e.target.value)}
+            onFocus={(e) => { setTimeout(() => e.target.scrollIntoView({ block: "center", behavior: "smooth" }), 250); }}
+            rows={3}
+            placeholder="Share your thoughts…"
+          />
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2">
               <Checkbox id="c-anon" checked={newAnon} onCheckedChange={(v) => setNewAnon(!!v)} />
               <Label htmlFor="c-anon" className="font-normal text-sm">Post anonymously</Label>
