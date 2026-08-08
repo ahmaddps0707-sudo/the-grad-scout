@@ -1,0 +1,10 @@
+# The Grad Scout
+
+> AI-powered research, fit scoring, and application tracking for international students applying to master's programs abroad.
+
+The Grad Scout researches master's programs against a student's profile (field, target country, tier, GPA, test scores), scores each program on fit, pulls live admissions, tuition, class-profile and career-outcome data, and tracks every application from shortlist to decision. It also includes alumni outreach, a resume builder, and an applicant community forum.
+
+## Pages
+
+- [Home](/): What The Grad Scout does, features, pricing, and FAQ.
+- [Sign in](/auth): Create an account or sign in to the app.
