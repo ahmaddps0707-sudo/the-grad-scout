@@ -80,8 +80,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             className="flex min-w-0 items-center gap-2"
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-[15px] text-accent">🧭</span>
-            <span className="truncate whitespace-nowrap text-base font-display font-black tracking-tight text-primary sm:text-lg">
-              <span className="hidden sm:inline">The </span>Grad Scout
+            <span className="whitespace-nowrap text-sm font-display font-black tracking-tight text-primary min-[380px]:text-base sm:text-lg">
+              The Grad Scout
             </span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
