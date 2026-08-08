@@ -20,6 +20,31 @@ export const Route = createFileRoute("/")({
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
       { rel: "canonical", href: "https://thegradscout.com" },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              name: "The Grad Scout",
+              url: "https://thegradscout.com",
+              logo: "https://thegradscout.com/favicon.ico",
+              description:
+                "AI-powered master's program research, fit scoring, and application tracking for international students.",
+            },
+            {
+              "@type": "WebSite",
+              name: "The Grad Scout",
+              url: "https://thegradscout.com",
+              description:
+                "Research, score, and track master's program applications abroad.",
+            },
+          ],
+        }),
+      },
+    ],
   }),
   component: GradScoutLanding,
 });
@@ -278,7 +303,7 @@ function GradScoutLanding() {
             {features.map((f, i) => (
               <div key={i} className="gs-f-card" style={{ background: WHITE, borderRadius: 16, padding: "28px 24px", border: `1px solid ${BORDER}`, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
                 <div style={{ fontSize: 28, marginBottom: 14 }}>{f.icon}</div>
-                <h3 style={{ fontSize: 15, fontWeight: 700, color: NAV, marginBottom: 10 }}>{f.title}</h3>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: NAV, marginBottom: 10 }}>{f.title}</h2>
                 <p style={{ fontSize: 13, color: MUTED, lineHeight: 1.8 }}>{f.desc}</p>
               </div>
             ))}

@@ -28,7 +28,13 @@ type City = Database["public"]["Tables"]["program_city_info"]["Row"];
 type Career = Database["public"]["Tables"]["program_career_stats"]["Row"];
 
 export const Route = createFileRoute("/_authenticated/university/$id")({
-  head: () => ({ meta: [{ title: "Program — The Grad Scout" }] }),
+  head: () => ({
+    meta: [
+      { title: "Program details — The Grad Scout" },
+      { name: "description", content: "Admissions deadlines, class profile, tuition and funding, and career outcomes for this master's program." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: DetailPage,
 });
 
@@ -173,6 +179,27 @@ function DetailPage() {
   };
 
   useEffect(() => { load(); }, [load]);
+
+  // Dynamic document title + Course structured data once the entry is loaded.
+  useEffect(() => {
+    if (!entry) return;
+    const uni = entry.university.name;
+    const prog = entry.program?.name;
+    document.title = `${prog ? `${prog} — ` : ""}${uni} — The Grad Scout`.slice(0, 60);
+    const el = document.createElement("script");
+    el.type = "application/ld+json";
+    el.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "EducationalOccupationalProgram",
+      name: prog ?? uni,
+      programType: entry.program?.degree_level ?? "Master's degree",
+      educationalCredentialAwarded: entry.program?.degree_type ?? undefined,
+      provider: { "@type": "CollegeOrUniversity", name: uni, url: entry.university.website_url ?? undefined },
+      url: entry.program?.program_url ?? undefined,
+    });
+    document.head.appendChild(el);
+    return () => { el.remove(); };
+  }, [entry]);
 
   const setStatus = async (s: EntryStatus) => {
     if (!entry) return;
@@ -366,7 +393,7 @@ function DetailPage() {
           <TabsContent value="discussion" className="mt-6">
             <div className="rounded-xl border border-border bg-surface-elevated p-6">
               <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-                <h3 className="font-display text-lg">Discussions about {entry.university.name}</h3>
+                <h2 className="font-display text-lg">Discussions about {entry.university.name}</h2>
                 <Button size="sm" onClick={() => setOpenNewPost(true)}>Start a discussion about {entry.university.name}</Button>
               </div>
               {discussions.length === 0 ? (
@@ -418,7 +445,7 @@ function DetailPage() {
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-xl border border-border bg-surface-elevated p-6">
-      <h3 className="font-display text-lg mb-3">{title}</h3>
+      <h2 className="font-display text-lg mb-3">{title}</h2>
       <div>{children}</div>
     </div>
   );

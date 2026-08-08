@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /university/
+Disallow: /contacts
+Disallow: /resume
+Disallow: /settings
+Disallow: /onboarding
+Disallow: /forum
+Disallow: /checkout/
+Disallow: /api/
+
+Sitemap: https://thegradscout.com/sitemap.xml
