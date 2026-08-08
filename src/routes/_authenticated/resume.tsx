@@ -337,17 +337,17 @@ function ResumePage() {
             {saving === "saving" && <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Saving…</span>}
             {saving === "saved" && <span className="inline-flex items-center gap-1 text-green-600"><Check className="h-3 w-3" /> Saved</span>}
           </div>
-          <div className="ml-auto flex gap-2">
+          <div className="flex w-full gap-2 overflow-x-auto scrollbar-none sm:ml-auto sm:w-auto sm:overflow-visible">
             <label className="inline-flex">
-              <Button variant="outline" size="sm" asChild>
-                <span className="cursor-pointer gap-1"><Upload className="h-3 w-3" /> Upload Resume</span>
+              <Button variant="outline" size="sm" asChild className="shrink-0">
+                <span className="cursor-pointer gap-1 whitespace-nowrap"><Upload className="h-3 w-3" /> Upload<span className="hidden sm:inline"> Resume</span></span>
               </Button>
               <input type="file" className="hidden" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(f); e.currentTarget.value = ""; }} />
             </label>
-            <Button variant="outline" size="sm" onClick={() => setNewVersionOpen(true)}>New Version</Button>
+            <Button variant="outline" size="sm" onClick={() => setNewVersionOpen(true)} className="shrink-0 whitespace-nowrap">New Version</Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="outline" size="sm">Versions <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
+              <DropdownMenuTrigger asChild><Button variant="outline" size="sm" className="shrink-0 whitespace-nowrap">Versions <ChevronDown className="h-3 w-3" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[min(20rem,calc(100vw-2rem))]">
                 {resumes.map((r) => (
                   <div key={r.id} className="px-2 py-1.5 text-sm">
                     <div className="flex items-center justify-between gap-2">
@@ -395,8 +395,12 @@ function ResumePage() {
             <div className="text-sm text-muted-foreground">This usually takes 10–30 seconds.</div>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4">
-            <div className="min-w-0 max-h-[calc(100vh-180px)] overflow-y-auto pr-2">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div className="flex gap-2 lg:hidden">
+              <Button variant={mobilePane === "edit" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setMobilePane("edit")}>Edit</Button>
+              <Button variant={mobilePane === "preview" ? "default" : "outline"} size="sm" className="flex-1" onClick={() => setMobilePane("preview")}>Preview</Button>
+            </div>
+            <div className={`min-w-0 overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:pr-2 lg:block ${mobilePane === "edit" ? "block" : "hidden"}`}>
               <ResumeEditor
                 content={content}
                 onChange={onContentChange}
@@ -406,7 +410,7 @@ function ResumePage() {
                 hasVolunteer={content.volunteer.length > 0}
               />
             </div>
-            <div className="min-w-0 max-h-[calc(100vh-180px)] overflow-y-auto">
+            <div className={`min-w-0 overflow-x-auto overflow-y-auto lg:max-h-[calc(100vh-180px)] lg:block ${mobilePane === "preview" ? "block" : "hidden"}`}>
               <div className="flex items-center gap-2 mb-2 flex-wrap justify-end">
                 <Button size="sm" onClick={downloadPDF} className="gap-1"><Download className="h-3 w-3" /> Download PDF</Button>
                 <SafariA4Hint />
