@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import logoIcon from "@/assets/logo-icon.png";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
