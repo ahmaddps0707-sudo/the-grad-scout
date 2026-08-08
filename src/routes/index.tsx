@@ -354,7 +354,7 @@ function GradScoutLanding() {
       </section>
 
       {/* CONTACT */}
-      <section id="contact" style={{ padding: "90px 6%", background: BG2 }}>
+      <section id="contact" style={{ padding: "90px 6% 50px", background: BG2 }}>
         <div style={{ maxWidth: 580, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 48 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 14 }}>Get in touch</p>
@@ -392,9 +392,9 @@ function GradScoutLanding() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{ background: NAV, padding: "56px 6% 32px" }}>
+      <footer style={{ background: NAV, padding: "48px 6% 28px" }}>
         <div style={{ maxWidth: 1060, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 40, marginBottom: 48 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 40, marginBottom: 28 }}>
             <div>
               <Wordmark dark />
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 12, maxWidth: 230, lineHeight: 1.75 }}>
@@ -415,7 +415,7 @@ function GradScoutLanding() {
               ))}
             </div>
           </div>
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 18, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
             <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2026 The Grad Scout. All rights reserved.</p>
           </div>
         </div>
