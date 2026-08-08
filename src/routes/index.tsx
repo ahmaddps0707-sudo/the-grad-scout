@@ -59,15 +59,15 @@ const serif = { fontFamily: "'Playfair Display', serif" as const };
 
 function Wordmark({ dark = false }: { dark?: boolean }) {
   return (
-    <span style={{ display: "flex", alignItems: "center", gap: 9 }}>
-      <span style={{
+    <span className="gs-logo" style={{ display: "flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
+      <span className="gs-logo-icon" style={{
         width: 30, height: 30, borderRadius: 8,
         background: dark ? "rgba(255,255,255,0.08)" : NAV,
         border: dark ? "1px solid rgba(255,255,255,0.14)" : "none",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 15, color: AMBER, flexShrink: 0,
       }}>🧭</span>
-      <span style={{ ...serif, fontSize: 20, fontWeight: 900, color: dark ? WHITE : NAV, letterSpacing: "-0.4px" }}>The Grad Scout</span>
+      <span className="gs-logo-text" style={{ ...serif, fontSize: 20, fontWeight: 900, color: dark ? WHITE : NAV, letterSpacing: "-0.4px", whiteSpace: "nowrap" }}><span className="gs-logo-the">The </span>Grad Scout</span>
     </span>
   );
 }
@@ -103,6 +103,15 @@ function GradScoutLanding() {
         .gs-feat-grid { grid-template-columns: 1fr !important; }
         .gs-nav-links { display: none !important; }
       }
+      @media (max-width: 640px) {
+        .gs-nav { padding: 0 4% !important; height: auto !important; min-height: 60px; flex-wrap: nowrap !important; }
+        .gs-nav-links { display: none !important; }
+        .gs-nav .gs-logo-text { font-size: 15px !important; }
+        .gs-nav .gs-logo-the { display: none; }
+        .gs-nav .gs-logo-icon { width: 26px !important; height: 26px !important; font-size: 13px !important; }
+        .gs-nav-signin { display: none !important; }
+        .gs-nav .gs-btn-amber { font-size: 13px !important; padding: 8px 14px !important; }
+      }
     `;
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
@@ -126,7 +135,7 @@ function GradScoutLanding() {
   return (
     <div className="gs-root" style={{ fontFamily: "'Inter', sans-serif", background: BG, color: TEXT }}>
       {/* NAV */}
-      <nav style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(250,249,244,0.96)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6%", height: 64 }}>
+      <nav className="gs-nav" style={{ position: "sticky", top: 0, zIndex: 200, background: "rgba(250,249,244,0.96)", backdropFilter: "blur(10px)", borderBottom: `1px solid ${BORDER}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 6%", height: 64 }}>
         <Wordmark />
         <div className="gs-nav-links" style={{ display: "flex", gap: 28, alignItems: "center" }}>
           {[["Features","#features"],["How it works","#how-it-works"],["Pricing","#pricing"],["FAQ","#faq"]].map(([l,h]) => (
@@ -134,8 +143,8 @@ function GradScoutLanding() {
           ))}
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-          <a href="/auth" onClick={goAuth} style={{ fontSize: 14, fontWeight: 500, color: MUTED, textDecoration: "none", padding: "8px 14px" }}>Sign in</a>
-          <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 8, padding: "9px 18px", textDecoration: "none" }}>Get started free</a>
+          <a href="/auth" onClick={goAuth} className="gs-nav-signin" style={{ fontSize: 14, fontWeight: 500, color: MUTED, textDecoration: "none", padding: "8px 14px", whiteSpace: "nowrap" }}>Sign in</a>
+          <a href="/auth" onClick={goAuth} className="gs-btn-amber" style={{ fontSize: 14, fontWeight: 700, color: WHITE, background: AMBER, borderRadius: 8, padding: "9px 18px", textDecoration: "none", whiteSpace: "nowrap" }}>Get started free</a>
         </div>
       </nav>
 
