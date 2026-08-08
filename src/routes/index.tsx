@@ -15,6 +15,8 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "The Grad Scout — Find Your Master's Program" },
       { name: "twitter:description", content: "AI-powered research, application tracking, and alumni outreach for international master's applicants." },
+      { property: "og:image", content: "https://thegradscout.com/og-image.png" },
+      { name: "twitter:image", content: "https://thegradscout.com/og-image.png" },
     ],
     links: [
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
@@ -30,7 +32,7 @@ export const Route = createFileRoute("/")({
               "@type": "Organization",
               name: "The Grad Scout",
               url: "https://thegradscout.com",
-              logo: "https://thegradscout.com/favicon.ico",
+              logo: "https://thegradscout.com/icon-512.png",
               description:
                 "AI-powered master's program research, fit scoring, and application tracking for international students.",
             },
