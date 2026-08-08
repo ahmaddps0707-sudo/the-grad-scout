@@ -410,6 +410,29 @@ Deno.serve(async (req) => {
     if (!jobId) throw new Error("job_id is required");
     if (!apiKey) throw new Error("LOVABLE_API_KEY not configured");
 
+    // This function spends third-party search/AI budget and writes with the
+    // service role, so the caller must be authenticated AND own the job.
+    const callerToken = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+    const callerRes = callerToken ? (await admin.auth.getUser(callerToken)).data : null;
+    const callerId: string | undefined = callerRes?.user?.id;
+    if (!callerId) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+    const { data: ownJob } = await admin
+      .from("discover_jobs")
+      .select("id, user_id")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (!ownJob || ownJob.user_id !== callerId) {
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+
     // Mark running
     const { data: job, error: jobErr } = await admin
       .from("discover_jobs")
