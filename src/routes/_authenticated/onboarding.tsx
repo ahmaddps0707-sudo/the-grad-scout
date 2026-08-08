@@ -199,7 +199,7 @@ function OnboardingPage() {
                 <RadioGroup value={form.target_tier} onValueChange={(v) => update({ target_tier: v })} className="mt-2">
                   {TIER_OPTIONS.map(([v,l]) => (
                     <label key={v} className="flex items-center gap-3 rounded-md border border-border px-3 py-2 cursor-pointer">
-                      <RadioGroupItem value={v} id={v} /><span className="text-sm">{l}</span>
+                      <RadioGroupItem value={v} id={`t-${v}`} /><span className="text-sm">{l}</span>
                     </label>
                   ))}
                 </RadioGroup>
