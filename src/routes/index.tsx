@@ -282,7 +282,7 @@ function GradScoutLanding() {
             <div style={{ flex: 1, background: WHITE, borderRadius: 20, padding: 36, border: `1px solid ${BORDER}` }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Free</p>
               <div style={{ marginBottom: 28 }}>
-                <span style={{ ...serif, fontSize: 46, fontWeight: 900, color: NAV }}>$0</span>
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: 46, fontWeight: 800, color: NAV, letterSpacing: "-0.02em" }}>$0</span>
                 <span style={{ color: MUTED, fontSize: 14 }}> forever</span>
               </div>
               {["Dashboard & university cards", "3 discovery runs", "Discussion forum", "Save contacts from program pages"].map((x, i) => (
@@ -303,7 +303,7 @@ function GradScoutLanding() {
               <div style={{ position: "absolute", top: -13, left: "50%", transform: "translateX(-50%)", background: AMBER, color: WHITE, fontSize: 10, fontWeight: 800, padding: "5px 16px", borderRadius: 100, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Most popular</div>
               <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Pro</p>
               <div style={{ marginBottom: 28 }}>
-                <span style={{ ...serif, fontSize: 46, fontWeight: 900, color: WHITE }}>$10</span>
+                <span style={{ fontFamily: "Inter, sans-serif", fontSize: 46, fontWeight: 800, color: WHITE, letterSpacing: "-0.02em" }}>$10</span>
                 <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}> / month</span>
               </div>
               {["Everything in Free", "20 discovery runs / month", "Full contacts CRM", "Resume builder", "50 AI resume bullets / month", "7-day free trial — no card needed"].map((x, i) => (
@@ -364,7 +364,7 @@ function GradScoutLanding() {
             <form onSubmit={submitForm} style={{ background: WHITE, borderRadius: 20, padding: 40, border: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 20 }}>
               <div>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Your name</label>
-                <input type="text" placeholder="Ahmad Khan" required maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
+                <input type="text" placeholder="Sarah" required maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
               </div>
               <div>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Email address</label>
@@ -391,11 +391,12 @@ function GradScoutLanding() {
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 12, maxWidth: 230, lineHeight: 1.75 }}>
                 The research and tracking platform built for international master's applicants.
               </p>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic", marginTop: 12, maxWidth: 230, lineHeight: 1.7 }}>Built for the students who made the brave choice to apply abroad.</p>
             </div>
             <div style={{ display: "flex", gap: 60, flexWrap: "wrap" }}>
               {[
                 { title: "Product", links: [["Features","#features"],["How it works","#how-it-works"],["Pricing","#pricing"],["FAQ","#faq"]] as [string,string][] },
-                { title: "Company", links: [["Contact","#contact"],["Privacy","#"],["Terms","#"]] as [string,string][] },
+                { title: "Company", links: [["Contact","#contact"]] as [string,string][] },
               ].map(col => (
                 <div key={col.title}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 16 }}>{col.title}</p>
@@ -407,9 +408,7 @@ function GradScoutLanding() {
             </div>
           </div>
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 24, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2025 The Grad Scout. All rights reserved.</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>Built for the students who made the brave choice to apply abroad.</p>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", fontStyle: "italic" }}>Built for the students who made the brave choice to apply abroad.</p>
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)" }}>© 2026 The Grad Scout. All rights reserved.</p>
           </div>
         </div>
       </footer>
