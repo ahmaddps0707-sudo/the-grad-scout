@@ -204,12 +204,12 @@ function PostThread() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl px-6 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
         <Link to="/forum" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-4">
           <ArrowLeft className="h-3.5 w-3.5" /> Back to forum
         </Link>
 
-        <div className="rounded-xl border border-border bg-surface-elevated p-6">
+        <div className="rounded-xl border border-border bg-surface-elevated p-4 sm:p-6">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <Badge variant={post.tag_type === "general" ? "secondary" : "default"}>{uniName ?? "General"}</Badge>
             <span className="text-xs text-muted-foreground">{post.is_anonymous ? "Anonymous" : (postAuthor || "Member")}</span>
@@ -220,7 +220,7 @@ function PostThread() {
             <p className="italic text-muted-foreground">[This post has been removed]</p>
           ) : (
             <>
-              <h1 className="font-display text-2xl leading-tight mb-3">{post.title}</h1>
+              <h1 className="mb-3 break-words font-display text-xl leading-tight sm:text-2xl">{post.title}</h1>
               {editingPost ? (
                 <div className="space-y-2">
                   <Textarea value={editPostBody} onChange={(e) => setEditPostBody(e.target.value)} rows={6} />
@@ -234,7 +234,7 @@ function PostThread() {
               )}
             </>
           )}
-          <div className="mt-4 flex items-center gap-4 text-sm">
+          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             <button onClick={togglePostLike} className={`flex items-center gap-1 ${postLikedByMe ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
               <Heart className={`h-4 w-4 ${postLikedByMe ? "fill-current" : ""}`} /> {postLikes}
             </button>
