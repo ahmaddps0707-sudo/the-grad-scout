@@ -124,25 +124,25 @@ function ForumFeed() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-3xl px-6 py-8">
-        <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl">Community Forum</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Community Forum</h1>
             <p className="text-muted-foreground mt-1">Share experiences, ask questions, and help fellow applicants.</p>
           </div>
-          <Button onClick={() => setOpenNew(true)} className="gap-2"><Plus className="h-4 w-4" /> New Post</Button>
+          <Button onClick={() => setOpenNew(true)} className="w-full gap-2 sm:w-auto"><Plus className="h-4 w-4" /> New Post</Button>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap mb-4">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
-            <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="recent">Recent</SelectItem>
               <SelectItem value="liked">Most Liked</SelectItem>
               <SelectItem value="discussed">Most Discussed</SelectItem>
             </SelectContent>
           </Select>
-          <div className="w-[260px]">
+          <div className="w-full sm:w-[260px]">
             <UniversitySearch value={uniFilter} onChange={(u) => { setUniFilter(u); setGeneralOnly(false); }} placeholder="Filter by university…" />
           </div>
           <Button variant={generalOnly ? "default" : "outline"} size="sm" onClick={() => { setGeneralOnly((g) => !g); setUniFilter(null); }}>
@@ -180,7 +180,7 @@ function ForumFeed() {
                     </p>
                   </button>
                 </div>
-                <div className="mt-3 flex items-center gap-4 text-sm">
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
                   <button onClick={() => toggleLike(p)} className={`flex items-center gap-1 ${p.liked_by_me ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
                     <Heart className={`h-4 w-4 ${p.liked_by_me ? "fill-current" : ""}`} /> {p.like_count}
                   </button>

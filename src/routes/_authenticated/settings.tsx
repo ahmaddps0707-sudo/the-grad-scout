@@ -179,13 +179,13 @@ function SettingsPage() {
   return (
     <AppShell>
       <PaymentTestModeBanner />
-      <div className="mx-auto max-w-3xl px-6 py-8 space-y-8">
-        <h1 className="font-display text-3xl">Settings</h1>
+      <div className="mx-auto max-w-3xl px-4 py-6 space-y-8 sm:px-6 sm:py-8">
+        <h1 className="font-display text-2xl sm:text-3xl">Settings</h1>
 
         <section className="rounded-2xl border border-border bg-surface-elevated p-6 space-y-5">
           <h2 className="font-display text-xl">Profile</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="sm:col-span-2">
               <Label>Email address</Label>
               <div className="mt-1.5 flex items-center justify-between gap-2 rounded-md border border-border bg-background/40 px-3 py-2">
                 <span className="text-sm text-foreground">{email || "—"}</span>
@@ -194,7 +194,7 @@ function SettingsPage() {
                 </span>
               </div>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Full name</Label>
               <Input
                 value={profile.full_name ?? ""}
@@ -202,7 +202,7 @@ function SettingsPage() {
                 className="mt-1.5"
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Where are you from?</Label>
               <p className="text-xs text-muted-foreground mt-1">
                 We use this to prioritize alumni from your country in the Outreach section.
@@ -214,7 +214,7 @@ function SettingsPage() {
                 />
               </div>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Desired major or field of study</Label>
               <Input
                 value={profile.target_major ?? ""}
@@ -224,7 +224,7 @@ function SettingsPage() {
                 className="mt-1.5"
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Target country</Label>
               <Select value={profile.target_country ?? ""} onValueChange={(v) => update({ target_country: v })}>
                 <SelectTrigger className="mt-1.5">
@@ -308,7 +308,7 @@ function SettingsPage() {
                 />
               </div>
             ))}
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <Label>Target intake</Label>
               <Select
                 value={intakeValid ? (profile.target_intake as string) : OTHER_INTAKE}
@@ -353,10 +353,10 @@ function SettingsPage() {
               payment goes through. Update your card in the billing portal to restore access.
             </div>
           )}
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h2 className="font-display text-xl">Subscription</h2>
-              <div className="mt-2 flex items-center gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {paid ? <Badge>Pro plan</Badge> : <Badge variant="secondary">Free plan</Badge>}
                 {isTrialing && <Badge variant="secondary">Trial</Badge>}
                 {status === "past_due" && <Badge variant="destructive">Past due</Badge>}
@@ -382,7 +382,7 @@ function SettingsPage() {
                 </p>
               )}
             </div>
-            <div className="flex flex-col items-end gap-2">
+            <div className="flex flex-col items-stretch gap-2 sm:items-end">
               {!paid && status !== "past_due" ? (
                 <Button onClick={() => setUpgradeOpen(true)} className="gap-2">
                   Upgrade to Pro
