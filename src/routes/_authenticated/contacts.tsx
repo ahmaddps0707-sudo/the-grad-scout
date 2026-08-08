@@ -315,7 +315,7 @@ function Column({ status, label, count, children }: { status: Status; label: str
   return (
     <div
       ref={setNodeRef}
-      className={`flex w-[280px] shrink-0 snap-start flex-col rounded-xl border bg-surface-elevated/40 p-3 transition-colors sm:w-[300px] sm:snap-align-none ${isOver ? "border-primary bg-primary/5" : "border-border"}`}
+      className={`flex w-[280px] shrink-0 snap-start flex-col rounded-xl border bg-surface-elevated/40 p-3 transition-colors sm:w-[300px] ${isOver ? "border-primary bg-primary/5" : "border-border"}`}
     >
       <div className="flex items-center justify-between mb-3 px-1">
         <h3 className="font-medium text-sm">{label}</h3>
