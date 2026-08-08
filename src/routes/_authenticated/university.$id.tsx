@@ -188,7 +188,7 @@ function DetailPage() {
   return (
     <AppShell>
       <div className="border-b border-border/60 bg-surface-elevated/70 backdrop-blur sticky top-[57px] z-20">
-        <div className="mx-auto max-w-5xl px-6 py-5">
+        <div className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
           <button
             type="button"
             onClick={() => {
@@ -202,11 +202,11 @@ function DetailPage() {
           >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to pipeline
           </button>
-          <div className="flex items-start justify-between gap-6 flex-wrap">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6 sm:flex-wrap">
             <div className="min-w-0">
-              <h1 className="font-display text-3xl leading-tight">{entry.university.name}</h1>
+              <h1 className="font-display text-2xl leading-tight sm:text-3xl">{entry.university.name}</h1>
               <p className="text-muted-foreground mt-1">{entry.program?.name}</p>
-              <div className="mt-3 flex items-center gap-3 text-sm text-muted-foreground">
+              <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                 {entry.university.qs_ranking && <span>QS #{entry.university.qs_ranking}</span>}
                 {entry.university.city && <span>{entry.university.city}{entry.university.country ? `, ${entry.university.country}` : ""}</span>}
                 {(entry.program?.program_url || entry.university.website_url) && (
@@ -216,15 +216,15 @@ function DetailPage() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className={`rounded-full border px-4 py-2 text-lg font-medium ${scoreColorClass(score)}`}>{score}</div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className={`shrink-0 rounded-full border px-4 py-2 text-lg font-medium ${scoreColorClass(score)}`}>{score}</div>
               <Select value={entry.status} onValueChange={(v) => setStatus(v as EntryStatus)}>
-                <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-[calc(100%-8rem)] min-w-[160px] sm:w-[200px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <div className="flex flex-col items-end gap-1">
+              <div className="flex flex-col items-start gap-1 sm:items-end">
                 <Button variant="outline" size="sm" onClick={manualRefresh} disabled={enriching} className="gap-1.5">
                   <RefreshCw className={`h-3.5 w-3.5 ${enriching ? "animate-spin" : ""}`} />
                   {enriching ? "Updating..." : "Update Data"}
@@ -240,9 +240,9 @@ function DetailPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
+      <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <Tabs defaultValue="overview">
-          <TabsList>
+          <TabsList className="w-full max-w-full justify-start overflow-x-auto scrollbar-none">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="admissions">Admissions</TabsTrigger>
             <TabsTrigger value="class">Class Profile</TabsTrigger>

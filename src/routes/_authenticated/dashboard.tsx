@@ -31,7 +31,7 @@ interface EntryFull extends EntryRow {
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — The Grad Scout" }] }),
-  validateSearch: (search: Record<string, unknown>) => {
+  validateSearch: (search: { quick?: unknown; status?: unknown; sort?: unknown }) => {
     const quick = (search.quick as string) ?? "all";
     const status = (search.status as string) ?? "all";
     const sort = (search.sort as string) ?? "score";
@@ -209,16 +209,16 @@ function DashboardPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto max-w-7xl px-6 py-8">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
         <UpgradeModal open={!!upgradeReason} onOpenChange={(v) => !v && setUpgradeReason(null)} reason={upgradeReason ?? "generic"} />
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
           <div>
-            <h1 className="font-display text-3xl">Your pipeline</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Your pipeline</h1>
             <p className="text-sm text-muted-foreground mt-1">{entries.length} {entries.length === 1 ? "program" : "programs"} tracked</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center [&>*]:w-full sm:[&>*]:w-auto">
             <AddUniversityDialog onAdded={load} />
-            <Button onClick={discoverMore} disabled={discovering} className="gap-2">
+            <Button onClick={discoverMore} disabled={discovering} className="w-full gap-2 sm:w-auto">
               {discovering ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {discovering ? "Researching…" : "Discover more"}
             </Button>
@@ -235,22 +235,24 @@ function DashboardPage() {
           </div>
         ) : (
           <>
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              {(["all","favorites","liked","applied","offers"] as QuickFilter[]).map((q) => (
-                <button key={q} onClick={() => setSearch({ quick: q })} className={`rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
-                  {q === "all" ? "All" : q[0].toUpperCase() + q.slice(1)}
-                </button>
-              ))}
-              <div className="ml-auto flex items-center gap-2">
+            <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+              <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scrollbar-none lg:mx-0 lg:flex-wrap lg:px-0">
+                {(["all","favorites","liked","applied","offers"] as QuickFilter[]).map((q) => (
+                  <button key={q} onClick={() => setSearch({ quick: q })} className={`shrink-0 whitespace-nowrap rounded-full px-4 py-1.5 text-sm transition-colors border ${quick === q ? "bg-primary text-primary-foreground border-primary" : "bg-surface border-border text-muted-foreground hover:text-foreground"}`}>
+                    {q === "all" ? "All" : q[0].toUpperCase() + q.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center lg:ml-auto">
                 <Select value={statusFilter} onValueChange={(v) => setSearch({ status: v })}>
-                  <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[180px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All statuses</SelectItem>
                     {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={sort} onValueChange={(v) => setSearch({ sort: v as SortKey })}>
-                  <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="score">Sort: Score</SelectItem>
                     <SelectItem value="qs">Sort: QS Rank</SelectItem>
@@ -269,7 +271,7 @@ function DashboardPage() {
             ) : filtered.length === 0 ? (
               lastRunCount === 0 ? <LowResultsBanner count={0} onDismiss={() => setLastRunCount(null)} /> : <EmptyState onDiscover={discoverMore} />
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((e) => (
                   <EntryCard key={e.id} entry={e} onUpdate={(p) => updateEntry(e.id, p)} onDelete={() => deleteEntry(e.id)} onOpen={() => navigate({ to: "/university/$id", params: { id: e.id } })} />
                 ))}
@@ -321,7 +323,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
         </div>
         <div className={`shrink-0 rounded-full border px-3 py-1 text-sm font-medium ${scoreColorClass(score)}`}>{score}</div>
       </div>
-      <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         {entry.university.qs_ranking && <span>QS #{entry.university.qs_ranking}</span>}
         {entry.program?.us_news_ranking != null && <span>US News #{entry.program.us_news_ranking}</span>}
         {entry.program?.school_ranking != null && <span>School #{entry.program.school_ranking}</span>}
@@ -332,7 +334,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
           </a>
         )}
       </div>
-      <div className="mt-4 flex items-center justify-between gap-2">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
           <IconBtn active={entry.is_favorite} onClick={() => onUpdate({ is_favorite: !entry.is_favorite })} label="Favorite"><Star className="h-4 w-4" fill={entry.is_favorite ? "currentColor" : "none"} /></IconBtn>
           <IconBtn active={entry.is_liked} onClick={() => onUpdate({ is_liked: !entry.is_liked, is_disliked: false })} label="Like"><ThumbsUp className="h-4 w-4" /></IconBtn>
@@ -346,7 +348,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
                 <Trash2 className="h-4 w-4" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-72" onClick={(e) => e.stopPropagation()}>
+          <PopoverContent className="w-[min(18rem,calc(100vw-2rem))]" onClick={(e) => e.stopPropagation()}>
               <p className="text-sm text-foreground">Remove {entry.university.name} from your dashboard?</p>
               <div className="mt-3 flex items-center justify-end gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setConfirmOpen(false)}>Cancel</Button>
@@ -356,7 +358,7 @@ function EntryCard({ entry, onUpdate, onDelete, onOpen }: { entry: EntryFull; on
           </Popover>
         </div>
         <Select value={entry.status} onValueChange={(v) => onUpdate({ status: v as EntryStatus })}>
-          <SelectTrigger className="h-8 text-xs w-[180px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="h-11 w-full text-xs sm:h-8 sm:w-[180px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             {STATUS_ORDER.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
           </SelectContent>
@@ -400,7 +402,7 @@ function AddUniversityDialog({ onAdded }: { onAdded: () => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2"><Plus className="h-4 w-4" /> Add University</Button>
+        <Button variant="outline" className="w-full gap-2 sm:w-auto"><Plus className="h-4 w-4" /> Add University</Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader><DialogTitle>Add a university manually</DialogTitle></DialogHeader>
