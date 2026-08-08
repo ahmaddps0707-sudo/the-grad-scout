@@ -103,6 +103,15 @@ function GradScoutLanding() {
         .gs-feat-grid { grid-template-columns: 1fr !important; }
         .gs-nav-links { display: none !important; }
       }
+      @media (max-width: 640px) {
+        .gs-nav { padding: 0 4% !important; height: auto !important; min-height: 60px; flex-wrap: nowrap !important; }
+        .gs-nav-links { display: none !important; }
+        .gs-nav .gs-logo-text { font-size: 15px !important; }
+        .gs-nav .gs-logo-the { display: none; }
+        .gs-nav .gs-logo-icon { width: 26px !important; height: 26px !important; font-size: 13px !important; }
+        .gs-nav-signin { display: none !important; }
+        .gs-nav .gs-btn-amber { font-size: 13px !important; padding: 8px 14px !important; }
+      }
     `;
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
