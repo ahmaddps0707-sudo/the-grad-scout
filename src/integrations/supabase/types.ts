@@ -141,6 +141,7 @@ export type Database = {
           is_anonymous: boolean
           is_flagged: boolean
           is_removed: boolean
+          like_count: number
           post_id: string
           updated_at: string
           user_id: string
@@ -153,6 +154,7 @@ export type Database = {
           is_anonymous?: boolean
           is_flagged?: boolean
           is_removed?: boolean
+          like_count?: number
           post_id: string
           updated_at?: string
           user_id: string
@@ -165,6 +167,7 @@ export type Database = {
           is_anonymous?: boolean
           is_flagged?: boolean
           is_removed?: boolean
+          like_count?: number
           post_id?: string
           updated_at?: string
           user_id?: string
@@ -272,6 +275,7 @@ export type Database = {
           is_anonymous: boolean
           is_flagged: boolean
           is_removed: boolean
+          like_count: number
           tag_type: string
           tag_university_id: string | null
           title: string
@@ -286,6 +290,7 @@ export type Database = {
           is_anonymous?: boolean
           is_flagged?: boolean
           is_removed?: boolean
+          like_count?: number
           tag_type: string
           tag_university_id?: string | null
           title: string
@@ -300,6 +305,7 @@ export type Database = {
           is_anonymous?: boolean
           is_flagged?: boolean
           is_removed?: boolean
+          like_count?: number
           tag_type?: string
           tag_university_id?: string | null
           title?: string
@@ -1407,20 +1413,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_comment_like_counts: {
-        Args: { comment_ids: string[] }
-        Returns: {
-          comment_id: string
-          like_count: number
-        }[]
-      }
-      get_post_like_counts: {
-        Args: { post_ids: string[] }
-        Returns: {
-          like_count: number
-          post_id: string
-        }[]
-      }
+      [_ in never]: never
     }
     Enums: {
       discover_job_status: "pending" | "running" | "done" | "failed"
