@@ -62,19 +62,23 @@ function ForumFeed() {
     const postIds = rows.map((r) => r.id);
     const userIds = Array.from(new Set(rows.filter((r) => !r.is_anonymous).map((r) => r.user_id)));
     const uniIds = Array.from(new Set(rows.map((r) => r.tag_university_id).filter(Boolean) as string[]));
-    const [likesRes, commentsRes, profilesRes, unisRes, myFlagsRes] = await Promise.all([
-      supabase.from("forum_likes").select("post_id, user_id").in("post_id", postIds),
+    const [likeCountsRes, myLikesRes, commentsRes, profilesRes, unisRes, myFlagsRes] = await Promise.all([
+      supabase.rpc("get_post_like_counts", { post_ids: postIds }),
+      u.user ? supabase.from("forum_likes").select("post_id").in("post_id", postIds).eq("user_id", u.user.id) : Promise.resolve({ data: [] as { post_id: string | null }[] }),
       supabase.from("forum_comments").select("id, post_id").in("post_id", postIds).eq("is_removed", false),
       userIds.length ? supabase.from("profiles").select("id, full_name").in("id", userIds) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
       uniIds.length ? supabase.from("universities").select("id, name").in("id", uniIds) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
       u.user ? supabase.from("forum_flags").select("post_id").in("post_id", postIds).eq("reporter_user_id", u.user.id) : Promise.resolve({ data: [] as { post_id: string | null }[] }),
     ]);
     const likeMap = new Map<string, { count: number; mine: boolean }>();
-    (likesRes.data ?? []).forEach((l) => {
-      const cur = likeMap.get(l.post_id!) ?? { count: 0, mine: false };
-      cur.count += 1;
-      if (u.user && l.user_id === u.user.id) cur.mine = true;
-      likeMap.set(l.post_id!, cur);
+    ((likeCountsRes.data ?? []) as { post_id: string; like_count: number }[]).forEach((l) => {
+      likeMap.set(l.post_id, { count: Number(l.like_count), mine: false });
+    });
+    (myLikesRes.data ?? []).forEach((l) => {
+      if (!l.post_id) return;
+      const cur = likeMap.get(l.post_id) ?? { count: 0, mine: false };
+      cur.mine = true;
+      likeMap.set(l.post_id, cur);
     });
     const commentMap = new Map<string, number>();
     (commentsRes.data ?? []).forEach((c) => commentMap.set(c.post_id, (commentMap.get(c.post_id) ?? 0) + 1));

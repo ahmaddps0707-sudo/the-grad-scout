@@ -96,12 +96,12 @@ function DetailPage() {
       const ids = pRows.map((r) => r.id);
       const uids = Array.from(new Set(pRows.filter((r) => !r.is_anonymous).map((r) => r.user_id)));
       const [likesRes, commentsRes, profsRes] = await Promise.all([
-        supabase.from("forum_likes").select("post_id").in("post_id", ids),
+        supabase.rpc("get_post_like_counts", { post_ids: ids }),
         supabase.from("forum_comments").select("post_id").in("post_id", ids).eq("is_removed", false),
         uids.length ? supabase.from("profiles").select("id, full_name").in("id", uids) : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
       ]);
       const lm = new Map<string, number>();
-      (likesRes.data ?? []).forEach((l) => lm.set(l.post_id!, (lm.get(l.post_id!) ?? 0) + 1));
+      ((likesRes.data ?? []) as { post_id: string; like_count: number }[]).forEach((l) => lm.set(l.post_id, Number(l.like_count)));
       const cm = new Map<string, number>();
       (commentsRes.data ?? []).forEach((c) => cm.set(c.post_id, (cm.get(c.post_id) ?? 0) + 1));
       const pm = new Map<string, string | null>();
