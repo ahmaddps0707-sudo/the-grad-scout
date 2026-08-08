@@ -20,6 +20,31 @@ export const Route = createFileRoute("/")({
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
       { rel: "canonical", href: "https://thegradscout.com" },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              name: "The Grad Scout",
+              url: "https://thegradscout.com",
+              logo: "https://thegradscout.com/favicon.ico",
+              description:
+                "AI-powered master's program research, fit scoring, and application tracking for international students.",
+            },
+            {
+              "@type": "WebSite",
+              name: "The Grad Scout",
+              url: "https://thegradscout.com",
+              description:
+                "Research, score, and track master's program applications abroad.",
+            },
+          ],
+        }),
+      },
+    ],
   }),
   component: GradScoutLanding,
 });
