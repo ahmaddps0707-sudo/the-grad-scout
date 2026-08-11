@@ -1,0 +1,1 @@
+GRANT UPDATE (id) ON public.profiles TO authenticated;
