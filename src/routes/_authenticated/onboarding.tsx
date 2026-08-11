@@ -64,7 +64,7 @@ function OnboardingPage() {
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
       if (data) {
         if (data.onboarding_complete) {
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/dashboard", search: {} });
           return;
         }
         setForm((f) => ({
