@@ -73,6 +73,29 @@ Deno.serve(async (req) => {
     let userCountry: string = body.user_country ?? "";
     if (!programId) throw new Error("program_id is required");
 
+    // Ownership scoping: only users who actually track this program (pipeline
+    // entry or saved contact) may read or generate contact data for it. This
+    // mirrors the RLS policy on program_contacts and prevents enumeration of
+    // arbitrary program_ids / third-party budget abuse.
+    const [{ count: entryCount }, { count: savedCount }] = await Promise.all([
+      admin
+        .from("user_entries")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", callerId)
+        .eq("program_id", programId),
+      admin
+        .from("user_saved_contacts")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", callerId)
+        .eq("program_id", programId),
+    ]);
+    if (!((entryCount ?? 0) > 0 || (savedCount ?? 0) > 0)) {
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+
     // Prefer the authoritative value from profiles.country_of_origin for the
     // requesting user. Falls back to whatever the caller passed in body.
     try {

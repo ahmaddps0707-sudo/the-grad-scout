@@ -37,10 +37,10 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  validateSearch: (search: { quick?: unknown; status?: unknown; sort?: unknown }) => {
-    const quick = (search.quick as string) ?? "all";
-    const status = (search.status as string) ?? "all";
-    const sort = (search.sort as string) ?? "score";
+  validateSearch: (search?: { quick?: unknown; status?: unknown; sort?: unknown }) => {
+    const quick = (search?.quick as string) ?? "all";
+    const status = (search?.status as string) ?? "all";
+    const sort = (search?.sort as string) ?? "score";
     const allowedQuick = ["all","favorites","liked","applied","offers"];
     const allowedSort = ["score","qs","updated","deadline"];
     return {
