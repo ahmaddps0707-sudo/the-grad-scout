@@ -68,6 +68,15 @@ function OnboardingPage() {
           navigate({ to: "/dashboard", search: {} });
           return;
         }
+        // Resume at the first incomplete required step instead of always restarting at 0.
+        const resumeStep = !data.target_major || !data.country_of_origin
+          ? 0
+          : !data.target_country
+            ? 1
+            : !data.target_tier
+              ? 2
+              : 3;
+        setStep(resumeStep);
         setForm((f) => ({
           ...f,
           target_major: data.target_major ?? "",
