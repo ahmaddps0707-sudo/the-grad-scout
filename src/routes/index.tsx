@@ -7,14 +7,14 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "The Grad Scout — Find Your Master's Program, Not Just a List" },
-      { name: "description", content: "The Grad Scout researches master's programs that match your profile, scores each one on fit, and tracks every application from first shortlist to final decision. Built for international students applying abroad." },
+      { name: "description", content: "The Grad Scout researches master's programs that match your profile, scores each one on fit, and tracks every application from first shortlist to final decision. Built for applicants at every stage." },
       { property: "og:title", content: "The Grad Scout — Find Your Master's Program" },
-      { property: "og:description", content: "AI-powered research, application tracking, and alumni outreach for international master's applicants." },
+      { property: "og:description", content: "AI-powered research, application tracking, and alumni outreach for master's applicants." },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://thegradscout.com" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: "The Grad Scout — Find Your Master's Program" },
-      { name: "twitter:description", content: "AI-powered research, application tracking, and alumni outreach for international master's applicants." },
+      { name: "twitter:description", content: "AI-powered research, application tracking, and alumni outreach for master's applicants." },
     ],
     links: [
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap" },
@@ -32,14 +32,14 @@ export const Route = createFileRoute("/")({
               url: "https://thegradscout.com",
               logo: "https://thegradscout.com/favicon.ico",
               description:
-                "AI-powered master's program research, fit scoring, and application tracking for international students.",
+                "AI-powered master's program research, fit scoring, and application tracking for master's applicants.",
             },
             {
               "@type": "WebSite",
               name: "The Grad Scout",
               url: "https://thegradscout.com",
               description:
-                "Research, score, and track master's program applications abroad.",
+                "Research, score, and track master's program applications.",
             },
           ],
         }),
@@ -61,12 +61,12 @@ const WHITE = "#FFFFFF";
 const GREEN = "#10B981";
 
 const faqs = [
-  { q: "How does The Grad Scout find universities for me?", a: "After a short preferences form — your field, target countries, GPA, test scores, and budget — The Grad Scout uses AI and live web search to research and score matching master's programs. Each program gets a 0–100 fit score based on your specific profile, not generic rankings." },
+  { q: "How does The Grad Scout find universities for me?", a: "After a short preferences form — your field, target country, GPA, test scores, and budget — The Grad Scout uses AI and live web search to research and score matching master's programs. Each program gets a 0–100 fit score based on your specific profile, not generic rankings." },
   { q: "Is the university data current?", a: "Yes. The Grad Scout fetches live web data every time a university is enriched, pulling current admissions deadlines, tuition, class profiles, and career outcomes from official sources. You can also manually refresh any university's data at any time." },
   { q: "What's the difference between Free and Pro?", a: "Free gives you dashboard access, 3 university discovery runs, discussion forum, and the ability to save contacts. Pro ($10/month) unlocks the full contacts CRM, resume builder with AI assistance, 20 discovery runs per month, and 50 AI resume bullet suggestions." },
   { q: "Can I use The Grad Scout for MBA programs?", a: "Yes — MBA is a master's degree and The Grad Scout supports it fully. We cover MSc, MA, MEng, MBA, MPA, MPH, LLM, and all master's-level programs. PhD and bachelor's programs are not in scope." },
   { q: "How does the resume builder work?", a: "Upload your existing resume (PDF or DOCX) and The Grad Scout parses it into a structured editor. Edit all sections, save multiple versions for different programs, and use the AI assistant to strengthen bullets — based only on what you provide, never fabricated." },
-  { q: "Can I connect with alumni from programs I'm targeting?", a: "Yes. Each university's Outreach tab surfaces publicly findable LinkedIn profiles of current students and recent graduates, prioritized by your home country. Save contacts and manage outreach across a five-stage board." },
+  { q: "Can I connect with alumni from programs I'm targeting?", a: "Yes. Each university's Outreach tab surfaces publicly findable LinkedIn profiles of current students and recent graduates for your target programs. Save contacts and manage outreach across a five-stage board." },
   { q: "Is my data secure?", a: "Your resume and profile are stored with row-level security — only you can access your own data. We never share your information with universities or third parties." },
   { q: "Can I cancel my Pro subscription anytime?", a: "Yes. Cancel anytime from Settings. Your Pro access continues until the end of your current billing period — we don't cut access the moment you cancel." },
 ];
@@ -75,13 +75,13 @@ const features = [
   { icon: "🎯", title: "Smart University Research", desc: "Tell us your goals. Our AI researches and scores master's programs against your exact profile — field, country, tier, budget, test scores. Not just a ranking list." },
   { icon: "📊", title: "Live Admissions Data", desc: "Every card comes with current deadlines, GPA/GRE class profiles, tuition, funding availability, and career outcomes — pulled from official sources, not stale databases." },
   { icon: "📋", title: "Application Tracker", desc: "Move universities through stages — Shortlisted, Applied, Interview, Offer — see every deadline at a glance, and never lose track across 20 applications." },
-  { icon: "🤝", title: "Alumni Outreach", desc: "Find current students and graduates from your target programs, prioritized by your home country. Manage outreach in a built-in five-stage contact board." },
+  { icon: "🤝", title: "Alumni Outreach", desc: "Find current students and graduates from your target programs, with the ones most relevant to you surfaced first. Manage outreach in a built-in five-stage contact board." },
   { icon: "📄", title: "Resume Builder", desc: "Upload your resume, edit in a structured layout, and use AI to sharpen your bullets. Save multiple versions tailored to different programs." },
   { icon: "💬", title: "Applicant Community", desc: "Ask questions, share your experience, and learn from peers going through the same process. A focused forum built for grad applicants, not a generic feed." },
 ];
 
 const steps = [
-  { num: "1", title: "Tell us your goals", desc: "Complete a short form — your field, target countries, GPA, test scores, and budget. Takes under 5 minutes." },
+  { num: "1", title: "Tell us your goals", desc: "Complete a short form — your field, target country, GPA, test scores, and budget. Takes under 5 minutes." },
   { num: "2", title: "We research your matches", desc: "The Grad Scout finds and scores master's programs that fit your profile, pulling live admissions data, class profiles, and career outcomes for each one." },
   { num: "3", title: "Track, connect, and apply", desc: "Manage your shortlist, reach out to alumni, build your resume, and track every application through to your final decision." },
 ];
@@ -188,7 +188,7 @@ function GradScoutLanding() {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(59,91,219,0.15)", border: "1px solid rgba(59,91,219,0.3)", borderRadius: 100, padding: "6px 14px", marginBottom: 28 }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ADE80" }} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "#93C5FD", letterSpacing: "0.07em", textTransform: "uppercase" }}>Built for international master's applicants</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#93C5FD", letterSpacing: "0.07em", textTransform: "uppercase" }}>Built for master's applicants</span>
             </div>
             <h1 style={{ ...serif, fontSize: "clamp(36px, 4.8vw, 58px)", fontWeight: 900, color: WHITE, lineHeight: 1.08, letterSpacing: "-1px", marginBottom: 26 }}>
               Find your program.<br />
@@ -244,7 +244,7 @@ function GradScoutLanding() {
           <div style={{ textAlign: "center", marginBottom: 56 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: BLUE, letterSpacing: "0.09em", textTransform: "uppercase", marginBottom: 14 }}>The problem</p>
             <h2 style={{ ...serif, fontSize: "clamp(26px, 3.8vw, 42px)", fontWeight: 900, color: NAV, letterSpacing: "-0.5px", lineHeight: 1.18, marginBottom: 16 }}>
-              Applying abroad is harder<br />than it should be
+              Applying to grad school is harder<br />than it should be
             </h2>
             <p style={{ fontSize: 16, color: MUTED, maxWidth: 480, margin: "0 auto", lineHeight: 1.75 }}>
               Most students navigate this alone — no advisor, no benchmarks, and a browser full of tabs that don't talk to each other.
@@ -254,7 +254,7 @@ function GradScoutLanding() {
             {[
               { icon: "⏱", title: "Weeks lost to research", desc: "Hunting for programs across spreadsheets, Reddit, and university websites — before you've even looked at a single deadline or class profile average." },
               { icon: "❓", title: "No idea if you're competitive", desc: "Average GPA and test score data is buried in PDFs. By the time you find it, you've shortlisted programs that were never realistic fits." },
-              { icon: "🌍", title: "No one to ask", desc: "Local advisors don't know international programs. And finding someone from your country who went through the same program? That's a research project of its own." },
+              { icon: "🌍", title: "No one to ask", desc: "Career advisors rarely know the specifics of individual master's programs. And finding someone who actually went through the exact program you're considering? That's a research project of its own." },
             ].map((p, i) => (
               <div key={i} style={{ background: WHITE, borderRadius: 16, padding: "28px 24px", border: `1px solid ${BORDER}` }}>
                 <div style={{ fontSize: 30, marginBottom: 16 }}>{p.icon}</div>
@@ -296,7 +296,7 @@ function GradScoutLanding() {
               One platform,<br />the whole journey
             </h2>
             <p style={{ fontSize: 16, color: MUTED, maxWidth: 460, margin: "0 auto", lineHeight: 1.75 }}>
-              Every tool international master's applicants need — in one place, not scattered across twelve tabs.
+              Every tool master's applicants need — in one place, not scattered across twelve tabs.
             </p>
           </div>
           <div className="gs-feat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 20 }}>
@@ -431,7 +431,7 @@ function GradScoutLanding() {
             <div>
               <Wordmark dark />
               <p style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", marginTop: 12, maxWidth: 230, lineHeight: 1.75 }}>
-                The research and tracking platform built for international master's applicants.
+                The research and tracking platform built for master's applicants.
               </p>
             </div>
             <div style={{ display: "flex", gap: 60, flexWrap: "wrap" }}>
