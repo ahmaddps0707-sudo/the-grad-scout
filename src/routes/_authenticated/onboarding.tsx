@@ -289,6 +289,10 @@ function OnboardingPage() {
             </div>
           )}
 
+          {finishError && (
+            <p role="alert" className="text-sm text-destructive">{finishError}</p>
+          )}
+
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <Button variant="ghost" onClick={() => setStep((s) => Math.max(0, s - 1))} disabled={step === 0}>Back</Button>
             <div className="flex items-center gap-2">
