@@ -618,6 +618,20 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Ownership scoping: the caller must actually track this program before we
+    // spend service-role writes and third-party crawl/AI budget on it.
+    const { count: ownedCount } = await admin
+      .from("user_entries")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", meteredUserId)
+      .eq("program_id", program_id);
+    if (!ownedCount) {
+      return new Response(JSON.stringify({ ok: false, error: "Forbidden" }), {
+        status: 403,
+        headers: { ...CORS_HEADERS, "content-type": "application/json" },
+      });
+    }
+
     // Manual "Update Data" runs are additionally metered per tier.
     if (force) {
       const env = parseEnv(environment);
