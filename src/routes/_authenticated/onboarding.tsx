@@ -41,8 +41,9 @@ function OnboardingPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "error">("saved");
   const [submitting, setSubmitting] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [form, setForm] = useState({
@@ -64,9 +65,18 @@ function OnboardingPage() {
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
       if (data) {
         if (data.onboarding_complete) {
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/dashboard", search: {} });
           return;
         }
+        // Resume at the first incomplete required step instead of always restarting at 0.
+        const resumeStep = !data.target_major || !data.country_of_origin
+          ? 0
+          : !data.target_country
+            ? 1
+            : !data.target_tier
+              ? 2
+              : 3;
+        setStep(resumeStep);
         setForm((f) => ({
           ...f,
           target_major: data.target_major ?? "",
@@ -86,8 +96,8 @@ function OnboardingPage() {
 
   const autoSave = useCallback(async (next: typeof form) => {
     const { data: u } = await supabase.auth.getUser();
-    if (!u.user) return;
-    setSaving(true);
+    if (!u.user) return false;
+    setSaveStatus("saving");
     const upd: ProfileUpd = {
       target_major: next.target_major || null,
       country_of_origin: next.country_of_origin || null,
@@ -101,8 +111,16 @@ function OnboardingPage() {
     };
     // Upsert so a missing profile row (e.g. signup trigger never fired) is created
     // rather than silently no-op'ing an UPDATE.
-    await supabase.from("profiles").upsert({ id: u.user.id, ...upd }, { onConflict: "id" });
-    setSaving(false);
+    const { error } = await supabase
+      .from("profiles")
+      .upsert({ id: u.user.id, ...upd }, { onConflict: "id" });
+    if (error) {
+      console.error("profile autosave failed", error);
+      setSaveStatus("error");
+      return false;
+    }
+    setSaveStatus("saved");
+    return true;
   }, []);
 
   const update = (patch: Partial<typeof form>) => {
@@ -116,20 +134,42 @@ function OnboardingPage() {
 
   const finish = async () => {
     setSubmitting(true);
+    setFinishError(null);
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      await autoSave(form);
-      await supabase
+      const saved = await autoSave(form);
+      if (!saved) {
+        setSubmitting(false);
+        setFinishError("We couldn't save your profile. Please try again — if this keeps happening, contact support.");
+        return;
+      }
+      const { error: profileError } = await supabase
         .from("profiles")
         .upsert({ id: u.user.id, onboarding_complete: true }, { onConflict: "id" });
+      if (profileError) {
+        console.error("onboarding finish: profile save failed", profileError);
+        setSubmitting(false);
+        setFinishError("We couldn't save your profile. Please try again — if this keeps happening, contact support.");
+        return;
+      }
       const { data: job, error: jobErr } = await supabase.from("discover_jobs").insert({ user_id: u.user.id, status: "pending" }).select().single();
       if (jobErr) throw jobErr;
-      // Fire and forget — dashboard will poll
-      supabase.functions.invoke("discover-universities", { body: { job_id: job.id, environment: (() => { try { return getStripeEnvironment(); } catch { return "sandbox"; } })() } }).catch((e) => console.error(e));
+      try {
+        await supabase.functions.invoke("discover-universities", {
+          body: { job_id: job.id, environment: (() => { try { return getStripeEnvironment(); } catch { return "sandbox"; } })() },
+        });
+      } catch (e) {
+        // Non-blocking: the dashboard polls the job and has its own loading/empty states.
+        console.error("onboarding finish: discover invoke failed", e);
+      }
+      setSubmitting(false);
       navigate({ to: "/dashboard", search: { job: job.id } as never });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not complete onboarding");
+      const msg = e instanceof Error ? e.message : "Could not complete onboarding";
+      console.error("onboarding finish failed", e);
+      toast.error(msg);
+      setFinishError(msg);
       setSubmitting(false);
     }
   };
@@ -146,7 +186,9 @@ function OnboardingPage() {
         <div className="mb-8">
           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
             <span className="uppercase tracking-wider">Step {step + 1} of {STEPS.length}</span>
-            <span>{saving ? "Saving…" : "Saved"}</span>
+            <span className={saveStatus === "error" ? "text-destructive" : undefined}>
+              {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Couldn't save — check your connection" : "Saved"}
+            </span>
           </div>
           <div className="h-1 bg-secondary rounded-full overflow-hidden">
             <div className="h-full bg-primary transition-all" style={{ width: `${progress}%` }} />
@@ -254,6 +296,10 @@ function OnboardingPage() {
                 </SelectContent>
               </Select>
             </div>
+          )}
+
+          {finishError && (
+            <p role="alert" className="text-sm text-destructive">{finishError}</p>
           )}
 
           <div className="flex items-center justify-between pt-4 border-t border-border">

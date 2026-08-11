@@ -39,7 +39,7 @@ function AuthPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) {
-        if (data.user.email_confirmed_at) navigate({ to: "/dashboard" });
+        if (data.user.email_confirmed_at) navigate({ to: "/dashboard", search: {} });
         else setMode("verify");
       }
     });
@@ -71,7 +71,7 @@ function AuthPage() {
           setMode("verify");
           toast.error("Please verify your email first.");
         } else {
-          navigate({ to: "/dashboard" });
+          navigate({ to: "/dashboard", search: {} });
         }
       } else if (mode === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -99,7 +99,7 @@ function AuthPage() {
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/dashboard", search: {} });
   };
 
   const resendVerification = async () => {
