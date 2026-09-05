@@ -171,6 +171,7 @@ function ForumFeed() {
           </div>
         ) : (
           <div className="space-y-3">
+            <h2 className="sr-only">Recent posts</h2>
             {sorted.map((p) => (
               <div key={p.id} className="rounded-xl border border-border bg-surface-elevated p-5 hover:border-primary/40 transition-colors">
                 <div className="flex items-start justify-between gap-3">
@@ -184,8 +185,9 @@ function ForumFeed() {
                     <h3 className="font-display text-lg leading-snug">{p.title}</h3>
                     <p className="text-sm text-muted-foreground mt-1 line-clamp-3">
                       {p.body.slice(0, 200)}{p.body.length > 200 ? "…" : ""}
-                      {p.body.length > 200 && <span className="ml-1 text-foreground underline">read more</span>}
+                      {p.body.length > 200 && <span className="ml-1 text-foreground underline">Read full post</span>}
                     </p>
+
                   </button>
                 </div>
                 <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
