@@ -224,7 +224,7 @@ function DetailPage() {
               if (typeof window !== "undefined" && window.history.length > 1) {
                 router.history.back();
               } else {
-                router.navigate({ to: "/dashboard", search: {} });
+                router.navigate({ to: "/dashboard", search: { quick: "all", status: "all", sort: "score" } });
               }
             }}
             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3"

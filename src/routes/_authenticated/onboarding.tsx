@@ -65,7 +65,7 @@ function OnboardingPage() {
       const { data } = await supabase.from("profiles").select("*").eq("id", u.user.id).single();
       if (data) {
         if (data.onboarding_complete) {
-          navigate({ to: "/dashboard", search: {} });
+          navigate({ to: "/dashboard", search: { quick: "all", status: "all", sort: "score" } });
           return;
         }
         // Resume at the first incomplete required step instead of always restarting at 0.
