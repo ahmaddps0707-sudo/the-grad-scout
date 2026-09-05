@@ -405,17 +405,18 @@ function GradScoutLanding() {
           ) : (
             <form onSubmit={submitForm} style={{ background: WHITE, borderRadius: 20, padding: 40, border: `1px solid ${BORDER}`, display: "flex", flexDirection: "column", gap: 20 }}>
               <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Your name</label>
-                <input type="text" placeholder="Sarah" required maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
+                <label htmlFor="contact-name" style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Your name</label>
+                <input id="contact-name" name="name" type="text" placeholder="Sarah" required maxLength={100} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Email address</label>
-                <input type="email" placeholder="you@example.com" required maxLength={255} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
+                <label htmlFor="contact-email" style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Email address</label>
+                <input id="contact-email" name="email" type="email" placeholder="you@example.com" required maxLength={255} value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8" }} />
               </div>
               <div>
-                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Message</label>
-                <textarea rows={4} placeholder="Tell us what's on your mind..." required maxLength={2000} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8", resize: "vertical" }} />
+                <label htmlFor="contact-message" style={{ display: "block", fontSize: 13, fontWeight: 600, color: NAV, marginBottom: 8 }}>Message</label>
+                <textarea id="contact-message" name="message" rows={4} placeholder="Tell us what's on your mind..." required maxLength={2000} value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} style={{ width: "100%", padding: "12px 16px", border: `1px solid ${BORDER}`, borderRadius: 10, fontSize: 14, color: TEXT, fontFamily: "Inter, sans-serif", background: "#FAFAF8", resize: "vertical" }} />
               </div>
+
               <button type="submit" disabled={submitting} className="gs-btn-amber" style={{ width: "100%", padding: "14px", background: AMBER, color: WHITE, fontWeight: 700, fontSize: 15, border: "none", borderRadius: 10, cursor: submitting ? "not-allowed" : "pointer", fontFamily: "Inter, sans-serif", opacity: submitting ? 0.7 : 1 }}>
                 {submitting ? "Sending..." : "Send message →"}
               </button>
